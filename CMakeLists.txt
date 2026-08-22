@@ -1,0 +1,56 @@
+cmake_minimum_required(VERSION 3.24)
+project(gdaccess LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(NOT MSVC)
+  message(FATAL_ERROR "gdaccess must be built with MSVC (it links against the game's MSVC ABI)")
+endif()
+add_compile_definitions(WIN32_LEAN_AND_MEAN NOMINMAX _CRT_SECURE_NO_WARNINGS UNICODE _UNICODE)
+add_compile_options(/utf-8 /W4 /permissive- /Zc:__cplusplus)
+
+# --- Microsoft Detours (vendored, built from source) ---
+set(DETOURS_SRC ${CMAKE_SOURCE_DIR}/third_party/Detours/src)
+add_library(detours STATIC
+  ${DETOURS_SRC}/detours.cpp ${DETOURS_SRC}/modules.cpp ${DETOURS_SRC}/disasm.cpp
+  ${DETOURS_SRC}/image.cpp ${DETOURS_SRC}/creatwth.cpp)
+target_include_directories(detours PUBLIC ${DETOURS_SRC})
+target_compile_options(detours PRIVATE /W0)
+
+# --- Prism (prebuilt SDK release) ---
+set(PRISM_SDK ${CMAKE_SOURCE_DIR}/third_party/prism-bin/prism-sdk-v0.18.1)
+set(PRISM_BIN ${PRISM_SDK}/windows/x64/dynamic/release)
+set(PRISM_LIB ${PRISM_BIN}/lib/prism.lib)
+set(PRISM_DLL ${PRISM_BIN}/bin/prism.dll)
+if(NOT EXISTS ${PRISM_LIB} OR NOT EXISTS ${PRISM_DLL})
+  message(FATAL_ERROR "prism SDK not found under ${PRISM_BIN}")
+endif()
+get_filename_component(PRISM_DLL_NAME ${PRISM_DLL} NAME)
+
+# --- engine-free core: message building, strings, nav graph, typeahead (unit-tested, no Windows headers) ---
+file(GLOB GDCORE_SOURCES src/core/*.cpp)
+add_library(gdcore STATIC ${GDCORE_SOURCES})
+target_include_directories(gdcore PUBLIC src)
+
+file(GLOB GDCORE_TESTS tests/*.cpp)
+add_executable(gdcore_tests ${GDCORE_TESTS})
+target_include_directories(gdcore_tests PRIVATE third_party)
+target_link_libraries(gdcore_tests PRIVATE gdcore)
+add_custom_target(check COMMAND gdcore_tests DEPENDS gdcore_tests)
+
+# --- the injected DLL ---
+add_library(gdaccess SHARED
+  src/dllmain.cpp src/log.cpp src/speech.cpp src/hooks.cpp src/textcap.cpp src/devserver.cpp src/audio_mute.cpp src/app.cpp src/screens/main_menu.cpp src/screens/create_character.cpp src/screens/difficulty_select.cpp
+  src/audio.cpp src/world.cpp src/screens/in_game.cpp src/screens/message_box.cpp src/screens/pause_menu.cpp
+  src/screens/loading.cpp src/screens/tip.cpp src/screens/conversation.cpp)
+target_include_directories(gdaccess PRIVATE src ${PRISM_SDK}/include third_party/miniaudio)
+target_link_libraries(gdaccess PRIVATE gdcore detours ${PRISM_LIB} user32 ws2_32 ole32 delayimp)
+target_link_options(gdaccess PRIVATE /DELAYLOAD:${PRISM_DLL_NAME})
+target_compile_definitions(gdaccess PRIVATE PRISM_DLL_NAME="${PRISM_DLL_NAME}")
+add_custom_command(TARGET gdaccess POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PRISM_DLL} $<TARGET_FILE_DIR:gdaccess>
+  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:gdaccess>/assets)
+
+# --- the injector ---
+add_executable(gdinject src/inject/main.cpp)
+target_link_libraries(gdinject PRIVATE psapi)

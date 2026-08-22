@@ -1,0 +1,34 @@
+public: __cdecl GAME::DirectInputDevice::DirectInputDevice(class GAME::DirectInputDevice const & __ptr64) __ptr64	??0DirectInputDevice@GAME@@QEAA@AEBV01@@Z
+public: __cdecl GAME::DirectInputDevice::DirectInputDevice(void) __ptr64	??0DirectInputDevice@GAME@@QEAA@XZ
+public: virtual __cdecl GAME::DirectInputDevice::~DirectInputDevice(void) __ptr64	??1DirectInputDevice@GAME@@UEAA@XZ
+public: class GAME::DirectInputDevice & __ptr64 __cdecl GAME::DirectInputDevice::operator=(class GAME::DirectInputDevice const & __ptr64) __ptr64	??4DirectInputDevice@GAME@@QEAAAEAV01@AEBV01@@Z
+const GAME::DirectInputDevice::`vftable'	??_7DirectInputDevice@GAME@@6B@
+public: virtual void __cdecl GAME::DirectInputDevice::AllowShortcutKeys(bool) __ptr64	?AllowShortcutKeys@DirectInputDevice@GAME@@UEAAX_N@Z
+public: virtual bool __cdecl GAME::DirectInputDevice::GetButtonName(enum GAME::InputDevice::Button,class std::basic_string<unsigned short,struct std::char_traits<unsigned short>,class std::allocator<unsigned short> > & __ptr64)const __ptr64	?GetButtonName@DirectInputDevice@GAME@@UEBA_NW4Button@InputDevice@2@AEAV?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@@Z
+public: virtual class GAME::Vec2 __cdecl GAME::DirectInputDevice::GetCursorPosition(bool)const __ptr64	?GetCursorPosition@DirectInputDevice@GAME@@UEBA?AVVec2@2@_N@Z
+public: virtual struct GAME::InputDevice::JoystickEvent const & __ptr64 __cdecl GAME::DirectInputDevice::GetJoystickEvent(unsigned int)const __ptr64	?GetJoystickEvent@DirectInputDevice@GAME@@UEBAAEBUJoystickEvent@InputDevice@2@I@Z
+public: virtual class GAME::InputDevice::ButtonEvent __cdecl GAME::DirectInputDevice::GetKeyEvent(int)const __ptr64	?GetKeyEvent@DirectInputDevice@GAME@@UEBA?AVButtonEvent@InputDevice@2@H@Z
+public: virtual struct GAME::InputDevice::MouseEvent __cdecl GAME::DirectInputDevice::GetMouseEvent(int)const __ptr64	?GetMouseEvent@DirectInputDevice@GAME@@UEBA?AUMouseEvent@InputDevice@2@H@Z
+public: virtual unsigned int __cdecl GAME::DirectInputDevice::GetNumJoystickEvents(void)const __ptr64	?GetNumJoystickEvents@DirectInputDevice@GAME@@UEBAIXZ
+public: virtual int __cdecl GAME::DirectInputDevice::GetNumKeyEvents(void)const __ptr64	?GetNumKeyEvents@DirectInputDevice@GAME@@UEBAHXZ
+public: virtual int __cdecl GAME::DirectInputDevice::GetNumMouseEvents(void)const __ptr64	?GetNumMouseEvents@DirectInputDevice@GAME@@UEBAHXZ
+public: virtual bool __cdecl GAME::DirectInputDevice::GetShortButtonName(enum GAME::InputDevice::Button,class std::basic_string<unsigned short,struct std::char_traits<unsigned short>,class std::allocator<unsigned short> > & __ptr64)const __ptr64	?GetShortButtonName@DirectInputDevice@GAME@@UEBA_NW4Button@InputDevice@2@AEAV?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@@Z
+public: virtual bool __cdecl GAME::DirectInputDevice::Initialize(class GAME::EWindow * __ptr64,int,int) __ptr64	?Initialize@DirectInputDevice@GAME@@UEAA_NPEAVEWindow@2@HH@Z
+public: virtual bool __cdecl GAME::DirectInputDevice::IsButtonDown(enum GAME::InputDevice::Button)const __ptr64	?IsButtonDown@DirectInputDevice@GAME@@UEBA_NW4Button@InputDevice@2@@Z
+private: static __int64 __cdecl GAME::DirectInputDevice::LowLevelKeyboardProc(int,unsigned __int64,__int64)	?LowLevelKeyboardProc@DirectInputDevice@GAME@@CA_JH_K_J@Z
+private: static enum GAME::InputDevice::Button __cdecl GAME::DirectInputDevice::MapKey(unsigned char)	?MapKey@DirectInputDevice@GAME@@CA?AW4Button@InputDevice@2@E@Z
+private: static unsigned char __cdecl GAME::DirectInputDevice::MapKey(enum GAME::InputDevice::Button)	?MapKey@DirectInputDevice@GAME@@CAEW4Button@InputDevice@2@@Z
+private: void __cdecl GAME::DirectInputDevice::ProcessJoystickEvents(void) __ptr64	?ProcessJoystickEvents@DirectInputDevice@GAME@@AEAAXXZ
+private: void __cdecl GAME::DirectInputDevice::ProcessKeyEvents(void) __ptr64	?ProcessKeyEvents@DirectInputDevice@GAME@@AEAAXXZ
+public: virtual void __cdecl GAME::DirectInputDevice::Resume(void) __ptr64	?Resume@DirectInputDevice@GAME@@UEAAXXZ
+private: unsigned int __cdecl GAME::DirectInputDevice::ScanCodeToVirtualKey(unsigned int)const __ptr64	?ScanCodeToVirtualKey@DirectInputDevice@GAME@@AEBAII@Z
+public: virtual void __cdecl GAME::DirectInputDevice::SetCursorPosition(class GAME::Vec2 const & __ptr64,bool) __ptr64	?SetCursorPosition@DirectInputDevice@GAME@@UEAAXAEBVVec2@2@_N@Z
+public: virtual void __cdecl GAME::DirectInputDevice::SetResolutionAdjustment(float,float) __ptr64	?SetResolutionAdjustment@DirectInputDevice@GAME@@UEAAXMM@Z
+public: void __cdecl GAME::DirectInputDevice::Shutdown(void) __ptr64	?Shutdown@DirectInputDevice@GAME@@QEAAXXZ
+public: virtual void __cdecl GAME::DirectInputDevice::Suspend(void) __ptr64	?Suspend@DirectInputDevice@GAME@@UEAAXXZ
+public: virtual void __cdecl GAME::DirectInputDevice::Update(void) __ptr64	?Update@DirectInputDevice@GAME@@UEAAXXZ
+private: static bool GAME::DirectInputDevice::allowShortcutKeys	?allowShortcutKeys@DirectInputDevice@GAME@@0_NA
+private: static struct HHOOK__ * __ptr64 __ptr64 GAME::DirectInputDevice::keyboardHook	?keyboardHook@DirectInputDevice@GAME@@0PEAUHHOOK__@@EA
+private: static unsigned int GAME::DirectInputDevice::keyboardHookRefCount	?keyboardHookRefCount@DirectInputDevice@GAME@@0IA
+CreateInputDevice	CreateInputDevice
+DestroyInputDevice	DestroyInputDevice

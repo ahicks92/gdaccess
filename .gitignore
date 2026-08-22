@@ -1,0 +1,19 @@
+# build output (includes build/GrimDawn.unpacked.bin, a dump of the game's own code -- never commit)
+build/
+*.pdb
+*.obj
+*.ilk
+*.exp
+
+# reference clones of other projects (have their own git history)
+reference/
+
+# prebuilt prism SDK (1.1 GB; see third_party/README.md for where it comes from)
+third_party/prism-bin/
+third_party/prism/
+
+# editor / OS noise
+.vs/
+.vscode/
+*.swp
+Thumbs.db
