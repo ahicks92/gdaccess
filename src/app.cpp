@@ -1,5 +1,6 @@
 #include "app.h"
 #include <windows.h>
+#include <format>
 #include <memory>
 #include "core/graph_announcer.h"
 #include "core/message_builder.h"
@@ -19,6 +20,14 @@
 #include "screens/message_box.h"
 #include "screens/pause_menu.h"
 #include "screens/tip.h"
+#include "screens/codex.h"
+#include "screens/factions.h"
+#include "screens/inventory.h"
+#include "screens/skills.h"
+#include "screens/quickbar.h"
+#include "screens/modals.h"
+#include "screens/vendor.h"
+#include "gameapi.h"
 #include "speech.h"
 #include "world.h"
 
@@ -77,6 +86,7 @@ static void register_actions() {
     {ui_actions::RegionPrev, "Previous region", keys::Up, false, true, false}, {ui_actions::RegionNext, "Next region", keys::Down, false, true, false},
     {ui_actions::Activate, "Activate", keys::Enter, false, false, false}, {ui_actions::Secondary, "Secondary action", keys::Backspace, false, false, false},
     {ui_actions::Back, "Back", keys::Escape, false, false, false}, {ui_actions::Tooltip, "Tooltip", keys::Space, false, false, false},
+    {ui_actions::TooltipDetail, "Detailed tooltip", keys::Space, false, true, false},
     {ui_actions::Drag, "Drag", keys::Backslash, false, false, false},
   };
   for (const Ui& u : ui) {
@@ -84,6 +94,18 @@ static void register_actions() {
     if (u.repeat) a.repeating();
   }
   m.find(ui_actions::Tooltip)->bind(keys::F1);
+  // Ctrl+Tab / Ctrl+Shift+Tab: the current screen's tabs (tab list across the top; the page is one column).
+  m.register_action("ui.tabNext", "Next tab", InputCategory::UI, [] { Screen* s = g_screens.current(); if (s) s->switch_tab(1); }).bind(keys::Tab, true, false, false);
+  m.register_action("ui.tabPrev", "Previous tab", InputCategory::UI, [] { Screen* s = g_screens.current(); if (s) s->switch_tab(-1); }).bind(keys::Tab, true, true, false);
+  // In-world readouts: Q = the objective tracker, Y = the quickbar.
+  m.register_action("ingame.objectives", "Objectives", InputCategory::InGame, [] { screens::speak_objectives(); }).bind(0x10);
+  m.register_action("ingame.quickbar", "Quickbar", InputCategory::InGame, [] { screens::speak_quickbar(); }).bind(0x15);
+  // G = the game's own Pickup action (nearest item within 10 units; the game leaves it unbound).
+  m.register_action("ingame.pickup", "Pick up nearest item", InputCategory::InGame, [] { screens::pickup_nearest(); }).bind(0x22);
+  // Quickbar assignment from a window (the skills window's focused skill): Ctrl+1..0 -> slot, Ctrl+J / Ctrl+I -> mouse.
+  for (int k = 1; k <= 10; ++k) m.register_action(std::format("assign.slot{}", k), std::format("Assign to quickbar slot {}", k % 10), InputCategory::Windows, [k] { screens::assign_focused(k); }).bind(k == 10 ? 0x0b : 0x01 + k, true, false, false);
+  m.register_action("assign.primary", "Assign to left mouse", InputCategory::Windows, [] { screens::assign_focused(0); }).bind(0x24, true, false, false);
+  m.register_action("assign.secondary", "Assign to right mouse", InputCategory::Windows, [] { screens::assign_focused(-1); }).bind(0x17, true, false, false);
   m.register_action("ingame.where", "Where am I", InputCategory::InGame, [] { screens::speak_where(); }).bind(keys::P, true, true).bind(0x25);  // K
   // Health and energy in full, in the player's own voice (bare H; Ctrl+H stays the game's Help window).
   m.register_action("ingame.vitals", "Health and energy", InputCategory::InGame, [] { combat::speak_vitals(); }).bind(0x23);
@@ -124,6 +146,8 @@ static void register_actions() {
     int code = l.code; char16_t ch = l.ch;
     m.register_action(l.id, l.label, InputCategory::InGame, [code, ch] { hooks::push_key(code, false, false, false, ch); }).bind(l.code, true, false, false);
   }
+  // The game opens the character/inventory window from C or I; both lifts (Ctrl+I injects the plain C).
+  m.find("game.character")->bind(0x17, true, false, false);
 }
 
 void init() {
@@ -154,6 +178,15 @@ void init() {
   g_screens.register_screen(screens::make_loading());
   g_screens.register_screen(screens::make_tip());
   g_screens.register_screen(screens::make_conversation());
+  g_screens.register_screen(screens::make_codex());
+  g_screens.register_screen(screens::make_factions());
+  g_screens.register_screen(screens::make_inventory());
+  g_screens.register_screen(screens::make_skills());
+  g_screens.register_screen(screens::make_quest_reward());
+  g_screens.register_screen(screens::make_shrine());
+  g_screens.register_screen(screens::make_vendor());
+  g_screens.register_screen(screens::make_stash());
+  gameapi::load();
   g_last_tick = now();
   log::writef("app: initialized with {} actions", g_input.actions().size());
 }

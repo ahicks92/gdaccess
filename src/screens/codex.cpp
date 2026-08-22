@@ -1,0 +1,103 @@
+#include "screens/codex.h"
+#include <format>
+#include "gameapi.h"
+#include "screens/window_base.h"
+
+namespace gd::screens {
+using namespace gd::core;
+
+// The codex (Q): three tabs over the exported quest repository and the lore codex. Quests are tree groups
+// (Right expands): the quest row reads "name, tracked"; Enter toggles tracking; inside are the tasks with
+// their description, objectives (done / open) and rewards. Lore notes are rows; Enter or Space reads the note.
+class CodexScreen : public WindowScreen {
+ public:
+  CodexScreen() : WindowScreen("codex", std::string(strings::kCodex), exe_ui::ingame::kQuest, 12) {}
+  bool wrap() const override { return false; }
+  void on_tab_changed(int) override { quests_.invalidate(); }
+
+  void build(GraphBuilder& b) override {
+    add_tabs(b, {std::string(strings::kQuests), std::string(strings::kCompletedQuests), std::string(strings::kLore)});
+    if (tab() == 2) { build_lore(b); return; }
+    int filter = tab() == 0 ? gameapi::kQuestsInProgress : gameapi::kQuestsCompleted;
+    const std::vector<gameapi::Quest>& qs = quests_.get([filter] { return gameapi::quests(filter); }, 30);
+    if (qs.empty()) { b.add_item(ControlId::structural("codex.none"), line_item(std::string(strings::kNoQuests))); return; }
+    std::string last_group;
+    for (const gameapi::Quest& q : qs) {
+      if (q.group != last_group) { last_group = q.group; }
+      std::string id = std::format("codex.q{}", q.id);
+      void* qp = q.p;
+      bool tracked = q.tracked;
+      auto v = std::make_shared<NodeVtable>();
+      v->control_type = &kGroupType;
+      std::string label = q.group.empty() ? q.name : q.name + ", " + q.group;
+      v->announcements = {NodeAnnouncement([label] { return label; }, false, announcement_kinds::kLabel),
+                          NodeAnnouncement([tracked] { return std::string(tracked ? strings::kTracked : strings::kNotTracked); }, true, announcement_kinds::kValue)};
+      v->on_activate = [this, qp, tracked] { gameapi::set_quest_tracked(qp, !tracked); quests_.invalidate(); };
+      v->state_text = [qp] { for (const gameapi::Quest& x : gameapi::quests(gameapi::kQuestsAll)) if (x.p == qp) return std::string(x.tracked ? strings::kTracked : strings::kNotTracked); return std::string(); };
+      b.begin_group(ControlId::structural(id), v);
+      int ti = 0;
+      for (const gameapi::Task& t : q.tasks) {
+        std::string tid = std::format("{}.t{}", id, ti++);
+        MessageBuilder m;
+        m.fragment(t.name.empty() ? t.description : t.name);
+        if (!t.name.empty() && !t.description.empty()) m.list_item().fragment(t.description);
+        if (t.state == 3) m.list_item().fragment(strings::kDone);
+        b.add_item(ControlId::structural(tid), line_item(m.build()));
+        int oi = 0;
+        for (const gameapi::Objective& o : t.objectives) {
+          MessageBuilder om;
+          om.fragment(o.text);
+          if (o.satisfied) om.list_item().fragment(strings::kDone);
+          b.add_item(ControlId::structural(std::format("{}.o{}", tid, oi++)), line_item(om.build()));
+        }
+        int ri = 0;
+        for (const std::string& r : t.rewards) {
+          MessageBuilder rm; rm.fragment(strings::kReward).list_item().fragment(r);
+          b.add_item(ControlId::structural(std::format("{}.r{}", tid, ri++)), line_item(rm.build()));
+        }
+      }
+      b.end_group();
+    }
+  }
+
+ private:
+  void build_lore(GraphBuilder& b) {
+    const std::vector<gameapi::Note>& notes = notes_.get([] { return gameapi::lore_notes(); }, 60);
+    if (notes.empty()) { b.add_item(ControlId::structural("codex.nolore"), line_item(std::string(strings::kEmpty))); return; }
+    for (const gameapi::Note& n : notes) {
+      std::string label = n.title.empty() ? std::format("note {}", n.id) : n.title;
+      std::string heading = n.heading;
+      unsigned id = n.id;
+      auto read = [id] { void* p = gameapi::object_by_id(id); speak_lines(gameapi::note_text(p)); };
+      b.add_item(ControlId::structural(std::format("codex.n{}", n.id)), row_item(label, heading.empty() ? std::function<std::string()>{} : [heading] { return heading; }, read, read));
+    }
+  }
+  Snapshot<std::vector<gameapi::Quest>> quests_;
+  Snapshot<std::vector<gameapi::Note>> notes_;
+};
+
+std::unique_ptr<Screen> make_codex() { return std::make_unique<CodexScreen>(); }
+
+// The tracker: every tracked quest's in-progress tasks and their open objectives ("quest: objective, ...").
+// (GameEngine::GetObjectives is a separate scripted list, empty in the campaign.)
+void speak_objectives() {
+  MessageBuilder m;
+  for (const gameapi::Quest& q : gameapi::quests(gameapi::kQuestsTracked)) {
+    // The in-progress tasks' open objectives; when those are all met, the NEXT available task's (the game's
+    // tracker shows one step at a time).
+    bool any = false;
+    for (int state : {2, 1}) {
+      for (const gameapi::Task& t : q.tasks) {
+        if (t.state != state) continue;
+        bool here = false;
+        for (const gameapi::Objective& o : t.objectives) if (!o.satisfied) { strings::push_quest_objective(m.list_item(), q.name, o.text); any = here = true; }
+        if (state == 1 && here) break;
+      }
+      if (any) break;
+    }
+  }
+  for (const std::string& l : gameapi::objectives()) m.list_item().fragment(l);
+  if (m.empty()) { speech::speak(strings::kNoObjectives, true); return; }
+  speech::speak(m.build(), true);
+}
+}  // namespace gd::screens

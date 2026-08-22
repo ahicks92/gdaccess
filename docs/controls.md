@@ -83,6 +83,25 @@ stationary attack, Ctrl pet targeting) and typing into the game's chat field.
 | H | Health and energy in full ("health 250 of 250, energy 100 of 120") through the screen reader |
 | (automatic) | Hits you or your pets land: the number the game draws over the enemy ("17", "45 crit", "Miss", "Dodge", "Block"), spoken by Mark panned to where it happened, as many at once as there are hits. Needs the game's "Display damage numbers" option (`displayDamage`, default on). Health: "health N percent" in Zira each time it crosses a 10 % step, down or up |
 | Ctrl+<game key> | The game's own windows and functions (see above) |
+| Q | The objective tracker: each tracked quest's open objectives ("Waking to Misery: Enter the Cave under Burial Hill, ...") |
+| Y | The quickbar: "quickbar 1, 1 Cadence, 2 empty, ..., left mouse Cadence, right mouse empty" (the bar the HUD shows; Ctrl+Y still switches bars) |
+| G | Pick up the nearest item on the ground (the game's own Pickup action: within 10 units, loot filter applied; auto-equips into an empty slot like the game does) |
+
+## The in-world windows (2026-08-22, first pass)
+Each game window is a screen of the mod while the game shows it (Ctrl+C/I inventory, Ctrl+N skills, Ctrl+Q
+codex, Ctrl+J factions; NPC windows when an NPC opens them). Layout rule: a tab list across the top (Left/Right
+moves, Enter selects; **Ctrl+Tab / Ctrl+Shift+Tab switch tabs from anywhere**), one vertical column below it
+(Up/Down; Tab moves between the tab row and the column). Escape closes the window. Everything is read from the
+game's own objects, never from the screen.
+| Window | Tabs | Rows and keys |
+|---|---|---|
+| Inventory (C or I) | Equipment, one per bag, Stats | Equipment: "slot, item"; Enter unequips into the bag, Space = the game's tooltip. Bag: "item, x N" in reading order; Enter = the game's right-click (equip / drink / read), Space = tooltip. Stats: the character sheet; on Physique / Cunning / Spirit, Enter spends an attribute point |
+| Skills (N) | One per mastery slot | Without a class: the six masteries (Space = description, Enter chooses; "undo class selection" until the mastery takes a point). With a class: "skill points N", the mastery bar, then the skills in tier order ("Cadence, level 0 of 16, needs mastery 1"); Enter spends a point, Backspace refunds one, Space = the game's skill text. **Ctrl+1..0 put the focused skill on quickbar slot 1..10, Ctrl+J on the left mouse button, Ctrl+I on the right** |
+| Codex (Q window) | Quests, Completed quests, Lore | Quests are groups (Right expands): "name, act, tracked"; Enter toggles tracking; inside: tasks, objectives ("done" when met), rewards. Lore notes: Enter or Space reads the note |
+| Factions (J) | - | "faction, standing, progress of tier" |
+| Vendor (NPC) | Buy tabs per stock type, Sell | Buy rows carry the game's price line; Enter buys. Sell = your bag; Enter sells. Untested live |
+| Caravan (NPC) | Stash sacks, transfer sacks | Rows = items; Enter moves one to the bag. Untested live |
+| Quest reward, Shrine | - | The window's text lines and buttons (Accept; Offer / Close). Untested live |
 
 A landing speaks "name, [distant,] distance away, clock bearing, i of n" -- "distant" when the camera does
 not show it, so it cannot be clicked right now -- and parks the game's cursor on the thing while it is on

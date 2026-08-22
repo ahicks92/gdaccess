@@ -123,11 +123,12 @@ struct WindowB {
 };
 WindowB ingame_window(unsigned off);   // InGameUI + off (kWin* below)
 namespace ingame {
-constexpr unsigned kPromptBox = 0x7378, kCharacter = 0x52258,  // (+0xb138/+0xb158 are record-path strings, not windows)
+constexpr unsigned kPromptBox = 0x7378, kCharacter = 0x52258 /*the multiplayer Inspect twin*/, kInventory = 0xbbf0 /*the C/I window*/,  // (+0xb138/+0xb158 are record-path strings)
                    kQuest = 0x285a0, kSkills = 0x3fc20, kMiniMap = 0x42260, kExit = 0x4a300, kParty = 0x4b540,
                    kFactions = 0x6c9b8, kAchievements = 0x7d150, kDevotion = 0x813a0, kStack = 0x83ed8,
                    kPotions = 0x8a300, kQuestReward = 0x8efd8, kObjective = 0x90390, kLootFilter = 0xab410,
-                   kTrade = 0x29cc8, kMarket = 0x2b538, kEnchanter = 0x30dd8, kTransmuter = 0x85378, kAltar = 0x87628;
+                   kTrade = 0x29cc8, kMarket = 0x2b538, kEnchanter = 0x30dd8, kTransmuter = 0x85378, kAltar = 0x87628,
+                   kFactionVendor = 0x2e188, kCaravan = 0x4fd08, kShrine = 0x7da50, kCrafting = 0x3aa80, kAscension = 0x8baa8;
 constexpr unsigned kHost = 0x7338;  // the widget host whose vtable +0x80 presses a child button
 }
 struct WidgetB {
@@ -161,6 +162,19 @@ struct ExitWindow {
   bool press(WidgetB b) const { return b.press((char*)p + kRegistry); }
 };
 ExitWindow exit_window();
+// The game's own key-binding actions by id (InGameUI::HandleKeyAction, signature-checked): 0x37 = Pickup (the
+// nearest item on the ground), 0x36 = Interact, 1 = Character window ... (docs/ingame-ui-survey.md). Game thread.
+bool ingame_key_action(int action);
+// The skills window's panes (SkillsWindow::SetPane, signature-checked): put mastery `pane_index` (the mastery's
+// enumeration, 0 = Soldier ...) or the class-selection pane (kSkillsClassSelectPane) on tab 0 / 1. The game's own
+// choose-a-class path; permanent once the mastery skill has a point. skills_tab() = the window's current tab.
+// The quickbar page the HUD shows (InGameUI+0x72f0, 0..3; the Y key cycles it), -1 outside the world.
+int quickbar_page();
+// A vendor window's market id (its marketGrid +0x2410 keeps it at +0x54; 0 outside a vendor).
+unsigned vendor_market_id(const WindowB& vendor_window);
+constexpr int kSkillsClassSelectPane = 0x50;
+bool skills_set_pane(int tab, int pane_index);
+int skills_tab();
 
 // The NPC conversation window (allocated on demand, pointer at InGameUI+0x8efd0; ctor exe+0x16e9a0): the
 // speaker and speech text, and the response rows, each carrying its display text and the step it selects

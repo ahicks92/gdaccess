@@ -99,6 +99,81 @@ gd::core::MessageBuilder& push_health_percent(gd::core::MessageBuilder& m, int p
 gd::core::MessageBuilder& push_combat_hit(gd::core::MessageBuilder& m, std::string_view number, bool crit);
 // "Miss" / "Dodge" / "Block" -- game text, verbatim
 gd::core::MessageBuilder& push_combat_word(gd::core::MessageBuilder& m, std::string_view word);
+// ---- the in-world windows (src/screens/codex.cpp, factions.cpp, inventory.cpp, skills.cpp, quickbar) ----
+inline constexpr std::string_view kCodex = "codex";
+inline constexpr std::string_view kQuests = "quests";
+inline constexpr std::string_view kCompletedQuests = "completed quests";
+inline constexpr std::string_view kLore = "lore";
+inline constexpr std::string_view kTracked = "tracked";
+inline constexpr std::string_view kNotTracked = "not tracked";
+inline constexpr std::string_view kDone = "done";
+inline constexpr std::string_view kNoQuests = "no quests";
+inline constexpr std::string_view kNoObjectives = "no objectives";
+inline constexpr std::string_view kObjectives = "objectives";
+inline constexpr std::string_view kReward = "reward";
+inline constexpr std::string_view kFactions = "factions";
+inline constexpr std::string_view kNoFactions = "no factions known";
+inline constexpr std::string_view kInventory = "inventory";
+inline constexpr std::string_view kEquipment = "equipment";
+inline constexpr std::string_view kBag = "bag";
+inline constexpr std::string_view kStats = "stats";
+inline constexpr std::string_view kEmptySlot = "empty";
+inline constexpr std::string_view kIronBits = "iron bits";
+inline constexpr std::string_view kSkills = "skills";
+inline constexpr std::string_view kSkillPointsLeft = "skill points";
+inline constexpr std::string_view kLocked = "locked";
+inline constexpr std::string_view kMastery = "mastery";
+inline constexpr std::string_view kQuickbar = "quickbar";
+inline constexpr std::string_view kSlot = "slot";
+inline constexpr std::string_view kLeftMouse = "left mouse";
+inline constexpr std::string_view kRightMouse = "right mouse";
+inline constexpr std::string_view kAssigned = "assigned";
+inline constexpr std::string_view kNothingToAssign = "nothing to assign";
+inline constexpr std::string_view kCannot = "can't";
+inline constexpr std::string_view kClass = "class";
+inline constexpr std::string_view kLevel = "level";
+inline constexpr std::string_view kExperience = "experience";
+inline constexpr std::string_view kAttributePoints = "attribute points";
+inline constexpr std::string_view kSkillPoints = "skill points";
+inline constexpr std::string_view kDevotionPoints = "devotion points";
+inline constexpr std::string_view kOffensiveAbility = "offensive ability";
+inline constexpr std::string_view kDefensiveAbility = "defensive ability";
+inline constexpr std::string_view kDps = "damage per second";
+inline constexpr std::string_view kRequirementsNotMet = "requirements not met";
+inline constexpr std::string_view kNoClass = "no class";
+inline constexpr std::string_view kModifier = "modifier";
+inline constexpr std::string_view kRequiresMastery = "needs mastery";
+inline constexpr std::string_view kNothingToPickUp = "nothing to pick up";
+inline constexpr std::string_view kQuestReward = "quest reward";
+inline constexpr std::string_view kAccept = "accept";
+inline constexpr std::string_view kShrine = "shrine";
+inline constexpr std::string_view kOffer = "offer";
+inline constexpr std::string_view kVendor = "vendor";
+inline constexpr std::string_view kBuy = "buy";
+inline constexpr std::string_view kSell = "sell";
+inline constexpr std::string_view kBought = "bought";
+inline constexpr std::string_view kSold = "sold";
+inline constexpr std::string_view kStash = "stash";
+inline constexpr std::string_view kTransfer = "transfer";
+inline constexpr std::string_view kMoved = "moved";
+inline constexpr std::string_view kDetailsHint = "Ctrl+Space for details";   // appended to a short tooltip whose detailed form says more
+inline constexpr std::string_view kSelectClass = "select class";
+inline constexpr std::string_view kUndoClassSelection = "undo class selection";
+inline constexpr std::string_view kClassChosen = "chosen; spend a point on the mastery to make it permanent";
+inline constexpr std::string_view kSecondClassAt = "second class available at level";
+inline constexpr std::string_view kPointSpent = "point spent";
+inline constexpr std::string_view kNoPoints = "no points";
+// "Waking to Misery: Enter the Cave under Burial Hill" -- one open objective of a tracked quest
+gd::core::MessageBuilder& push_quest_objective(gd::core::MessageBuilder& m, std::string_view quest, std::string_view objective);
+// "<name>, x 3" -- a stacked item
+gd::core::MessageBuilder& push_stack(gd::core::MessageBuilder& m, std::string_view name, unsigned stack);
+// "<label>: <value>" -- a sheet row
+gd::core::MessageBuilder& push_stat(gd::core::MessageBuilder& m, std::string_view label, std::string_view value);
+// "<name>, level 3 of 12" -- a skill row
+gd::core::MessageBuilder& push_skill_level(gd::core::MessageBuilder& m, unsigned level, unsigned max_level);
+// "<name>, <level name>, 1500 of 5000" -- a faction row
+gd::core::MessageBuilder& push_faction(gd::core::MessageBuilder& m, std::string_view name, std::string_view level_name, float value, int low, int high);
+
 inline constexpr std::string_view kUnsupportedGameVersion = "this game version is not supported by G D Access; menus will not be read";
 
 }  // namespace gd::strings

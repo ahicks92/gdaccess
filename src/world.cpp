@@ -410,6 +410,7 @@ void remove() { gd::hooks::detach_hooks(g_hooks); g_game_engine = nullptr; g_con
 
 bool in_world() { return g_game_engine && g_controller && player() != nullptr; }
 void* game_engine() { return g_game_engine; }
+void* controller() { return g_controller; }
 
 bool player_position(Vec3& p) {
   Buf wv;

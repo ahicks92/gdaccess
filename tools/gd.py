@@ -8,14 +8,19 @@
   uv run --with pillow tools/gd.py shot [out.png] [--width 1600]   screenshot of the game window (works unfocused)
   uv run tools/gd.py kill
 """
+import sys
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 import argparse, os, subprocess, sys, time, urllib.parse, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PORT = int(os.environ.get("GDACCESS_PORT", "8791"))
 
 def get(path, timeout=15):
-    with urllib.request.urlopen(f"http://127.0.0.1:{PORT}{path}", timeout=timeout) as r:
-        return r.read().decode("utf-8", errors="replace")
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{PORT}{path}", timeout=timeout) as r:
+            return r.read().decode("utf-8", errors="replace")
+    except OSError as e:  # the dev server is not up (no game, or the DLL is not loaded): one line, not a traceback
+        sys.exit(f"dev server unreachable ({e}); run `gd.py status`")
 
 def q(**kw):
     return "?" + urllib.parse.urlencode({k: v for k, v in kw.items() if v is not None and v is not False})
@@ -118,6 +123,7 @@ def main():
     s = sub.add_parser("launch"); s.add_argument("--speak", action="store_true"); s.add_argument("--nobuild", action="store_true"); s.set_defaults(f=cmd_launch)
     for name in ("health", "text", "buttons", "voices", "combat"):
         sub.add_parser(name).set_defaults(f=lambda a, n=name: print(get("/" + n), end=""))
+    s = sub.add_parser("get"); s.add_argument("path"); s.set_defaults(f=lambda a: print(get(a.path), end=""))
     s = sub.add_parser("log"); s.add_argument("--since", type=int, default=0); s.set_defaults(f=lambda a: print(get(f"/log?since={a.since}"), end=""))
     s = sub.add_parser("speech"); s.add_argument("--since", type=int, default=0); s.add_argument("--wait", type=float, default=0); s.set_defaults(f=cmd_speech)
     s = sub.add_parser("say"); s.add_argument("text"); s.set_defaults(f=lambda a: print(get("/say" + q(text=a.text)), end=""))

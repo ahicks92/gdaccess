@@ -125,6 +125,12 @@ click (exe+0x1099f0, type 2) sets timer 0x1f4 and state 3 -- `Tip::dismiss` does
 dismisses all. Left click opens the Journal's Tutorials tab (`GameEngine::ShowTutorialPage(uint)` is exported).
 Tips are gated on `Options::GetBool(0x1a)`.
 
+- 2026-08-22 additions (details in `docs/ingame-ui-survey.md`): the C/I inventory-character window is
+  `+0xbbf0` (`+0x52258` is the multiplayer Inspect twin); more windows: faction vendor `+0x2e188`, caravan
+  `+0x4fd08`, shrine `+0x7da50`, crafting `+0x3aa80`, item ascension `+0x8baa8`. Vtable `+0xf0` is not
+  universally OnControlEvent (the stack-split window has setters there). The game's key-binding actions are
+  `InGameUI::HandleKeyAction(ui, action, bool, bool, bool)` = exe+0x211980 (signature-checked; `ingame_key_action`).
+
 ## Conversation window (allocated on demand; pointer at `InGameUI+0x8efd0`; ctor exe+0x16e9a0, vtable exe+0x3157a8)
 Not an InGameUI window: visible byte `+0x28` (not Show/IsVisible), fade state `+0x1ab8` (3 = closed), rect
 `+0x40` (absolute; measured 543,626 548x146 at 1600x900). `+0xa0` Conversation*, `+0xa8` NPC id, `+0xac`

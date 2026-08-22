@@ -192,6 +192,13 @@ bool GraphNavigator::on_action(std::string_view key) {
     speak(strings::kNoTooltip, false);
     return true;
   }
+  if (key == TooltipDetail) {   // the long form; the short one when the control has no long form
+    if (!node) return false;
+    if (node->vtable && node->vtable->on_tooltip_detail) { node->vtable->on_tooltip_detail(); return true; }
+    if (node->vtable && node->vtable->on_tooltip) { graph_->tooltip(); return true; }
+    speak(strings::kNoTooltip, false);
+    return true;
+  }
   if (key == Drag) {
     if (!node) return false;
     if (node->vtable && node->vtable->on_drag) { graph_->drag(); return true; }

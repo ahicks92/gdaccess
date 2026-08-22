@@ -67,8 +67,11 @@ const Signature kSignatures[] = {
   {0x1903b0, "PromptBox::Update", "\x40\x57\x48\x81\xec\xc0\x00\x00\x00\x48\xc7\x44"},
   {0xbe320, "App::ApplyPendingState", "\x48\x8b\xc4\x57\x48\x83\xec\x60\x48\xc7\x40\xc8"},
   {0x213840, "InGameUI::Init", "\x48\x8b\xc4\x55\x53\x56\x57\x41\x54\x41\x55\x41"},
+  {0x211980, "InGameUI::HandleKeyAction", "\x48\x8b\xc4\x57\x41\x54\x41\x55\x41\x56\x41\x57\x48\x83\xec\x40"},
+  {0x27c580, "SkillsWindow::SetPane", "\x40\x57\x48\x83\xec\x30\x48\xc7\x44\x24\x20\xfe\xff\xff\xff\x48"},
 };
-const size_t kSignatureLens[] = {5, 16, 12, 12, 12, 12, 12, 12};
+const size_t kSignatureLens[] = {5, 16, 12, 12, 12, 12, 12, 12, 16, 16};   // each <= kSignatureMax
+constexpr size_t kSignatureMax = 16;
 
 uintptr_t g_base = 0;
 size_t g_image_size = 0;
@@ -177,8 +180,9 @@ bool check_layout() {
   bool ok = g_dm.GetDialogManager && g_dm.GetNumDialog && g_dm.PeekTopDialog && g_dm.AddResponse && g_dm.RemoveTopDialog;
   for (size_t i = 0; i < std::size(kSignatures); ++i) {
     const Signature& s = kSignatures[i];
-    uint8_t buf[16] = {};
-    bool match = s.rva + kSignatureLens[i] <= g_image_size && read_mem((void*)(g_base + s.rva), buf, kSignatureLens[i]) && memcmp(buf, s.bytes, kSignatureLens[i]) == 0;
+    uint8_t buf[kSignatureMax] = {};
+    size_t n = kSignatureLens[i] <= kSignatureMax ? kSignatureLens[i] : kSignatureMax;   // a longer signature overflowed this buffer once (2026-08-22)
+    bool match = s.rva + n <= g_image_size && read_mem((void*)(g_base + s.rva), buf, n) && memcmp(buf, s.bytes, n) == 0;
     if (!match) { ok = false; log::writef("exe_ui: signature MISMATCH at exe+{:#x} ({})", s.rva, s.what); }
   }
   // The button vtables must dispatch HandleMouseEvent (+0x20) to the functions the signatures cover.
@@ -317,6 +321,38 @@ bool WidgetB::press(void* registry) const {
   return ok;
 }
 ExitWindow exit_window() { return {ingame_window(ingame::kExit).p}; }
+// InGameUI::HandleKeyAction(this, action, bool, bool, bool) -- exe+0x211980, what the game's key bindings call
+// (docs/ingame-ui-survey.md has the action ids: 1 character, 2 skills, 3 codex, 0x36 interact, 0x37 pickup ...).
+typedef bool (*KeyActionFn)(void*, int, bool, bool, bool);
+constexpr uintptr_t kInGameUI_HandleKeyAction = 0x211980;
+// The skills window (InGameUI+0x3fc20; 2026-08-22 readout): SetPane = exe+0x27c580(window, tab, paneIndex) puts a
+// mastery's skill tree (paneIndex = mastery enumeration 0..) or the class-selection pane (0x50) on a tab; the
+// current tab index sits at +0x2630. Choosing a class this way is exactly the pane's own click path; it
+// becomes permanent when the mastery skill takes its first point.
+typedef void (*SetPaneFn)(void*, int, int);
+constexpr uintptr_t kSkillsWindow_SetPane = 0x27c580;
+constexpr size_t kSkillsWindow_Tab = 0x2630;
+bool skills_set_pane(int tab, int pane_index) {
+  void* ui = ingame_ui();
+  if (!ui || !g_available) return false;
+  void* w = (char*)ui + ingame::kSkills;
+  SetPaneFn f = (SetPaneFn)(g_base + kSkillsWindow_SetPane);
+  __try { f(w, tab, pane_index); } __except (EXCEPTION_EXECUTE_HANDLER) { log::writef("exe_ui: SetPane({}, {}) faulted", tab, pane_index); return false; }
+  log::writef("exe_ui: SkillsWindow::SetPane(tab {}, pane {})", tab, pane_index);
+  return true;
+}
+unsigned vendor_market_id(const WindowB& w) { return w ? rd_or<unsigned>((char*)w.p + 0x2410, 0x54, 0) : 0; }
+int quickbar_page() { void* ui = ingame_ui(); int p = ui ? rd_or<int>(ui, 0x72f0, -1) : -1; return p >= 0 && p < 4 ? p : (ui ? 0 : -1); }
+int skills_tab() { void* ui = ingame_ui(); return ui ? rd_or<int>((char*)ui + ingame::kSkills, kSkillsWindow_Tab, -1) : -1; }
+bool ingame_key_action(int action) {
+  void* ui = ingame_ui();
+  if (!ui || !g_available) return false;
+  KeyActionFn f = (KeyActionFn)(g_base + kInGameUI_HandleKeyAction);
+  bool r = false;
+  __try { r = f(ui, action, true, false, false); } __except (EXCEPTION_EXECUTE_HANDLER) { log::writef("exe_ui: HandleKeyAction({}) faulted", action); return false; }
+  log::writef("exe_ui: HandleKeyAction({}) -> {}", action, r);
+  return true;
+}
 bool ExitWindow::visible() const { return WindowB{p}.visible(); }
 
 // ---- options value controls ----
@@ -560,7 +596,7 @@ std::string ingame_dump() {
   void* ui = ingame_ui();
   std::string out = std::format("ingame_ui={} app_state={}\n", ui, app_state());
   if (!ui) return out;
-  struct { const char* name; unsigned off; } wins[] = {{"PromptBox", ingame::kPromptBox}, {"Character", ingame::kCharacter},
+  struct { const char* name; unsigned off; } wins[] = {{"PromptBox", ingame::kPromptBox}, {"Inventory", ingame::kInventory}, {"Inspect", ingame::kCharacter},
                                                         {"Quest", ingame::kQuest}, {"Skills", ingame::kSkills}, {"MiniMap", ingame::kMiniMap}, {"Exit", ingame::kExit}, {"Party", ingame::kParty},
                                                         {"Factions", ingame::kFactions}, {"Achievements", ingame::kAchievements}, {"Devotion", ingame::kDevotion}, {"Stack", ingame::kStack},
                                                         {"Potions", ingame::kPotions}, {"QuestReward", ingame::kQuestReward}, {"Objective", ingame::kObjective}, {"LootFilter", ingame::kLootFilter},

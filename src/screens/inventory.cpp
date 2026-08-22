@@ -1,0 +1,90 @@
+#include "screens/inventory.h"
+#include <format>
+#include "gameapi.h"
+#include "screens/window_base.h"
+
+namespace gd::screens {
+using namespace gd::core;
+namespace { int g_bag_source = 0; }
+void set_bag_item_source(int s) { g_bag_source = s; }
+int bag_item_source() { return g_bag_source; }
+
+class InventoryScreen : public WindowScreen {
+ public:
+  InventoryScreen() : WindowScreen("inventory", std::string(strings::kInventory), exe_ui::ingame::kInventory, 11) {}
+  void on_tab_changed(int index) override {
+    int nbags = (int)bags_.value.size();
+    if (index >= 1 && index <= nbags) gameapi::select_bag(index - 1);   // the game's window shows the same bag
+    invalidate();
+  }
+  void on_focus() override { invalidate(); WindowScreen::on_focus(); }
+
+  void build(GraphBuilder& b) override {
+    const std::vector<gameapi::Bag>& bags = bags_.get([] { return gameapi::bags(); }, 30);
+    std::vector<std::string> labels{std::string(strings::kEquipment)};
+    for (const gameapi::Bag& bag : bags) labels.push_back(bag.name.empty() ? std::format("{} {}", strings::kBag, bag.index + 1) : bag.name);
+    labels.push_back(std::string(strings::kStats));
+    add_tabs(b, labels);
+    int t = tab();
+    if (t == 0) build_equipment(b);
+    else if (t >= 1 && t <= (int)bags.size()) build_bag(b, bags[(size_t)t - 1]);
+    else build_sheet(b);
+  }
+
+ private:
+  void invalidate() { bags_.invalidate(); equipment_.invalidate(); sheet_.invalidate(); }
+  void build_equipment(GraphBuilder& b) {
+    const std::vector<gameapi::EquipSlot>& eq = equipment_.get([] { return gameapi::equipment(); }, 30);
+    for (const gameapi::EquipSlot& s : eq) {
+      std::string label = s.label.empty() ? std::format("slot {}", s.loc) : s.label;
+      std::string name = s.name.empty() ? std::string(strings::kEmptySlot) : s.name;
+      unsigned id = s.item_id; int loc = s.loc;
+      // Enter = unequip into the bag (the exe's own order: bag AddItem, then the slot's RemoveItem).
+      auto activate = [this, id, loc] { if (!id) { speech::speak(strings::kEmptySlot, true); return; } if (!gameapi::unequip(loc)) speech::speak(strings::kCannot, true); invalidate(); };
+      b.add_item(ControlId::structural(std::format("inventory.eq{}", s.loc)),
+                 row_item(label, [name] { return name; }, activate, id ? item_tip(id, false) : std::function<void()>{}, {}, id ? item_tip(id, true) : std::function<void()>{}));
+    }
+    MessageBuilder m; strings::push_stat(m, strings::kIronBits, std::format("{}", gameapi::money()));
+    b.add_item(ControlId::structural("inventory.money"), line_item(m.build()));
+  }
+  void build_bag(GraphBuilder& b, const gameapi::Bag& bag) {
+    if (bag.items.empty()) { b.add_item(ControlId::structural(std::format("inventory.bag{}.empty", bag.index)), line_item(std::string(strings::kEmpty))); return; }
+    for (const gameapi::BagItem& it : bag.items) {
+      MessageBuilder m; strings::push_stack(m, it.name.empty() ? std::format("item {}", it.id) : it.name, it.stack);
+      unsigned id = it.id;
+      auto activate = [this, id] {
+        void* p = gameapi::object_by_id(id);
+        if (p && !gameapi::item_requirements_met(p)) { speech::speak(strings::kRequirementsNotMet, true); return; }
+        gameapi::use_item(id, g_bag_source);
+        invalidate();
+      };
+      b.add_item(ControlId::structural(std::format("inventory.item{}", it.id)), row_item(m.build(), {}, activate, item_tip(id, false), {}, item_tip(id, true)));
+    }
+  }
+  void build_sheet(GraphBuilder& b) {
+    const std::vector<gameapi::Stat>& rows = sheet_.get([] { return gameapi::character_sheet(); }, 30);
+    int i = 0;
+    for (const gameapi::Stat& s : rows) {
+      MessageBuilder m; strings::push_stat(m, s.label, s.value);
+      std::string id = std::format("inventory.stat{}", i++);
+      if (s.spend) {   // Enter spends an attribute point here (the sheet's "+" button)
+        int which = s.spend;
+        auto spend = [this, which] {
+          if (gameapi::attribute_points() == 0) { speech::speak(strings::kNoPoints, true); return; }
+          speech::speak(gameapi::spend_attribute_point(which) ? std::string(strings::kPointSpent) : std::string(strings::kCannot), true);
+          invalidate();
+        };
+        b.add_item(ControlId::structural(id), row_item(m.build(), {}, spend));
+      } else {
+        b.add_item(ControlId::structural(id), line_item(m.build()));
+      }
+    }
+    if (rows.empty()) b.add_item(ControlId::structural("inventory.nostats"), line_item(std::string(strings::kEmpty)));
+  }
+  Snapshot<std::vector<gameapi::Bag>> bags_;
+  Snapshot<std::vector<gameapi::EquipSlot>> equipment_;
+  Snapshot<std::vector<gameapi::Stat>> sheet_;
+};
+
+std::unique_ptr<Screen> make_inventory() { return std::make_unique<InventoryScreen>(); }
+}  // namespace gd::screens

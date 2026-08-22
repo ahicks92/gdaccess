@@ -113,6 +113,9 @@ struct NodeVtable {
   /// Optional. Read / open the control's tooltip (Space, F1). The action owns the whole behavior
   /// (speak, or open the drill-in tooltip reader), so the core stays game-agnostic.
   std::function<void()> on_tooltip;
+  /// Optional. The long form of the tooltip (Ctrl+Space) -- what the game shows with its modifier held.
+  /// Falls back to on_tooltip when unset.
+  std::function<void()> on_tooltip_detail;
   /// Optional. Drag/drop participation (Backslash) -- pick up here, or place the held thing here. The
   /// action owns the whole pick-up/place state machine; the core only dispatches.
   std::function<void()> on_drag;

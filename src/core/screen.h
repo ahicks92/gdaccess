@@ -62,6 +62,8 @@ class Screen {
   virtual bool passes_key(int /*code*/) const { return false; }
   // A true modal: blocks the categories of screens below it.
   virtual bool exclusive() const { return false; }
+  // Ctrl+Tab / Ctrl+Shift+Tab: switch the screen's tab (dir +1 / -1) from anywhere in it. False = no tabs.
+  virtual bool switch_tab(int /*dir*/) { return false; }
   // Screen-level actions by id.
   virtual std::vector<ScreenAction> actions() { return {}; }
   bool invoke_action(std::string_view id);

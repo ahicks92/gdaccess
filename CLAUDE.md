@@ -258,11 +258,26 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   (47 units) and a lore note qualify as objects, the locked gate and the checkpoint do not. Dev:
   `/scan?group=0..3&max=`, `/classinfo`, `/entities` marks `[FixedActor|Item interest|no-interest]`, `/key`
   knows period/comma/semicolon/... names. Open: whether wall tones / pings should follow zoom (by ear), key rebinding.
-- In-world windows surveyed statically 2026-08-22 (`docs/ingame-ui-survey.md`: every InGameUI window's offset,
-  ctor, controls, the exports that feed it, and a difficulty verdict; none exercised live). Two corrections
-  from it: `gGameEngine`/`gEngine` ARE exported data symbols, and `LocalizationManager::Instance()` +
-  `LocalizeWithoutParams` are public exports (no hook needed). The inventory/character window is
-  `InGameUI+0xbbf0` (missing from exe-ui-layout.md; `+0x52258` is the Inspect twin).
+- In-world windows, first pass 2026-08-22 (survey + exe readouts in `docs/ingame-ui-survey.md`; player keys in
+  `docs/controls.md`): the model layer `src/gameapi*.cpp` reads quests, factions, hot slots, lore, bags,
+  equipment, skills, masteries and the character sheet through Game.dll exports (`gGameEngine`/`gEngine` ARE
+  exported data; `LocalizationManager::Instance()+LocalizeWithoutParams` are public; `GameTextLine` = 0x40
+  stride with the u16 string at +8; id -> object via a cached `ObjectManager::GetObjectList` sweep with a
+  pre-sized buffer; virtual text builders dispatched through the object's vtable, with COMDAT-folded base
+  bodies detected as "ambiguous" slots). Screens (`src/screens/window_base.h`: active = the window's IsVisible,
+  Escape = Show(false), tab row + Ctrl+Tab, one column): `inventory` (InGameUI+0xbbf0; Equipment / bags /
+  Stats with attribute "+"), `skills` (class selection via `SkillsWindow::SetPane` exe+0x27c580, tree per
+  mastery, learn/refund = the window's own IncrementSkillLevel+SubtractSkillPoint sequence, Ctrl+1..0/J/I
+  assignment), `codex` (quest tree + lore), `factions`, `vendor`, `stash`, `quest_reward`, `shrine`; in-world
+  keys Q objectives, Y quickbar, G pickup (`InGameUI::HandleKeyAction(0x37)` by RVA, signature-checked).
+  VERIFIED through the loop: inventory (equipment, bag read/unequip/re-equip via SmartAutoInsert, sheet,
+  attribute point), skills (choose Soldier -> spend on mastery -> learn Cadence -> slot 1 and left mouse),
+  codex, factions, Q/Y/G, `/cheat?xp=` (`GameEngine::CharacterExperienceOutbound`) to reach level 2. NOT yet
+  seen live: vendor, stash, shrine, quest reward (no NPC of those kinds at the spawn). Lessons: a signature
+  longer than the 16-byte check buffer killed the game (exe_ui now clamps); `push rdi` carries a 0x40 REX
+  prefix in this exe; `EquipmentCtrl::RemoveItem` only detaches (always AddItem to the bag first); the bag
+  map's pair sits at +0x1c/+0x20 (4-byte value alignment), the market map's at +0x20/+0x28. Dev routes:
+  `/quests /objectives /factions /hotbar /lore /inv /skills /sheet /obj /loc2 /cheat /ingame?action=`.
 - Next (needs the user's hands): player-facing targeting keys (nearest enemy / cycle / announce name,
   distance, direction -- the hover name arrives as `box_font` HUD text), an attack key that clicks the locked
   target, wall-tone tuning by ear, hover sounds, the Delete-character screen, the main menu icon buttons.

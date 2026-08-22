@@ -13,6 +13,7 @@ void remove();
 
 bool in_world();                 // the engine, the main player and its controller have all been seen
 void* game_engine();             // the GAME::GameEngine instance (captured from GameEngine::Update; null before)
+void* controller();              // the main player's ControllerPlayer (captured from ControllerPlayer::Update; null before)
 bool player_position(Vec3& p);   // world-space position of the main player (feet)
 std::string player_name();
 std::string region_name();

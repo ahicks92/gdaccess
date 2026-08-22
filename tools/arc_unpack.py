@@ -17,6 +17,7 @@ for i in range(numE):
         blob += chunk if c==u else lz4.block.decompress(chunk, uncompressed_size=u)
     print("===",nm,len(blob))
     txt=blob.decode('utf-8-sig',errors='replace')
+    import re, sys
+    rx = re.compile(sys.argv[1], re.I) if len(sys.argv) > 1 else None   # usage: arc_unpack.py <regex over "tag=text" lines>
     for line in txt.splitlines():
-        if line.split('=')[0] in ("tagUse","tagPickup","tagForceMove","tagMove","tagEvade","tagToggleUI","tagAltarWindow","tagSelectAllPets","tagMoveForward","tagSkillReclamationMode","tagPushToTalk"):
-            print("   ", line)
+        if rx and rx.search(line): print("   ", line)

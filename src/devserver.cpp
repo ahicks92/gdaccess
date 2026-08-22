@@ -11,6 +11,9 @@
 #include "combat.h"
 #include "voice.h"
 #include "screens/in_game.h"
+#include "screens/inventory.h"
+#include "screens/quickbar.h"
+#include "gameapi.h"
 #include <cmath>
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -198,7 +201,44 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     uintptr_t p = q.count("ptr") ? (uintptr_t)strtoull(q.at("ptr").c_str(), nullptr, 0) : 0;
     return exe_ui::activate_ptr(p) ? "activated\n" : "not a button in the current tree (see /ui)\n";
   }
-  if (path == "/ingame") return exe_ui::ingame_dump();    // InGameUI's windows and the prompt box (framework B)
+  // ---- the in-world windows' model (src/gameapi.h) ----
+  if (path == "/quests") { if (q.count("track")) return gameapi::set_quest_tracked((void*)strtoull(q.at("track").c_str(), nullptr, 0), !q.count("off")) ? "ok\n" : "failed\n"; return gameapi::dump_quests(parse_int(q.count("filter") ? q.at("filter") : "0", 0)); }
+  if (path == "/objectives") { std::string out; for (const std::string& l : gameapi::objectives()) out += l + "\n"; return out.empty() ? "no objectives\n" : out; }
+  if (path == "/factions") return gameapi::dump_factions();
+  if (path == "/hotbar") {   // ?assign=<slot index>&skill=<id> | ?primary=<id> | ?secondary=<id> | ?activate=<index> | ?tip=<index> | ?base=&stride= (quickbar layout knob)
+    if (q.count("base")) screens::set_quickbar_base((unsigned)parse_int(q.at("base"), 0), (unsigned)parse_int(q.count("stride") ? q.at("stride") : "10", 10));
+    if (q.count("assign")) return gameapi::assign_skill_to_slot((unsigned)parse_int(q.at("assign"), 0), (unsigned)parse_int(q.count("skill") ? q.at("skill") : "0", 0)) ? "ok\n" : "failed\n";
+    if (q.count("primary")) return gameapi::set_primary_skill((unsigned)parse_int(q.at("primary"), 0)) ? "ok\n" : "failed\n";
+    if (q.count("secondary")) return gameapi::set_secondary_skill((unsigned)parse_int(q.at("secondary"), 0)) ? "ok\n" : "failed\n";
+    if (q.count("activate")) return gameapi::activate_hotslot((unsigned)parse_int(q.at("activate"), 0)) ? "ok\n" : "failed\n";
+    if (q.count("tip")) { std::string out; for (const std::string& l : gameapi::hotslot_tooltip((unsigned)parse_int(q.at("tip"), 0))) out += l + "\n"; return out.empty() ? "no text\n" : out; }
+    return gameapi::dump_hotslots();
+  }
+  if (path == "/lore") { if (q.count("read")) { std::string out; for (const std::string& l : gameapi::note_text(gameapi::object_by_id((unsigned)parse_int(q.at("read"), 0)))) out += l + "\n"; return out.empty() ? "no text\n" : out; } return gameapi::dump_lore(); }
+  if (path == "/inv") {      // ?tip=<id>[&simple=1] | ?use=<id>[&source=N] | ?drop=<id> | ?unequip=<loc> | ?equip=<id>&loc=<loc> | ?bag=<n> | ?source=N (the UseItem ItemSource knob)
+    if (q.count("source")) screens::set_bag_item_source(parse_int(q.at("source"), 0));
+    if (q.count("tip")) { std::string out; for (const std::string& l : gameapi::item_tooltip(gameapi::object_by_id((unsigned)parse_int(q.at("tip"), 0)), q.count("simple"), q.count("details"))) out += l + "\n"; return out.empty() ? "no text\n" : out; }
+    if (q.count("use")) return gameapi::use_item((unsigned)parse_int(q.at("use"), 0), screens::bag_item_source()) ? "ok\n" : "failed\n";
+    if (q.count("drop")) return gameapi::drop_item((unsigned)parse_int(q.at("drop"), 0)) ? "ok\n" : "failed\n";
+    if (q.count("unequip")) return gameapi::unequip(parse_int(q.at("unequip"), 0)) ? "ok\n" : "failed\n";
+    if (q.count("equip")) return gameapi::equip((unsigned)parse_int(q.at("equip"), 0), parse_int(q.count("loc") ? q.at("loc") : "0", 0)) ? "ok\n" : "failed\n";
+    if (q.count("bag")) return gameapi::select_bag(parse_int(q.at("bag"), 0)) ? "ok\n" : "failed\n";
+    return std::format("item source knob {}\n", screens::bag_item_source()) + gameapi::dump_bags() + gameapi::dump_equipment();
+  }
+  if (path == "/skills") {   // ?tip=<id> | ?learn=<id> | ?refund=<id> | ?attr=1..3 (spend an attribute point) | ?pane=<mastery enum|80>&tab=0|1
+    if (q.count("attr")) return gameapi::spend_attribute_point(parse_int(q.at("attr"), 0)) ? "ok\n" : "failed\n";
+    if (q.count("pane")) return exe_ui::skills_set_pane(parse_int(q.count("tab") ? q.at("tab") : "0", 0), parse_int(q.at("pane"), 0)) ? "ok\n" : "failed\n";
+    if (q.count("pickup")) return gameapi::pickup_item((unsigned)parse_int(q.at("pickup"), 0)) ? "ok\n" : "failed\n";
+    if (q.count("tip")) { std::string out; for (const std::string& l : gameapi::skill_tooltip(gameapi::object_by_id((unsigned)parse_int(q.at("tip"), 0)))) out += l + "\n"; return out.empty() ? "no text\n" : out; }
+    if (q.count("learn")) return gameapi::learn_skill(gameapi::object_by_id((unsigned)parse_int(q.at("learn"), 0))) ? "ok\n" : "failed\n";
+    if (q.count("refund")) return gameapi::refund_skill(gameapi::object_by_id((unsigned)parse_int(q.at("refund"), 0))) ? "ok\n" : "failed\n";
+    return gameapi::dump_skills();
+  }
+  if (path == "/sheet") return gameapi::dump_sheet();
+  if (path == "/cheat") return q.count("xp") ? (gameapi::dev_add_experience((unsigned)parse_int(q.at("xp"), 0)) ? "ok\n" : "failed\n") : std::string("?xp=N\n");
+  if (path == "/obj") return q.count("id") ? gameapi::dump_object((unsigned)parse_int(q.at("id"), 0)) : gameapi::dump_objects_stats();
+  if (path == "/loc2") return q.count("tag") ? gameapi::localize(q.at("tag")) + "\n" : std::string("?tag=\n");
+  if (path == "/ingame") { if (q.count("action")) return exe_ui::ingame_key_action(parse_int(q.at("action"), 0)) ? "ok\n" : "failed\n"; return exe_ui::ingame_dump(); }    // InGameUI's windows and the prompt box (framework B)
   if (path == "/peek") {                                 // /peek?ptr=0x...&n=256 -- hex dump (dev; SEH-guarded)
     uintptr_t p = q.count("ptr") ? (uintptr_t)strtoull(q.at("ptr").c_str(), nullptr, 0) : 0;
     return exe_ui::peek(p, q.count("n") ? parse_int(q.at("n"), 256) : 256);

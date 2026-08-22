@@ -43,7 +43,9 @@ add_library(gdaccess SHARED
   src/dllmain.cpp src/log.cpp src/speech.cpp src/hooks.cpp src/textcap.cpp src/devserver.cpp src/audio_mute.cpp src/app.cpp src/screens/main_menu.cpp src/screens/create_character.cpp src/screens/difficulty_select.cpp
   src/audio.cpp src/world.cpp src/screens/in_game.cpp src/screens/message_box.cpp src/screens/pause_menu.cpp
   src/screens/loading.cpp src/screens/tip.cpp src/screens/conversation.cpp src/exe_ui.cpp src/screens/delete_character.cpp src/screens/options.cpp
-  src/voice.cpp src/tts_onecore.cpp src/combat.cpp)
+  src/voice.cpp src/tts_onecore.cpp src/combat.cpp src/gameapi.cpp src/gameapi_items.cpp src/gameapi_skills.cpp
+  src/screens/codex.cpp src/screens/factions.cpp src/screens/inventory.cpp src/screens/skills.cpp src/screens/quickbar.cpp
+  src/screens/modals.cpp src/screens/vendor.cpp)
 # C++/WinRT (OneCore speech in src/tts_onecore.cpp): the projection headers are heavy, and windowsapp.lib's
 # api-ms-win-* imports are delay-loaded so a machine without them loses combat speech, not the whole mod.
 set_source_files_properties(src/tts_onecore.cpp PROPERTIES COMPILE_OPTIONS "/bigobj")

@@ -66,4 +66,20 @@ MessageBuilder& push_combat_word(MessageBuilder& m, std::string_view word) {
   return m;
 }
 
+MessageBuilder& push_quest_objective(MessageBuilder& m, std::string_view quest, std::string_view objective) {
+  return m.fragment(std::string(quest) + ":").fragment(objective);
+}
+MessageBuilder& push_stack(MessageBuilder& m, std::string_view name, unsigned stack) {
+  m.fragment(name);
+  if (stack > 1) m.list_item().fragment(std::format("x {}", stack));
+  return m;
+}
+MessageBuilder& push_stat(MessageBuilder& m, std::string_view label, std::string_view value) { return m.fragment(label).fragment(value); }
+MessageBuilder& push_skill_level(MessageBuilder& m, unsigned level, unsigned max_level) { return m.list_item().fragment(kLevel).fragment(std::format("{} of {}", level, max_level)); }
+MessageBuilder& push_faction(MessageBuilder& m, std::string_view name, std::string_view level_name, float value, int low, int high) {
+  m.list_item().fragment(name);
+  if (!level_name.empty()) m.list_item().fragment(level_name);
+  m.list_item().fragment(std::format("{:.0f} of {}", value - (float)low, high - low));
+  return m;
+}
 }  // namespace gd::strings

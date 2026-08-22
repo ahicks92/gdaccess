@@ -274,6 +274,60 @@ built from the .arz graph + Skill state; the game's own hit-test (exe+0x18a820) 
 `+0xb08` aerialMap, `+0x7940` riftGateMap sub-object (the only window overriding HandleKeyEvent,
 exe+0x1f4ea0). The riftgate destination list is unexamined.
 
+## Readouts and corrections from the implementation pass (2026-08-22, evening)
+Confirmed in disassembly by two further passes and, where marked, live through the dev loop.
+- **Skills window**: `+0x128/+0x130` is a vector of record-path strings (stride 0x20, 0x51 entries:
+  `skillCtrlPane1..80`, then `masterySelectWindow` at 0x50), not controls. Panes: `+0x100` (tab 0), `+0x108`
+  (tab 1); `+0x2630` current tab; `+0x98` player id; `+0x1528` tab registry with buttons `+0x1568/+0x1918/+0x1cc8`
+  = tab 0 / tab 1 / Devotion (captions at button+0x358). **`SkillsWindow::SetPane = exe+0x27c580(window, tab,
+  paneIndex)`** (paneIndex = mastery enumeration, 0x50 = the class-selection pane) is what clicking a mastery
+  does; nothing is granted until the mastery skill takes a point (`Skill::IncrementSkillLevel(1)` vtable +0x48
+  after `ReleasePets` +0x80, then `Character::SubtractSkillPoint`); `Undo Class Selection` = SetPane(tab, 0x50),
+  offered while the mastery skill's level is 0. Mastery enumeration N <-> `records/ui/skills/class{N+1:02}/
+  classtable.dbr` <-> `records/skills/playerclass{N+1:02}/_classtraining_class{N+1:02}.dbr`; the six choices are
+  `tagSkillClassName01..06` / `tagSkillClassDescription01..06`. First mastery allowed at level 1, second at 10
+  (`masteryIncrementLevel` in the pc records). The window's only dialog is `tagConfirmSkillChanges` (party 0x16).
+  The HUD skills button (`+0x9db0`) is disabled at level 1 (verified live: N shows the "Using Skills" tip instead).
+- **Character sheet** (pane 1 Update exe+0x13d870): CharAttributeType 1 Physique, 2 Cunning, 3 Spirit, 4 health
+  max, 5 energy max (labels `tagCharAttributeName02/01/03/04/05`); OA/DA = `Character::DesignerCalculate
+  OffensiveAbility/DefensiveAbility(float)`; resistances by defense type -- Fire 6, Cold 5, Lightning 8,
+  Poison 7, Piercing 4, Bleeding 15, Vitality 9, Aether 11, Physical 2, Chaos 10 (labels `tagStatsResistance01..10`
+  in that order) through `CombatAttributeAccumulator::GetTotalDefenseType`; the "+" buttons =
+  `ControllerCharacter::IncrementCharacterStrength/Dexterity/Intelligence()` + `IncrementCharacterLife((int)
+  Character::Get{Strength,Dexterity,Intelligence}LifeIncrement())` (+ `IncrementCharacterMana()` for Spirit),
+  gated on `Character::GetModifierPoints()`. Verified live: Physique 55 -> 63 after one point.
+- **Items**: `ItemSource` 1 = bag, 2 = private stash, 3 = transfer, 4 = trade, 5 = station slot, 7 = caravan
+  reagents; equipment slots are addressed by `SetEquipId`, not a source. Bag right-click = `PlayerInventoryCtrl::
+  UseItem(id, 1)` for consumables, else `EquipmentCtrl::SmartAutoInsert(id, displaced&, false)` + `PlayerInventoryCtrl::
+  RemoveItem(id, true)` + `AddItem(displaced, true, false)` (verified live). Unequip = `AddItem(id, true, false)`
+  then `EquipmentCtrl::RemoveItem(id)` (RemoveItem alone orphans the item -- verified live). `PlaceItem(loc, id,
+  suppressSound, alt)` returns the displaced id and sends the attach/detach commands itself. The live cursor
+  handler is `[[main_obj+0x90]+0x108]`. `mem::map<unsigned, Rect>` nodes: key +0x1c, Rect +0x20 (pixels, 32 per
+  cell); the market map (pointer values) has key +0x20, value +0x28.
+- **Hot slots** (47 per weapon config): bar 1 = 0..9, left mouse 10 (config A) / 11 (B), right mouse 12/13,
+  bar 2 = 14..23, health potion 24, energy potion 25, bar 3 = 26..35, bar 4 = 36..45, evade 46; the HUD's bar
+  page at `InGameUI+0x72f0`. `SetHotSlot` deep-copies the option; `SetPrimarySlot/SetSecondarySlot(option*)`
+  set the mouse slots (`SetPrimarySkillId` did nothing live). `HotSlotOption` vtable: +0x28 GetCooldownRemaining,
+  +0x30 GetStatus, +0x78 GetRolloverText, +0x80 GetDisplayName, +0xa0 GetSkillId; object +0x08 Player*, +0x10
+  SLOT_TYPE (0 skill, 2 health potion, 3 energy potion, 4 scroll, 5 evade), +0x18 skill id. Status: 0 none, 1 ready,
+  2 cooldown, 3 cooldown with charges, 4 no energy, 5 none left, 6 one-shot not ready, 7 wrong weapon, 8 wrong stance.
+- **Pickup**: the Pickup key (exe+0x21c6c0) = nearest `Item` within 10 units passing IsOfInterest / visible /
+  ownership / loot filter, then `ControllerPlayer::ItemAction(false, false, coords, item)` (walks to it);
+  `ControllerCharacter::PickupItem(id)` is the id-only command with no range check. Calling
+  `InGameUI::HandleKeyAction(ui, 0x37, true, false, false)` (exe+0x211980) runs the key's own path (verified
+  live; an empty matching slot auto-equips). Auto-pickup is in `Player::UpdateSelf` (potions, gold, quest items ...).
+- **Stack split** (`+0x83ed8`): opens on Ctrl+click of a stack (`exe+0x21ad70(ui, itemId, rect)`); `+0xb0` item
+  id, `+0x1438` count, `+0x1268` edit box (text `+0x12d8`), ok `+0x160`, cancel `+0x510`, registry `+0x118`,
+  visible `+0x68`; OK creates the split stack ON THE CURSOR. Not modelled yet.
+- **Registries**: quest reward `+0x738` (Accept `+0x388`); shrine `+0x11b0` (Offer `+0x11f8`, Cancel `+0x15a8`,
+  Close `+0x1958`). Framework-B vtable `+0xf0` is NOT always OnControlEvent (the stack window uses +0xe8..+0x100
+  for setters and presses arrive at the window+0x90 listener on event code 0).
+- **Dev XP**: `GameEngine::CharacterExperienceOutbound(engine, playerId, xp)` is what the script action
+  `GiveExperience` calls (`/cheat?xp=`; verified: level 1 -> 2 with 69 XP). `SkillManager::AddExperience` is
+  per-skill experience, not the character's.
+- `GameEngine::GetObjectives()` is empty in the campaign; the objective tracker is the tracked quests'
+  in-progress tasks' open objectives, then the next available task's.
+
 ## Dead record fields
 `hudTeleportWindow`, `hudTutorialWindow`, `hudSlotConfigWindow`, `hudHealthPotionSlot`, `hudManaPotionSlot`,
 `hudScoreText` appear in `hud_mastertable.dbr` but nowhere in the exe.
