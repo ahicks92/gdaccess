@@ -312,13 +312,22 @@ void GraphNavigator::announce_move(const MoveResult& r) {
 }
 
 // Run the focused node's activation; speak its state_text as immediate feedback when it declares one,
-// and rebaseline the live watch so the same change is not spoken twice.
+// and rebaseline the live watch so the same change is not spoken twice. The rebaseline must see the
+// post-activation values: the current render still carries the old ones (its announcements captured them
+// at build time), so rerender first -- otherwise the next tick baselines on the stale render and then
+// announces the change a second time.
+void GraphNavigator::feedback_after_change() {
+  const GraphNode* node = graph_->current_node();
+  if (!node || !node->vtable || !node->vtable->state_text) return;
+  speak(node->vtable->state_text(), true);
+  graph_->rerender();
+  live_key_.reset();
+}
 bool GraphNavigator::vtable_activate() {
   const GraphNode* node = graph_->current_node();
   if (!node || !node->vtable || !node->vtable->on_activate) return false;
   graph_->activate();
-  node = graph_->current_node();
-  if (node && node->vtable && node->vtable->state_text) { speak(node->vtable->state_text(), true); live_key_.reset(); }
+  feedback_after_change();
   return true;
 }
 
@@ -326,8 +335,7 @@ bool GraphNavigator::vtable_adjust(int sign) {
   const GraphNode* node = graph_->current_node();
   if (!node || !node->vtable || !node->vtable->on_adjust) return false;
   graph_->try_adjust(sign, false);
-  node = graph_->current_node();
-  if (node && node->vtable && node->vtable->state_text) { speak(node->vtable->state_text(), true); live_key_.reset(); }
+  feedback_after_change();
   return true;
 }
 

@@ -27,8 +27,20 @@ std::string speakable(std::u16string_view raw) {
     }
     out.push_back(raw[i]);
   }
+  return speakable(std::string_view(log::utf8(out)));
+}
+std::string speakable(std::string_view utf8) {
+  std::string s;
+  s.reserve(utf8.size());
+  for (size_t i = 0; i < utf8.size(); ++i) {
+    if (utf8[i] == '^' && i + 1 < utf8.size()) { if (utf8[i + 1] == 'n') s.push_back(' '); ++i; continue; }
+    if (utf8[i] == '{') {
+      size_t close = utf8.find('}', i);
+      if (close != std::string_view::npos && close - i <= 8) { i = close; continue; }
+    }
+    s.push_back(utf8[i]);
+  }
   // collapse whitespace runs and trim
-  std::string s = log::utf8(out);
   std::string t;
   for (char c : s) {
     bool ws = c == ' ' || c == '\t' || c == '\n' || c == '\r';

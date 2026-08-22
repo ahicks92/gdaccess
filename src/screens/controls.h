@@ -1,13 +1,14 @@
 #pragma once
 // Shared building blocks for the game's screens: the control types (role word + speak order) and the
-// "activate = synthesized click at the drawn label" helpers. The label is known to exist on the screen we
-// modelled; only its pixel position is read from the game at activation time (it depends on resolution).
+// widget-backed button item (label, enabled state and activation all from the exe's own button object).
 #include <memory>
 #include <string>
 #include "core/graph_types.h"
 #include "core/strings.h"
+#include "exe_ui.h"
 #include "hooks.h"
 #include "log.h"
+#include "speech.h"
 #include "textcap.h"
 
 namespace gd::screens {
@@ -18,23 +19,30 @@ inline const gd::core::ControlType kRadioType{"radio", {"label", "role", "select
     [] { return std::vector<gd::core::NodeAnnouncement>{gd::core::NodeAnnouncement([] { return std::string(gd::strings::kRadio); }, false, gd::core::announcement_kinds::kRole)}; }};
 inline const gd::core::ControlType kToggleType{"toggle", {"label", "role", "value"},
     [] { return std::vector<gd::core::NodeAnnouncement>{gd::core::NodeAnnouncement([] { return std::string(gd::strings::kToggle); }, false, gd::core::announcement_kinds::kRole)}; }};
+inline const gd::core::ControlType kSliderType{"slider", {"label", "role", "value"},
+    [] { return std::vector<gd::core::NodeAnnouncement>{gd::core::NodeAnnouncement([] { return std::string(gd::strings::kSlider); }, false, gd::core::announcement_kinds::kRole)}; }};
+inline const gd::core::ControlType kComboType{"combo", {"label", "role", "value"},
+    [] { return std::vector<gd::core::NodeAnnouncement>{gd::core::NodeAnnouncement([] { return std::string(gd::strings::kComboBox); }, false, gd::core::announcement_kinds::kRole)}; }};
+inline const gd::core::ControlType kTabType{"tab", {"label", "role", "selected", "position"},
+    [] { return std::vector<gd::core::NodeAnnouncement>{gd::core::NodeAnnouncement([] { return std::string(gd::strings::kTab); }, false, gd::core::announcement_kinds::kRole)}; }};
 inline const gd::core::ControlType kEditType{"edit", {"label", "role", "value"},
     [] { return std::vector<gd::core::NodeAnnouncement>{gd::core::NodeAnnouncement([] { return std::string(gd::strings::kTextField); }, false, gd::core::announcement_kinds::kRole)}; }};
 
-// Click at a drawn label, optionally offset from it (a text field's box sits below its label). `last` takes
-// the lowest match on screen when the same label is drawn more than once (a dialog over the main menu).
-inline void click_label(std::string_view screen, const std::string& label, int dx = 0, int dy = 0, bool last = false) {
-  textcap::Item it;
-  if (textcap::find_item(label, it, last)) hooks::click((float)(it.x + dx), (float)(it.y + dy));
-  else log::writef("{}: label '{}' not on screen at activation", screen, label);
-}
-
-// A plain button whose activation is a click on its label.
-inline gd::core::NodeVtablePtr click_button(std::string_view screen, std::string label) {
+// A button of the exe's menu tree as a graph item: the label is the game's own caption (or `label` when the
+// button has none, e.g. the main menu's icon buttons), "disabled" from the widget's enabled byte, activation
+// through the button's listeners. The handle is per render, never stored (the graph is immediate-mode).
+inline gd::core::NodeVtablePtr widget_button(gd::exe_ui::WidgetA w, std::string label = {}) {
   auto v = std::make_shared<gd::core::NodeVtable>();
   v->control_type = &kButtonType;
-  v->announcements = {gd::core::NodeAnnouncement([label] { return label; }, false, gd::core::announcement_kinds::kLabel)};
-  v->on_activate = [screen, label] { click_label(screen, label); };
+  if (label.empty()) label = w.caption();
+  bool enabled = w.enabled();
+  v->announcements = {gd::core::NodeAnnouncement([label] { return label; }, false, gd::core::announcement_kinds::kLabel),
+                      gd::core::NodeAnnouncement([enabled] { return enabled ? std::string() : std::string(gd::strings::kDisabled); }, true, gd::core::announcement_kinds::kEnabled)};
+  v->on_activate = [w, enabled] {
+    if (!enabled) { speech::speak(gd::strings::kDisabled, true); return; }
+    w.activate();
+  };
   return v;
 }
+
 }  // namespace gd::screens

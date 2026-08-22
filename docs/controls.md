@@ -71,16 +71,23 @@ stationary attack, Ctrl pet targeting) and typing into the game's chat field.
 | Key | Action |
 |---|---|
 | . / Shift+. | Next / previous enemy (nearest first from the player) |
-| N / Shift+N | Next / previous person (NPCs you can talk to) |
-| B / Shift+B | Next / previous bystander (flavour NPCs) |
-| M / Shift+M | Next / previous object |
-| I, Enter | Interact with the reviewed thing (a click on it: attack / talk / open / pick up) |
+| N / Shift+N | Next / previous person (NPCs with a conversation -- `Npc::HasConversation`) |
+| B / Shift+B | Next / previous bystander (NPCs without one) |
+| M / Shift+M | Next / previous object: what the game's Interact key would use -- doors, chests, shrines, levers, items (`FixedActor`/`Item` whose `IsOfInterest()` says so) |
+| J (or Enter) | Left mouse button at the reviewed thing (or the real cursor when nothing is reviewed): attack / talk / open / pick up / move, exactly as a click. HOLD to hold (sustained attack, skill, move). A reviewed thing the camera does not show: "too far away", nothing happens |
+| I | Right mouse button, same rules (the right-slot skill; hold to hold) |
+| U | The game's own Interact: uses the nearest usable object (door, chest, shrine ...) or NPC within 10 units of the character, no aiming, walks there if needed |
+| (camera) | Locked by the mod: zoom at the far end of its range, north up (yaw 0); the game's wheel/rotate inputs are re-pinned every frame. Zoom was found not to change what you hear (2026-08-22) |
 | ; (semicolon) | Ping the reviewed thing again: one of three sounds for the route from you to it (straight walk / path around / unreachable), panned toward it, fading with distance; also played on every landing |
 | K, Ctrl+Shift+P | Where am I (position, life, region) |
+| H | Health and energy in full ("health 250 of 250, energy 100 of 120"), in the player's own voice (Zira) |
+| (automatic) | Hits you or your pets land: the number the game draws over the enemy ("17", "45 crit", "Miss", "Dodge", "Block"), spoken by Mark panned to where it happened, as many at once as there are hits. Needs the game's "Display damage numbers" option (`displayDamage`, default on). Health: "health N percent" in Zira each time it crosses a 10 % step, down or up |
 | Ctrl+<game key> | The game's own windows and functions (see above) |
 
-A landing speaks "name, distance away, clock bearing, i of n" and parks the game's cursor on the thing, so
-the game hovers and targets it itself. The review cursor remembers an object ID, never a pointer: each
+A landing speaks "name, [distant,] distance away, clock bearing, i of n" -- "distant" when the camera does
+not show it, so it cannot be clicked right now -- and parks the game's cursor on the thing while it is on
+screen, so the game hovers and targets it itself. (Decided 2026-08-22, deviating from wotr: the player is
+always embodied here, perception and interaction are what the camera shows; the camera is the player's.) The review cursor remembers an object ID, never a pointer: each
 step rebuilds the nearest-first list live and continues from that ID, or enters at the nearest if it is gone.
 
 ## Keys the mod must not take from the game in the world

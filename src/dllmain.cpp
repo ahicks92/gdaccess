@@ -2,7 +2,10 @@
 #include "app.h"
 #include "audio.h"
 #include "audio_mute.h"
+#include "combat.h"
+#include "voice.h"
 #include "world.h"
+#include "exe_ui.h"
 #include "devserver.h"
 #include "hooks.h"
 #include "log.h"
@@ -26,11 +29,17 @@ static DWORD WINAPI init_thread(LPVOID) {
   bool sp = gd::speech::init();
   gd::hooks::install();
   gd::world::install();
+  gd::combat::install();
+  gd::exe_ui::install();
   gd::audio::init();
+  gd::voice::init();  // the positional voices (OneCore worker); falls back to the screen reader if it fails
   gd::app::init();
   gd::dev::start(env_int(L"GDACCESS_PORT", 8791));
   gd::speech::speak(sp ? "G D Access loaded" : "G D Access loaded, no speech backend", true);
-  if (mute) { Sleep(3000); gd::audio::mute_process(true); }  // give the game time to open its audio session
+  // Always APPLY the state, both ways: Windows remembers a per-app session mute across launches, so a muted dev
+  // run would otherwise leave the next real (speaking) launch silent. Give the game time to open its session.
+  Sleep(3000);
+  gd::audio::mute_process(mute);
   return 0;
 }
 
@@ -41,10 +50,15 @@ extern "C" __declspec(dllexport) DWORD WINAPI gdaccess_unload(LPVOID) {
   gd::log::write("gdaccess: unloading");
   gd::dev::stop();
   gd::app::shutdown();
+  gd::combat::remove();
+  gd::voice::shutdown();  // joins the worker before the mixer it feeds goes away
   gd::audio::shutdown();
   gd::world::remove();
   gd::hooks::remove();
   gd::speech::shutdown();
+  // The detours are gone, but the game thread may still be inside one of our hook bodies (the per-frame tick
+  // runs from Engine::Update): let any in-flight frame finish before the injector unmaps this DLL.
+  Sleep(250);
   gd::log::write("gdaccess: hooks removed, ready for FreeLibrary");
   return 1;
 }

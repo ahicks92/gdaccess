@@ -42,21 +42,31 @@ struct Loop {
 };
 constexpr ULONGLONG kLoopStaleMs = 250;  // the game stops ticking us while paused; the loops must not sing on
 
-// A one-shot sample voice: plays a cached mono buffer once at fixed gains, then is removed.
+// A one-shot sample voice: plays a shared mono buffer once at fixed gains, then is removed. The buffer is
+// owned for the shot's lifetime (a speech cache may evict its copy meanwhile). group tags shots that replace
+// each other (a new health line cuts the old one with a short fade instead of overlapping it).
+constexpr int kFadeSamples = 48000 * 5 / 1000;  // 5 ms
 struct Shot {
-  const std::vector<float>* samples;
+  Pcm buf;
   size_t pos = 0;
-  float gl, gr;
+  float gl = 0, gr = 0;
+  int group = 0;
+  uint32_t id = 0;
+  int fade_out = -1;  // samples of linear fade left; -1 = none
+  bool mastered = true;  // false: carries its own level (rendered speech), like the loops
 };
 
 std::mutex g_mu;
 std::vector<Tone> g_tones;
 std::vector<Loop> g_loops;
 std::vector<Shot> g_shots;
-std::map<std::string, std::vector<float>> g_sample_cache;  // decoded mono at the mixer rate; never freed
+std::vector<Pcm> g_reap;  // finished shots' buffers, released outside the audio callback
+std::map<std::string, Pcm> g_sample_cache;  // decoded mono at the mixer rate; never freed
 ma_device g_device;
 bool g_ready = false;
 float g_master = 0.6f;
+uint32_t g_next_shot_id = 1;
+void reap_locked() { g_reap.clear(); }  // caller holds g_mu
 
 void pan_gains(float pan, float& l, float& r) {
   float a = (pan + 1.0f) * (kPi / 4.0f);  // equal power
@@ -96,13 +106,20 @@ void data_callback(ma_device*, void* out, const void*, ma_uint32 frames) {
     }
   }
   for (Shot& sh : g_shots) {
-    const std::vector<float>& s = *sh.samples;
+    const std::vector<float>& s = *sh.buf;
     for (ma_uint32 i = 0; i < frames && sh.pos < s.size(); ++i, ++sh.pos) {
-      float v = s[sh.pos] * master;
+      float v = s[sh.pos] * (sh.mastered ? master : 1.0f);
+      if (sh.fade_out >= 0) {
+        if (sh.fade_out == 0) { sh.pos = s.size(); break; }
+        v *= (float)sh.fade_out / (float)kFadeSamples;
+        --sh.fade_out;
+      }
       o[i * 2] += v * sh.gl; o[i * 2 + 1] += v * sh.gr;
     }
   }
-  std::erase_if(g_shots, [](const Shot& sh) { return sh.pos >= sh.samples->size(); });
+  for (Shot& sh : g_shots)
+    if (sh.pos >= sh.buf->size() && g_reap.size() < g_reap.capacity()) g_reap.push_back(std::move(sh.buf));
+  std::erase_if(g_shots, [](const Shot& sh) { return !sh.buf || sh.pos >= sh.buf->size(); });
   for (ma_uint32 i = 0; i < frames * 2; ++i) o[i] = o[i] > 1.0f ? 1.0f : o[i] < -1.0f ? -1.0f : o[i];
   std::erase_if(g_tones, [](const Tone& t) { return t.dead; });
 }
@@ -119,6 +136,7 @@ bool init() {
   if (ma_device_init(nullptr, &cfg, &g_device) != MA_SUCCESS) { log::write("audio: device init failed"); return false; }
   if (ma_device_start(&g_device) != MA_SUCCESS) { log::write("audio: device start failed"); ma_device_uninit(&g_device); return false; }
   g_ready = true;
+  { std::lock_guard lk(g_mu); g_reap.reserve(64); }
   log::writef("audio: output ready ({} Hz, {} ms periods)", kRate, cfg.periodSizeInMilliseconds);
   return true;
 }
@@ -129,6 +147,8 @@ void shutdown() {
   std::lock_guard lk(g_mu);
   g_tones.clear();
   g_loops.clear();
+  g_shots.clear();
+  g_reap.clear();
 }
 bool ready() { return g_ready; }
 
@@ -185,11 +205,12 @@ void unload_loop(int id) {
 }
 
 void play_sample(const std::string& wav_path, float volume, float pan) {
-  const std::vector<float>* buf = nullptr;
+  Pcm buf;
   {
     std::lock_guard lk(g_mu);
+    reap_locked();
     auto it = g_sample_cache.find(wav_path);
-    if (it != g_sample_cache.end()) buf = &it->second;
+    if (it != g_sample_cache.end()) buf = it->second;
   }
   if (!buf) {
     ma_decoder_config dc = ma_decoder_config_init(ma_format_f32, 1, kRate);
@@ -205,13 +226,50 @@ void play_sample(const std::string& wav_path, float volume, float pan) {
     }
     ma_decoder_uninit(&dec);
     std::lock_guard lk(g_mu);
-    buf = &(g_sample_cache[wav_path] = std::move(samples));  // node-stable: the map never erases
+    buf = g_sample_cache[wav_path] = std::make_shared<const std::vector<float>>(std::move(samples));
   }
+  play_pcm(buf, volume, pan, 0, false);
+}
+
+uint32_t play_pcm(Pcm samples, float volume, float pan, int group, bool replace_group, bool apply_master) {
+  if (!samples || samples->empty()) return 0;
   float l, r; pan_gains(pan, l, r);
   volume = volume < 0 ? 0 : volume > 1 ? 1 : volume;
   std::lock_guard lk(g_mu);
-  g_shots.push_back({buf, 0, volume * l, volume * r});
+  reap_locked();
+  if (replace_group && group)
+    for (Shot& sh : g_shots) if (sh.group == group && sh.fade_out < 0) sh.fade_out = kFadeSamples;
+  Shot sh; sh.buf = std::move(samples); sh.gl = volume * l; sh.gr = volume * r; sh.group = group; sh.id = g_next_shot_id++; sh.mastered = apply_master;
+  g_shots.push_back(std::move(sh));
+  return g_shots.back().id;
 }
+void stop_group(int group) {
+  std::lock_guard lk(g_mu);
+  reap_locked();
+  for (Shot& sh : g_shots) if (sh.group == group && sh.fade_out < 0) sh.fade_out = kFadeSamples;
+}
+int group_count(int group) {
+  std::lock_guard lk(g_mu);
+  int n = 0;
+  for (const Shot& sh : g_shots) if (sh.group == group && sh.fade_out < 0) ++n;
+  return n;
+}
+bool decode_wav_memory(const void* data, size_t bytes, std::vector<float>& out) {
+  ma_decoder_config dc = ma_decoder_config_init(ma_format_f32, 1, kRate);
+  ma_decoder dec;
+  if (ma_decoder_init_memory(data, bytes, &dc, &dec) != MA_SUCCESS) return false;
+  out.clear();
+  float tmp[4096];
+  for (;;) {
+    ma_uint64 got = 0;
+    ma_result r = ma_decoder_read_pcm_frames(&dec, tmp, 4096, &got);
+    out.insert(out.end(), tmp, tmp + got);
+    if (r != MA_SUCCESS || got == 0) break;
+  }
+  ma_decoder_uninit(&dec);
+  return !out.empty();
+}
+int sample_rate() { return kRate; }
 
 std::string module_dir() {
   HMODULE m = nullptr;

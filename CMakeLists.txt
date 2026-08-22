@@ -42,10 +42,15 @@ add_custom_target(check COMMAND gdcore_tests DEPENDS gdcore_tests)
 add_library(gdaccess SHARED
   src/dllmain.cpp src/log.cpp src/speech.cpp src/hooks.cpp src/textcap.cpp src/devserver.cpp src/audio_mute.cpp src/app.cpp src/screens/main_menu.cpp src/screens/create_character.cpp src/screens/difficulty_select.cpp
   src/audio.cpp src/world.cpp src/screens/in_game.cpp src/screens/message_box.cpp src/screens/pause_menu.cpp
-  src/screens/loading.cpp src/screens/tip.cpp src/screens/conversation.cpp)
+  src/screens/loading.cpp src/screens/tip.cpp src/screens/conversation.cpp src/exe_ui.cpp src/screens/delete_character.cpp src/screens/options.cpp
+  src/voice.cpp src/tts_onecore.cpp src/combat.cpp)
+# C++/WinRT (OneCore speech in src/tts_onecore.cpp): the projection headers are heavy, and windowsapp.lib's
+# api-ms-win-* imports are delay-loaded so a machine without them loses combat speech, not the whole mod.
+set_source_files_properties(src/tts_onecore.cpp PROPERTIES COMPILE_OPTIONS "/bigobj")
 target_include_directories(gdaccess PRIVATE src ${PRISM_SDK}/include third_party/miniaudio)
-target_link_libraries(gdaccess PRIVATE gdcore detours ${PRISM_LIB} user32 ws2_32 ole32 delayimp)
-target_link_options(gdaccess PRIVATE /DELAYLOAD:${PRISM_DLL_NAME})
+target_link_libraries(gdaccess PRIVATE gdcore detours ${PRISM_LIB} user32 ws2_32 ole32 delayimp windowsapp)
+target_link_options(gdaccess PRIVATE /DELAYLOAD:${PRISM_DLL_NAME}
+  /DELAYLOAD:api-ms-win-core-winrt-l1-1-0.dll /DELAYLOAD:api-ms-win-core-winrt-error-l1-1-1.dll /DELAYLOAD:api-ms-win-core-winrt-string-l1-1-0.dll)
 target_compile_definitions(gdaccess PRIVATE PRISM_DLL_NAME="${PRISM_DLL_NAME}")
 add_custom_command(TARGET gdaccess POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PRISM_DLL} $<TARGET_FILE_DIR:gdaccess>

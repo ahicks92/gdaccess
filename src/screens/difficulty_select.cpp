@@ -2,51 +2,71 @@
 #include "core/graph_builder.h"
 #include "core/message_builder.h"
 #include "core/strings.h"
+#include "exe_ui.h"
 #include "screens/controls.h"
 #include "speech.h"
+#include "textcap.h"
 
 namespace gd::screens {
 using namespace gd::core;
+using exe_ui::MainMenu;
+using exe_ui::WidgetA;
 
-static constexpr std::string_view kScreen = "difficulty select";
-// The game greys out a locked difficulty's tile label (Elite/Ultimate until unlocked on the account).
-static constexpr uint32_t kGreyed = 0x80808080;
+// Difficulty Select, read from its window in the exe's menu tree (measured 2026-08-22): the four tiles are
+// buttons (pressed = selected, disabled = locked on the account), the description and its stat lines are
+// text widgets (the inactive ones belong to other tiles), and the last two buttons are Create/Back (after
+// Create Character) or Accept/Cancel (from the main menu's difficulty button).
+struct Dialog {
+  WidgetA window;
+  std::vector<WidgetA> tiles, buttons;
+  explicit operator bool() const { return window && tiles.size() == 4 && buttons.size() == 2; }
+};
+static Dialog dialog() {
+  Dialog d;
+  MainMenu mm = exe_ui::main_menu();
+  void* win = mm ? mm.sub_window(MainMenu::kWinDifficulty) : nullptr;
+  if (!win || exe_ui::window_hidden_flag(win, MainMenu::kDifficultyHidden)) return d;
+  d.window = exe_ui::window_node(win);
+  std::vector<WidgetA> all = d.window.buttons();
+  if (all.size() < 6) return d;
+  d.tiles.assign(all.begin(), all.begin() + 4);
+  d.buttons.assign(all.end() - 2, all.end());
+  return d;
+}
 
 class DifficultySelectScreen : public Screen {
  public:
   std::string_view key() const override { return "difficulty_select"; }
-  bool is_active() override { return textcap::has_text("Difficulty Select"); }
+  bool is_active() override { return exe_ui::available() && (bool)dialog() && !exe_ui::popup(); }
   std::string screen_name() const override { return "Difficulty Select"; }
   int layer() const override { return 20; }
   bool exclusive() const override { return true; }
   std::vector<ScreenAction> actions() override {
-    return {{std::string(action_ids::Back), [] { click_label(kScreen, textcap::has_text("Accept") ? "Cancel" : "Back", 0, 0, true); }}};
+    return {{std::string(action_ids::Back), [] { Dialog d = dialog(); if (d) d.buttons[1].activate(); }}};
   }
-  void on_push() override { selected_ = "Normal"; }  // the game opens on Normal
 
   void build(GraphBuilder& b) override {
+    Dialog d = dialog();
+    if (!d) return;
     b.begin_stop("difficulty");
     b.start_row("difficulty");
-    for (const char* d : {"Normal", "Veteran", "Elite", "Ultimate"}) {
-      std::string name = d;
+    for (WidgetA t : d.tiles) {
+      std::string name = t.caption();
+      bool selected = t.pressed(), locked = !t.enabled();
       auto v = std::make_shared<NodeVtable>();
       v->control_type = &kRadioType;
       v->announcements = {NodeAnnouncement([name] { return name; }, false, announcement_kinds::kLabel),
-                          NodeAnnouncement([this, name] { return selected_ == name ? std::string(strings::kSelected) : std::string(); }, true, announcement_kinds::kSelected),
-                          NodeAnnouncement([name] { return locked(name) ? std::string(strings::kDisabled) : std::string(); }, false, announcement_kinds::kEnabled)};
-      v->on_activate = [this, name] {
-        if (locked(name)) return;  // the state readout after activation says "disabled"
-        selected_ = name;
-        click_label(kScreen, name, 0, 0, true);  // the tile label (the selected one's name is also the dialog's title, higher up)
-      };
+                          NodeAnnouncement([selected] { return selected ? std::string(strings::kSelected) : std::string(); }, true, announcement_kinds::kSelected),
+                          NodeAnnouncement([locked] { return locked ? std::string(strings::kDisabled) : std::string(); }, false, announcement_kinds::kEnabled)};
+      v->on_activate = [t, selected, locked] { if (!locked && !selected) t.activate(); };
       // The dialog describes the SELECTED difficulty; that text is the tile's tooltip.
-      v->on_tooltip = [this, name] {
-        if (selected_ != name) { speech::speak(strings::kNoTooltip, false); return; }
+      v->on_tooltip = [selected] {
+        if (!selected) { speech::speak(strings::kNoTooltip, false); return; }
         speech::speak(description(), true);
       };
-      v->state_text = [this, name] {
+      v->state_text = [t, locked] {  // live: activation changed the tile within this frame
         MessageBuilder m;
-        m.fragment(locked(name) ? strings::kDisabled : selected_ == name ? strings::kSelected : strings::kNotSelected);
+        m.fragment(locked ? strings::kDisabled : t.pressed() ? strings::kSelected : strings::kNotSelected);
         return m.build();
       };
       b.add_item(ControlId::structural("difficulty." + name), v);
@@ -54,41 +74,28 @@ class DifficultySelectScreen : public Screen {
     b.end_row();
     b.begin_stop("buttons");
     b.start_row("buttons");
-    // Two variants of the dialog: after Create Character its buttons are Create / Back; opened from the main
-    // menu's difficulty button they are Accept / Cancel (checkpoint read at build time).
-    bool from_menu = textcap::has_text("Accept");
-    for (const char* btn : from_menu ? std::initializer_list<const char*>{"Accept", "Cancel"} : std::initializer_list<const char*>{"Create", "Back"}) {
-      // The main menu behind the dialog also draws a "Create", slightly higher up; the dialog's is the last
-      // match top-to-bottom.
-      std::string label = btn;
-      auto v = std::make_shared<NodeVtable>();
-      v->control_type = &kButtonType;
-      v->announcements = {NodeAnnouncement([label] { return label; }, false, announcement_kinds::kLabel)};
-      v->on_activate = [label] { click_label(kScreen, label, 0, 0, true); };
-      b.add_item(ControlId::structural("difficulty." + label), v);
-    }
+    b.add_item(ControlId::structural("difficulty.accept"), widget_button(d.buttons[0]));
+    b.add_item(ControlId::structural("difficulty.back"), widget_button(d.buttons[1]));
     b.end_row();
   }
 
  private:
-  static bool locked(const std::string& name) {
-    textcap::Item it;
-    return textcap::find_item(name, it, true) && it.rgba == kGreyed;
-  }
-  // The description block: left-aligned lines in the dialog's text area, left of the portrait, below the
-  // title. Game text, verbatim.
+  // The active text widgets below the title: the selected tile's name, its description and stat lines.
+  // Game text verbatim (control codes stripped the same way as captured text).
   static std::string description() {
+    Dialog d = dialog();
     MessageBuilder m;
-    for (const textcap::Item& it : textcap::snapshot()) {
-      if (it.xalign != 0 || it.x < 560 || it.x > 870 || it.y < 300 || it.y > 520) continue;
-      std::string t = textcap::speakable(it.text);
-      if (!t.empty()) m.fragment(t);
+    if (d) {
+      std::vector<WidgetA> texts = d.window.texts();
+      for (size_t i = 1; i < texts.size(); ++i) {
+        if (!texts[i].active()) continue;
+        std::string t = textcap::speakable(texts[i].text());
+        if (!t.empty()) m.fragment(t);
+      }
     }
     if (m.empty()) m.fragment(strings::kNoDetails);
     return m.build();
   }
-
-  std::string selected_ = "Normal";
 };
 
 std::unique_ptr<Screen> make_difficulty_select() { return std::make_unique<DifficultySelectScreen>(); }

@@ -6,6 +6,7 @@ HERE = os.path.dirname(__file__)
 ENTRIES = [
     # (identifier, dll, regex over undecorated signature)
     ("LocalizationManager_GetText", "Engine", r"GAME::LocalizationManager::GetText\(char const \*"),
+    ("LocalizationManager_LocalizeWithoutParams", "Engine", r"GAME::LocalizationManager::LocalizeWithoutParams\(char const \*"),
     ("Display_Update", "Engine", r"GAME::Display::Update\(void\)"),
     ("Engine_Update", "Engine", r"GAME::Engine::Update\(class GAME::Sphere const"),
     # ---- in-game objects (src/world.cpp) ----
@@ -28,6 +29,10 @@ ENTRIES = [
     ("Character_GetFootCoords", "Game", r"GAME::Character::GetFootCoords\(bool\)"),
     ("Character_GetCurrentLife", "Game", r"GAME::Character::GetCurrentLife\(void\)"),
     ("Character_GetLifeLimit", "Game", r"GAME::Character::GetLifeLimit\(void\)"),
+    ("Character_GetCurrentMana", "Game", r"GAME::Character::GetCurrentMana\(void\)"),   # "Energy" in the UI
+    ("Character_GetManaLimit", "Game", r"GAME::Character::GetManaLimit\(void\)"),
+    # combat text: the floating numbers / Miss / Dodge / Block are GameEvents of type 0x1b (src/combat.cpp)
+    ("EventManager_Send", "Engine", r"GAME::EventManager::Send\(struct GAME::GameEvent const"),
     ("Player_GetPlayerName", "Game", r"GAME::Player::GetPlayerName\(void\)"),
     ("Region_GetName", "Engine", r"GAME::Region::GetName\(void\)"),
     ("NavManager_Get", "Engine", r"GAME::Singleton<class GAME::NavManager>::Get\(void\)"),
@@ -72,6 +77,24 @@ ENTRIES = [
     ("ConversationStep_GetSteps", "Game", r"GAME::ConversationStep::GetSteps\(void\)"),
     ("ConversationStep_GetFlags", "Game", r"GAME::ConversationStep::GetFlags\(void\)"),
     ("Character_GetConversation", "Game", r"GAME::Character::GetConversation\(void\)"),
+    # ---- review cursor classification (src/world.cpp): the Interact key's own filter ----
+    ("FixedActor_GetStaticClassInfo", "Game", r"GAME::FixedActor::GetStaticClassInfo\(void\)"),
+    ("Item_GetStaticClassInfo", "Game", r"GAME::Item::GetStaticClassInfo\(void\)"),
+    ("FixedActor_IsOfInterest", "Game", r"GAME::FixedActor::IsOfInterest\(void\)"),
+    ("Item_IsOfInterest", "Game", r"GAME::Item::IsOfInterest\(void\)"),
+    ("FixedActor_vftable", "Game", r"GAME::FixedActor::`vftable'\{for `GAME::Object'\}"),
+    ("Item_vftable", "Game", r"GAME::Item::`vftable'\{for `GAME::Object'\}"),
+    ("Npc_HasConversation", "Game", r"GAME::Npc::HasConversation\(void\)"),
+    # ---- camera zoom presets (src/world.cpp) ----
+    ("GameCamera_SetZoom", "Game", r"GAME::GameCamera::SetZoom\(float\)"),
+    ("GameCamera_ResetZoom", "Game", r"GAME::GameCamera::ResetZoom\(void\)"),
+    ("GameCamera_SetCameraYaw", "Game", r"GAME::GameCamera::SetCameraYaw\(float\)"),
+    # ---- message boxes (src/exe_ui.cpp): the exported DialogManager behind the exe's prompt box ----
+    ("GameEngine_GetDialogManager", "Game", r"GAME::GameEngine::GetDialogManager\(void\)"),
+    ("DialogManager_GetNumDialog", "Game", r"GAME::DialogManager::GetNumDialog\(void\)"),
+    ("DialogManager_PeekTopDialog", "Game", r"GAME::DialogManager::PeekTopDialog\(void\)"),
+    ("DialogManager_AddResponse", "Game", r"GAME::DialogManager::AddResponse\("),
+    ("DialogManager_RemoveTopDialog", "Game", r"GAME::DialogManager::RemoveTopDialog\(void\)"),
     # ---- labels (u16 strings by value -> hidden return pointer) ----
     ("Monster_GetGameDescription", "Game", r"GAME::Monster::GetGameDescription\(bool,bool\)"),
     ("Npc_GetRolloverDescription", "Game", r"GAME::Npc::GetRolloverDescription\(void\)"),

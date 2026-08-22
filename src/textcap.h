@@ -25,4 +25,5 @@ void set_announce_changes(bool on);
 bool announce_changes();
 uint64_t frame();
 std::string speakable(std::u16string_view raw);  // UTF-8 with the game's ^x color codes stripped
+std::string speakable(std::string_view utf8);    // the same cleanup on text already in UTF-8 (widget strings)
 }  // namespace gd::textcap

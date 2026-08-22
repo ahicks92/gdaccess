@@ -18,6 +18,33 @@
 #include <vector>
 #include <intrin.h>
 #include <set>
+#include <tlhelp32.h>
+
+namespace {
+// Every Detours transaction must update EVERY thread that may be executing detoured code, not just the caller:
+// Detours moves a suspended thread's instruction pointer out of a trampoline/prologue being rewritten, and
+// the game thread runs our hooks on every frame. Hot reloads unload on a remote thread; with only the current
+// thread updated, the game thread sat inside a freed trampoline (two crashes on reload, 2026-08-21/22).
+struct ThreadUpdater {
+  std::vector<HANDLE> handles;
+  ThreadUpdater() {
+    DetourUpdateThread(GetCurrentThread());
+    DWORD pid = GetCurrentProcessId(), me = GetCurrentThreadId();
+    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (snap == INVALID_HANDLE_VALUE) return;
+    THREADENTRY32 te{}; te.dwSize = sizeof te;
+    for (BOOL ok = Thread32First(snap, &te); ok; ok = Thread32Next(snap, &te)) {
+      if (te.th32OwnerProcessID != pid || te.th32ThreadID == me) continue;
+      HANDLE h = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_SET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, te.th32ThreadID);
+      if (!h) continue;
+      if (DetourUpdateThread(h) == NO_ERROR) handles.push_back(h); else CloseHandle(h);
+    }
+    CloseHandle(snap);
+  }
+  // Destroy after DetourTransactionCommit (which resumes the threads).
+  ~ThreadUpdater() { for (HANDLE h : handles) CloseHandle(h); }
+};
+}  // namespace
 
 namespace gd::hooks {
 using namespace gd::names;
@@ -53,7 +80,7 @@ static std::vector<Hook> g_hooks;
 
 static LONG attach_all(std::vector<Hook>& hooks) {
   DetourTransactionBegin();
-  DetourUpdateThread(GetCurrentThread());
+  ThreadUpdater threads;
   size_t ok = 0;
   for (auto& h : hooks) {
     if (h.ok) continue;
@@ -72,7 +99,7 @@ static LONG attach_all(std::vector<Hook>& hooks) {
 long attach_hooks(std::vector<Hook>& hooks) { return attach_all(hooks); }
 void detach_hooks(std::vector<Hook>& hooks) {
   DetourTransactionBegin();
-  DetourUpdateThread(GetCurrentThread());
+  ThreadUpdater threads;
   for (auto& h : hooks) if (h.ok && *h.orig) { DetourDetach(h.orig, h.detour); h.ok = false; }
   DetourTransactionCommit();
 }
@@ -159,7 +186,18 @@ static LocGetText_t LocGetText_orig;
 static std::mutex g_tips_mu;
 static std::vector<Tip> g_tips;
 std::vector<Tip> recent_tips() { std::lock_guard lk(g_tips_mu); return g_tips; }
+// The LocalizationManager instance, captured from the game's own fetches; localize() resolves a tag the way
+// the widgets do (LocalizeWithoutParams), for controls that carry only a tag (the options tabs' tooltips).
+static void* g_loc_manager;
+std::string localize(const char* tag) {
+  typedef const char16_t* (*Localize_t)(void*, const char*);
+  static Localize_t fn = [] { HMODULE e = GetModuleHandleA("Engine.dll"); return e ? (Localize_t)GetProcAddress(e, names::LocalizationManager_LocalizeWithoutParams) : nullptr; }();
+  if (!g_loc_manager || !fn || !tag || !*tag) return {};
+  const char16_t* s = fn(g_loc_manager, tag);
+  return s ? log::utf8(s) : std::string();
+}
 static MsvcStringW* LocGetText(void* self, MsvcStringW* out, const char* tag) {
+  g_loc_manager = self;
   MsvcStringW* r = LocGetText_orig(self, out, tag);
   static std::vector<std::string> seen;  // log each tag once
   std::string t = tag ? tag : "(null)";
@@ -316,6 +354,9 @@ static int g_real_mouse = 0;
 static std::deque<std::vector<SynthMouse>> g_mouse_pending;
 static std::vector<SynthMouse> g_mouse_active;
 static int g_cursor_override_frames = 0;
+static bool g_hold_left = false, g_hold_right = false;  // set_mouse_hold state
+static bool g_cursor_override = false;
+static float g_cursor_x = 0, g_cursor_y = 0;
 typedef int (*GetNumMouseEvents_t)(void*);
 static GetNumMouseEvents_t GetNumMouseEvents_hook_orig;
 typedef void* (*GetMouseEvent_t)(void*, void*, int);  // MouseEvent returned by value -> hidden pointer
@@ -336,6 +377,16 @@ static void* GetMouseEvent_hook(void* self, void* out, int i) {
   if (i < g_real_mouse) {
     ++g_c_mouseevent_real;
     void* r = GetMouseEvent_hook_orig(self, out, i);
+    // A mouse hold in progress: every real event reports the button held (and sits at the override position)
+    // so the game's per-tick repeat keeps running; without this its idle event says "both up" and tears the
+    // command down each frame.
+    if (r && (g_hold_left || g_hold_right)) {
+      unsigned char* hb = (unsigned char*)out;
+      if (g_hold_left) hb[0x10] = 1;
+      if (g_hold_right) hb[0x11] = 1;
+      hb[0x18] = 1;  // "window active": the game drops inactive events, and the held state is ours to assert
+      if (g_cursor_override) { memcpy(hb + 4, &g_cursor_x, 4); memcpy(hb + 8, &g_cursor_y, 4); }
+    }
     static unsigned char last[28];
     if (memcmp(last, out, 28) != 0) {  // log real events whenever their bytes change
       memcpy(last, out, 28);
@@ -377,10 +428,29 @@ void click(float x, float y, int button) {
   push_mouse_event(dn); push_mouse_event(up);
   log::writef("click: button {} at {},{}", button, x, y);
 }
+HWND game_window();
+// Where a synthesized transition lands: the override when one is on, else the real cursor in client space
+// (GetCursorPos is detoured below; with no override it reports the real position).
+static void current_cursor(float& x, float& y) {
+  if (g_cursor_override) { x = g_cursor_x; y = g_cursor_y; return; }
+  POINT p{};
+  if (GetCursorPos(&p)) { HWND w = game_window(); if (w) ScreenToClient(w, &p); }
+  x = (float)p.x; y = (float)p.y;
+}
+void set_mouse_hold(int button, bool held) {
+  bool& flag = button == 2 ? g_hold_right : g_hold_left;
+  if (flag == held) return;
+  flag = held;
+  SynthMouse ev{};
+  current_cursor(ev.x, ev.y);
+  if (button == 2) { ev.type = held ? 2 : 10; ev.right = held; ev.left = g_hold_left; }
+  else             { ev.type = held ? 1 : 9;  ev.left = held;  ev.right = g_hold_right; }
+  push_mouse_event(ev);
+  log::writef("mouse hold: button {} {} at {},{}", button, held ? "down" : "up", ev.x, ev.y);
+}
+bool mouse_held(int button) { return button == 2 ? g_hold_right : g_hold_left; }
 
 // --- cursor position override (the game reads the OS cursor through DirectInputDevice::GetCursorPosition) ---
-static bool g_cursor_override = false;
-static float g_cursor_x = 0, g_cursor_y = 0;
 static void set_cursor_override_frames(float x, float y, int frames) { g_cursor_x = x; g_cursor_y = y; g_cursor_override = true; g_cursor_override_frames = frames; }
 static std::mutex g_btn_mu;
 static std::map<int, uint64_t> g_btn_queries;
@@ -521,7 +591,7 @@ static void hook_handlers() {
     if (in_exe(mouse) && !is_stub(mouse) && queued.insert(mouse).second) todo.push_back({mouse, "mouse"});
   }
   if (todo.empty()) return;
-  DetourTransactionBegin(); DetourUpdateThread(GetCurrentThread());
+  DetourTransactionBegin(); ThreadUpdater threads;
   for (auto& [fn, kind] : todo) {
     if (g_slots_used >= kMaxSlots) break;
     int i = g_slots_used++;
@@ -737,7 +807,7 @@ bool install() {
 
 void remove() {
   DetourTransactionBegin();
-  DetourUpdateThread(GetCurrentThread());
+  ThreadUpdater threads;
   for (auto* v : {&g_hooks, &g_late})
     for (auto& h : *v) if (h.ok && *h.orig) DetourDetach(h.orig, h.detour);
   DetourTransactionCommit();

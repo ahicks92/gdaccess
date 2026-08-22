@@ -10,6 +10,7 @@
 #include <vector>
 #include "gd_names.h"
 #include "hooks.h"
+#include "speech.h"
 #include "audio.h"
 #include "core/message_builder.h"
 #include "core/strings.h"
@@ -161,6 +162,8 @@ struct Api {
   void* (*Character_GetFootCoords)(void*, void*, bool) = nullptr;
   double (*GetCurrentLife)(const void*) = nullptr;
   float (*GetLifeLimit)(const void*) = nullptr;
+  float (*GetCurrentMana)(const void*) = nullptr;   // "energy" in the UI; float (GetCurrentLife is a double)
+  float (*GetManaLimit)(const void*) = nullptr;
   const char16_t* (*GetPlayerName)(const void*) = nullptr;
   const MsvcString<char>* (*Region_GetName)(const void*) = nullptr;
   void* (*NavManager_Get)() = nullptr;
@@ -199,7 +202,19 @@ struct Api {
   void (*ClearTarget)(void*) = nullptr;
   void (*FaceTarget)(void*, unsigned) = nullptr;
   void** Object_vftable = nullptr;                       // to find GetRTTIClassInfo's slot (virtual dispatch)
+  // Review classification = the Interact key's own filter (docs: re_interact_key.md): FixedActor/Item that
+  // say IsOfInterest() (virtual; slot found in each class's vftable), Npc with a conversation.
+  const void* (*FixedActor_StaticClassInfo)() = nullptr;
+  const void* (*Item_StaticClassInfo)() = nullptr;
+  bool (*FixedActor_IsOfInterest)(const void*) = nullptr;
+  bool (*Item_IsOfInterest)(const void*) = nullptr;
+  void** FixedActor_vftable = nullptr;
+  void** Item_vftable = nullptr;
+  bool (*Npc_HasConversation)(const void*) = nullptr;
   void* (*Project)(const void*, void*, const void*, const void*) = nullptr;  // WorldCamera::Project: hidden Vec2 return
+  void (*SetZoom)(void*, float) = nullptr;               // GameCamera::SetZoom(value in the camera's zoom range)
+  void (*ResetZoom)(void*) = nullptr;
+  void (*SetCameraYaw)(void*, float) = nullptr;          // GameCamera::SetCameraYaw (radians)
   void* (*Viewport_ctor)(void*, int, int, int, int) = nullptr;
   bool loaded = false;
 } g_api;
@@ -221,6 +236,8 @@ void load_api() {
   LOAD(Character_GetFootCoords, Character_GetFootCoords);
   LOAD(GetCurrentLife, Character_GetCurrentLife);
   LOAD(GetLifeLimit, Character_GetLifeLimit);
+  LOAD(GetCurrentMana, Character_GetCurrentMana);
+  LOAD(GetManaLimit, Character_GetManaLimit);
   LOAD(GetPlayerName, Player_GetPlayerName);
   LOAD(Region_GetName, Region_GetName);
   LOAD(NavManager_Get, NavManager_Get);
@@ -257,7 +274,17 @@ void load_api() {
   LOAD(ClearTarget, ControllerPlayer_ClearTarget);
   LOAD(FaceTarget, ControllerPlayer_FaceTarget);
   LOAD(Object_vftable, Object_vftable);
+  LOAD(FixedActor_StaticClassInfo, FixedActor_GetStaticClassInfo);
+  LOAD(Item_StaticClassInfo, Item_GetStaticClassInfo);
+  LOAD(FixedActor_IsOfInterest, FixedActor_IsOfInterest);
+  LOAD(Item_IsOfInterest, Item_IsOfInterest);
+  LOAD(FixedActor_vftable, FixedActor_vftable);
+  LOAD(Item_vftable, Item_vftable);
+  LOAD(Npc_HasConversation, Npc_HasConversation);
   LOAD(Project, WorldCamera_Project);
+  LOAD(SetZoom, GameCamera_SetZoom);
+  LOAD(ResetZoom, GameCamera_ResetZoom);
+  LOAD(SetCameraYaw, GameCamera_SetCameraYaw);
   LOAD(Viewport_ctor, Viewport_ctor);
 #undef LOAD
 }
@@ -382,6 +409,7 @@ bool install() {
 void remove() { gd::hooks::detach_hooks(g_hooks); g_game_engine = nullptr; g_controller = nullptr; g_world = nullptr; }
 
 bool in_world() { return g_game_engine && g_controller && player() != nullptr; }
+void* game_engine() { return g_game_engine; }
 
 bool player_position(Vec3& p) {
   Buf wv;
@@ -403,6 +431,8 @@ std::string region_name() {
 }
 double life() { void* p = player(); return p && g_api.GetCurrentLife ? g_api.GetCurrentLife(p) : 0.0; }
 float life_max() { void* p = player(); return p && g_api.GetLifeLimit ? g_api.GetLifeLimit(p) : 0.0f; }
+float energy() { void* p = player(); return p && g_api.GetCurrentMana ? g_api.GetCurrentMana(p) : 0.0f; }
+float energy_max() { void* p = player(); return p && g_api.GetManaLimit ? g_api.GetManaLimit(p) : 0.0f; }
 float camera_yaw() {
   void* cam = g_game_engine && g_api.GetCamera ? g_api.GetCamera(g_game_engine) : nullptr;
   return cam && g_api.GetCameraYaw ? g_api.GetCameraYaw(cam) : 0.0f;
@@ -432,6 +462,23 @@ float free_distance(float dir_x, float dir_z, float max_dist, float step) {
   return max_dist;
 }
 
+// Dev: the layout of RTTI_ClassInfo beyond the name -- is there a parent pointer? Dumps the static infos.
+std::string classinfo_dump() {
+  std::string out;
+  struct { const char* n; const void* (*f)(); } infos[] = {{"Entity", g_api.Entity_StaticClassInfo}, {"Character", g_api.Character_StaticClassInfo}, {"Monster", g_api.Monster_StaticClassInfo},
+                                                         {"Npc", g_api.Npc_StaticClassInfo}, {"Player", g_api.Player_StaticClassInfo}};
+  for (auto& i : infos) {
+    const void* ci = i.f ? i.f() : nullptr;
+    out += std::format("{} ci={} name='{}'", i.n, ci, rtti_name(ci));
+    for (size_t off = 0x10; off <= 0x30 && ci; off += 8) {
+      const void* q; memcpy(&q, (const char*)ci + off, sizeof q);
+      out += std::format(" +{:#x}={}", off, q);
+      if (q && !IsBadReadPtr(q, 16)) { std::string n = rtti_name(q); if (n != "?") out += std::format("('{}')", n); }
+    }
+    out += '\n';
+  }
+  return out;
+}
 std::string debug_dump() {
   load_api();
   std::string s = std::format("game_engine={} controller={} world={} engine_ticks={} controller_ticks={} nav={} engine={}\n", g_game_engine, g_controller, g_world,
@@ -467,6 +514,7 @@ std::string debug_dump() {
 
 // ---- targeting ----
 namespace { std::string entity_label(void* e, const std::string& cls); }
+namespace { bool is_of_interest(const void* e, const void* ci); bool is_kind_of(const void* ci, const void* base); }
 std::string entities_dump(float max_dist) {
   load_api();
   Vec3 me; if (!player_position(me)) return "no player\n";
@@ -506,8 +554,13 @@ std::string entities_dump(float max_dist) {
     float d = std::sqrt((r.pos.x - me.x) * (r.pos.x - me.x) + (r.pos.z - me.z) * (r.pos.z - me.z));
     if (d > max_dist) continue;
     std::string cls = rtti_name(r.ci);
-    rows.push_back({d, std::format("{:6.1f}  id={:<8} {:<12} label='{}' at ({:.1f}, {:.1f}, {:.1f}) {} '{}'", d, r.id, cls, entity_label(e, cls),
-                                   r.pos.x, r.pos.y, r.pos.z, e, r.name)});
+    // Classification readout for the review cursor's object group (FixedActor / Item + IsOfInterest).
+    std::string kind;
+    if (g_api.FixedActor_StaticClassInfo && is_kind_of(r.ci, g_api.FixedActor_StaticClassInfo())) kind = " [FixedActor";
+    else if (g_api.Item_StaticClassInfo && is_kind_of(r.ci, g_api.Item_StaticClassInfo())) kind = " [Item";
+    if (!kind.empty()) kind += is_of_interest(e, r.ci) ? " interest]" : " no-interest]";
+    rows.push_back({d, std::format("{:6.1f}  id={:<8} {:<12} label='{}' at ({:.1f}, {:.1f}, {:.1f}) {} '{}'{}", d, r.id, cls, entity_label(e, cls),
+                                   r.pos.x, r.pos.y, r.pos.z, e, r.name, kind)});
   }
   if (faulted) log::writef("entities: {} objects faulted while being read (skipped)", faulted);
   std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) { return a.d < b.d; });
@@ -594,7 +647,12 @@ void tick() {
   // Re-find every 30 frames (the pointer may die); project every frame.
   if (g_lock_frames++ % 30 == 0) { g_locked_entity = find_entity(g_locked_id); if (!g_locked_entity) { unlock_target(); return; } }
   float x, y;
-  if (project(g_locked_entity, x, y)) gd::hooks::set_cursor_override(true, x, y);
+  RECT rc{};
+  HWND w = FindWindowA("Grim Dawn", nullptr);
+  bool visible = project(g_locked_entity, x, y) && w && GetClientRect(w, &rc) && x >= 0 && y >= 0 && x < (float)rc.right && y < (float)rc.bottom;
+  // Only park the cursor on something the camera shows; off-window the override would only confuse the
+  // game's hover (the lock itself stays, the readouts say "distant" / "too far away").
+  gd::hooks::set_cursor_override(visible, x, y);
 }
 bool entity_screen_pos(unsigned id, float& x, float& y) {
   void* e = find_entity(id);
@@ -742,14 +800,50 @@ void screen_axes(float& fx, float& fz, float& rx, float& rz) {
   float yaw = camera_yaw();
   fx = -std::sin(yaw); fz = -std::cos(yaw); rx = std::cos(yaw); rz = -std::sin(yaw);
 }
-bool in_group(const std::string& cls, const std::string& record, ScanGroup g) {
+// RTTI_ClassInfo: +0 vptr, +8 name, +0x10 parent (measured live 2026-08-22: Monster/Npc/Player -> Character
+// -> Actor, Entity -> Object). is-a = walk the parents.
+bool is_kind_of(const void* ci, const void* base) {
+  for (int depth = 0; ci && depth < 16; ++depth) {
+    if (ci == base) return true;
+    if (IsBadReadPtr(ci, 0x18)) return false;
+    memcpy(&ci, (const char*)ci + 0x10, sizeof ci);
+  }
+  return false;
+}
+// The slot of a class's IsOfInterest in its own vftable (the export is that class's implementation).
+int vt_slot(void** vt, const void* fn) {
+  if (!vt || !fn) return -1;
+  for (int i = 0; i < 160; ++i) if (vt[i] == fn) return i;
+  return -1;
+}
+bool call_bool_slot(const void* obj, int slot, bool* out) {
+  __try { void** vt; memcpy(&vt, obj, sizeof vt); *out = ((bool (*)(const void*))vt[slot])(obj); return true; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+bool call_bool_fn(const void* obj, bool (*fn)(const void*), bool* out) {
+  __try { *out = fn(obj); return true; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+// What the game's Interact key would consider: a FixedActor (door, chest, shrine, lever ...) or an Item
+// whose IsOfInterest() says so -- virtual, so dispatched through the object's vtable at the slot the class's
+// exported implementation occupies in that class's vftable.
+bool is_of_interest(const void* e, const void* ci) {
+  static int fa_slot = -2, item_slot = -2;
+  if (fa_slot == -2) {
+    fa_slot = vt_slot(g_api.FixedActor_vftable, (const void*)g_api.FixedActor_IsOfInterest);
+    item_slot = vt_slot(g_api.Item_vftable, (const void*)g_api.Item_IsOfInterest);
+    log::writef("world: IsOfInterest slots: FixedActor {} Item {}", fa_slot, item_slot);
+  }
+  bool v = false;
+  if (g_api.FixedActor_StaticClassInfo && is_kind_of(ci, g_api.FixedActor_StaticClassInfo())) return fa_slot >= 0 && call_bool_slot(e, fa_slot, &v) && v;
+  if (g_api.Item_StaticClassInfo && is_kind_of(ci, g_api.Item_StaticClassInfo())) return item_slot >= 0 && call_bool_slot(e, item_slot, &v) && v;
+  return false;
+}
+bool npc_has_conversation(const void* e) { bool v = false; return g_api.Npc_HasConversation && call_bool_fn(e, g_api.Npc_HasConversation, &v) && v; }
+bool in_group(const void* e, const void* ci, const std::string& cls, ScanGroup g) {
   switch (g) {
     case ScanGroup::Enemies: return cls == "Monster";
-    case ScanGroup::Neutrals: return cls == "Npc" && record.find("flavornpcs") == std::string::npos;
-    case ScanGroup::Bystanders: return cls == "Npc" && record.find("flavornpcs") != std::string::npos;
-    case ScanGroup::Objects:
-      return cls != "Monster" && cls != "Npc" && cls != "Player" && cls != "PlayerSpawnPoint" && cls != "Decoration" && cls != "Object" &&
-             record.find("records/fx/") != 0 && record.find("records/triggervolumes/") != 0 && record.find("records/level art/") != 0;
+    case ScanGroup::Neutrals: return cls == "Npc" && npc_has_conversation(e);     // people you can talk to
+    case ScanGroup::Bystanders: return cls == "Npc" && !npc_has_conversation(e);  // flavour NPCs
+    case ScanGroup::Objects: return is_of_interest(e, ci);
   }
   return false;
 }
@@ -783,7 +877,7 @@ std::vector<ScanItem> scan(ScanGroup group, float radius) {
     EntityRaw r{};
     if (!read_entity(e, r) || !r.has_pos) continue;
     std::string cls = rtti_name(r.ci), record = r.name;
-    if (!in_group(cls, record, group)) continue;
+    if (!in_group(e, r.ci, cls, group)) continue;
     float d = std::sqrt((r.pos.x - me.x) * (r.pos.x - me.x) + (r.pos.z - me.z) * (r.pos.z - me.z));
     if (d > radius) continue;
     // Enemies are Monsters the game's faction manager calls foes of the player (guards are Monsters too).
@@ -793,9 +887,7 @@ std::vector<ScanItem> scan(ScanGroup group, float radius) {
       unsigned pid = p && g_api.Object_GetObjectId ? g_api.Object_GetObjectId(p) : 0;
       if (fm && g_api.FactionManager_IsFoe && pid && !g_api.FactionManager_IsFoe(fm, pid, r.id, false)) continue;
     }
-    std::string label = entity_label(e, cls);
-    // Objects: only things the game itself names (engine helpers like ScriptEntity / PatrolPoint have none).
-    if (group == ScanGroup::Objects && label.empty()) continue;
+    std::string label = entity_label(e, cls);  // an unlabelled object is read by its class name (cycle_review)
     out.push_back({r.id, cls, label, record, r.pos, d});
   }
   std::sort(out.begin(), out.end(), [](const ScanItem& a, const ScanItem& b) { return a.dist < b.dist; });
@@ -826,10 +918,47 @@ std::string cycle_review(ScanGroup group, int dir) {
   lock_target(it.id);
   ping_reviewed();  // every landing plays the route ping, like wotr
   std::string label = it.label.empty() ? it.cls : it.label;
-  gd::strings::push_scan_item(m, label, it.dist, clock_hour(it.pos), idx + 1, count);
+  gd::strings::push_scan_item(m, label, it.dist, clock_hour(it.pos), idx + 1, count, !on_screen(it.id));
   return m.build();
 }
 unsigned reviewed_id() { return g_reviewed_id; }
+
+// The one pan/gain rule for positioned sounds and voices (wotr's sonar): pan by the ear-frame bearing of the
+// point from the player, gain ref/(ref+dist) with ref = 10 ft in units, never below 0.15.
+void ear_frame(const Vec3& p, float& pan, float& gain) {
+  Vec3 me; pan = 0.0f; gain = 1.0f;
+  if (!player_position(me)) return;
+  float fx, fz, rx, rz; screen_axes(fx, fz, rx, rz);
+  float dx = p.x - me.x, dz = p.z - me.z;
+  float dist = std::sqrt(dx * dx + dz * dz);
+  float right = dx * rx + dz * rz;
+  pan = dist > 0.01f ? right / dist : 0.0f;
+  constexpr float kRef = 10.0f * 0.3048f / 0.67f;  // 10 ft in units (~0.67 m per unit)
+  gain = kRef / (kRef + dist);
+  if (gain < 0.15f) gain = 0.15f;
+}
+static float g_voice_near = 9.0f, g_voice_far = 32.0f, g_voice_floor = 0.4f;
+float voice_gain(float dist) {
+  if (dist <= g_voice_near) return 1.0f;
+  if (dist >= g_voice_far) return g_voice_floor;
+  return 1.0f - (1.0f - g_voice_floor) * (dist - g_voice_near) / (g_voice_far - g_voice_near);
+}
+void set_voice_rolloff(float near_d, float far_d, float floor_g) {  // (near/far are windows.h macros)
+  if (near_d >= 0) g_voice_near = near_d;
+  if (far_d > g_voice_near) g_voice_far = far_d;
+  if (floor_g >= 0 && floor_g <= 1) g_voice_floor = floor_g;
+}
+std::string voice_rolloff() { return std::format("near={:.1f} far={:.1f} floor={:.2f}", g_voice_near, g_voice_far, g_voice_floor); }
+// A WorldVec3 (Region* + region-relative Vec3) to world space; false without a region (GetWorldPosition on a
+// region-less WorldVec3 hung the game thread once).
+bool world_point(const void* worldvec3, Vec3& out) {
+  if (!worldvec3) return false;
+  Buf b{}; memcpy(b.b, worldvec3, 32);
+  void* region; memcpy(&region, b.b, sizeof region);
+  if (!region) return false;
+  out = world_pos_of(b);
+  return true;
+}
 
 std::string ping_reviewed() {
   if (!g_reviewed_id) return {};
@@ -851,24 +980,49 @@ std::string ping_reviewed() {
       if (!on_navmesh(Vec3{me.x + dx / dist * d, me.y, me.z + dz / dist * d})) { straight = false; break; }
     kind = straight ? "straight" : "path";
   }
-  // Position: pan by the ear-frame bearing, volume by distance (wotr's sonar: ref/(ref+dist), ref 10 ft).
-  float fx, fz, rx, rz; screen_axes(fx, fz, rx, rz);
-  float right = dx * rx + dz * rz, ahead = dx * fx + dz * fz;
-  float pan = dist > 0.01f ? right / dist : 0.0f;
-  (void)ahead;
-  constexpr float kRef = 10.0f * 0.3048f / 0.67f;  // 10 ft in units (~0.67 m per unit)
-  float vol = kRef / (kRef + dist);
-  if (vol < 0.15f) vol = 0.15f;
+  float pan, vol; ear_frame(target, pan, vol);
   gd::audio::play_sample(gd::audio::module_dir() + "assets\\audio\\review_" + kind + ".wav", vol, pan);
   return kind;
 }
 
-bool interact_reviewed() {
-  if (!g_reviewed_id) return false;
+bool on_screen(unsigned id) {
   float x, y;
-  if (!entity_screen_pos(g_reviewed_id, x, y)) return false;
-  gd::hooks::click(x, y, 1);
-  return true;
+  if (!entity_screen_pos(id, x, y)) return false;
+  RECT rc{};
+  HWND w = FindWindowA("Grim Dawn", nullptr);
+  if (!w || !GetClientRect(w, &rc)) return false;
+  return x >= 0 && y >= 0 && x < (float)rc.right && y < (float)rc.bottom;
+}
+void mouse_key(int button, bool held) {
+  static bool key_down[3] = {};
+  bool& prev = key_down[button == 2 ? 2 : 1];
+  bool edge = held && !prev;
+  prev = held;
+  if (held && g_locked_id && !on_screen(g_locked_id)) {
+    if (edge) gd::speech::speak(gd::strings::kTooFarAway, true);  // the lock is on something the camera does not show
+    gd::hooks::set_mouse_hold(button, false);
+    return;
+  }
+  gd::hooks::set_mouse_hold(button, held);
+}
+
+// ---- camera lock ----
+// Decided 2026-08-22 (zoom does not change what the player hears, so nothing is lost): the camera sits at the
+// far end of its zoom range and at yaw 0 (axis-aligned, "north" up), re-applied whenever the game drifts
+// them. GameCamera layout (Game.dll, read from SetZoom/ResetZoom): zoom range +0x590..+0x594, current
+// fraction +0x584; SetZoom(value) clamps into the range.
+namespace {
+constexpr size_t kCam_ZoomMin = 0x590, kCam_ZoomMax = 0x594, kCam_ZoomT = 0x584;
+bool read_cam(const void* cam, size_t off, float* out) {
+  __try { *out = *(const float*)((const char*)cam + off); return true; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+float cam_float(void* cam, size_t off) { float v = 0; return read_cam(cam, off, &v) ? v : 0; }
+}  // namespace
+void pin_camera() {
+  void* cam = g_game_engine && g_api.GetCamera ? g_api.GetCamera(g_game_engine) : nullptr;
+  if (!cam) return;
+  if (g_api.SetZoom && cam_float(cam, kCam_ZoomT) < 0.999f) g_api.SetZoom(cam, cam_float(cam, kCam_ZoomMax));
+  if (g_api.SetCameraYaw && g_api.GetCameraYaw && std::fabs(g_api.GetCameraYaw(cam)) > 0.001f) g_api.SetCameraYaw(cam, 0.0f);
 }
 
 // ---- conversations ----

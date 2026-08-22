@@ -5,10 +5,13 @@
 #include "core/message_builder.h"
 #include "core/navigator.h"
 #include "core/strings.h"
+#include "combat.h"
 #include "hooks.h"
 #include "log.h"
 #include "screens/conversation.h"
 #include "screens/create_character.h"
+#include "screens/delete_character.h"
+#include "screens/options.h"
 #include "screens/difficulty_select.h"
 #include "screens/in_game.h"
 #include "screens/loading.h"
@@ -82,6 +85,8 @@ static void register_actions() {
   }
   m.find(ui_actions::Tooltip)->bind(keys::F1);
   m.register_action("ingame.where", "Where am I", InputCategory::InGame, [] { screens::speak_where(); }).bind(keys::P, true, true).bind(0x25);  // K
+  // Health and energy in full, in the player's own voice (bare H; Ctrl+H stays the game's Help window).
+  m.register_action("ingame.vitals", "Health and energy", InputCategory::InGame, [] { combat::speak_vitals(); }).bind(0x23);
   // The review cursor (wotr's scanner keys): Period enemies, N people, B bystanders, M objects; Shift
   // cycles backward. Each landing speaks name / distance / clock bearing and parks the virtual cursor on it.
   struct Cycle { const char* id; const char* label; int key; world::ScanGroup group; int dir; bool shift; };
@@ -97,8 +102,9 @@ static void register_actions() {
   }
   m.register_action("scan.ping", "Ping the reviewed thing", InputCategory::InGame,
                     [] { if (world::ping_reviewed().empty()) speech::speak(strings::kNoTarget, true); }).bind(0x27);  // Semicolon
-  m.register_action("scan.interact", "Interact with the reviewed thing", InputCategory::InGame,
-                    [] { if (!world::interact_reviewed()) speech::speak(strings::kNoTarget, true); }).bind(0x17).bind(keys::Enter);  // I, Enter
+  // The mouse buttons (J left, I right, Enter = left; hold to hold) are polled per frame by the in-game screen,
+  // not dispatched as actions: a hold needs the key's held state, not a press.
+  // The camera is locked (far zoom, north up) by the in-game screen; no zoom/rotate keys.
   // The game's less frequent functions, lifted to Ctrl + their default key (docs/controls.md): the chord is
   // ours, the plain key is injected into the game's poll, so the game's own map stays untouched and the
   // plain letters are free for the mod. Frequent keys (WASD, 1-0, Space, E, R, U, Escape) pass through
@@ -139,6 +145,8 @@ void init() {
   g_screens.register_screen(screens::make_unsupported());
   g_screens.register_screen(screens::make_main_menu());
   g_screens.register_screen(screens::make_create_character());
+  g_screens.register_screen(screens::make_delete_character());
+  g_screens.register_screen(screens::make_options());
   g_screens.register_screen(screens::make_difficulty_select());
   g_screens.register_screen(screens::make_in_game());
   g_screens.register_screen(screens::make_message_box());
@@ -172,6 +180,10 @@ void tick() {
   g_input.set_live_categories(g_screens.live_categories());
   Screen* cur = g_screens.current();
   if (raw || (cur && cur->captures_raw_input())) return;
+  // The keys of the frame a screen became current belong to whoever had the keyboard before it: the Escape
+  // that the game turned into its pause menu must not reach the pause menu screen as Back (structured
+  // detection is immediate, so the new screen would otherwise close itself with the key that opened it).
+  if (cur != before) return;
   const KeySource& ks = hooks::key_source();
   g_input.tick(t, ks, [](InputAction& a) { return g_nav && g_nav->on_action(a.key()); });
   if (g_nav) {

@@ -24,8 +24,9 @@ MessageBuilder& push_where(MessageBuilder& m, float x, float z, std::string_view
   if (!region.empty()) m.list_item().fragment(std::format("region {}", region));
   return m;
 }
-MessageBuilder& push_scan_item(MessageBuilder& m, std::string_view label, float distance, int clock_hour, int index1, int count) {
+MessageBuilder& push_scan_item(MessageBuilder& m, std::string_view label, float distance, int clock_hour, int index1, int count, bool distant) {
   m.fragment(label);
+  if (distant) m.list_item().fragment(kDistant);
   m.list_item().fragment(std::format("{:.0f} away", distance));
   m.list_item().fragment(std::format("{} o'clock", clock_hour));
   m.list_item();
@@ -36,8 +37,32 @@ MessageBuilder& push_nothing_nearby(MessageBuilder& m, std::string_view group_pl
   m.fragment("no").fragment(group_plural).fragment("nearby");
   return m;
 }
+MessageBuilder& push_speech(MessageBuilder& m, std::string_view speaker, std::string_view speech) {
+  if (!speaker.empty()) m.fragment(std::string(speaker) + ":");
+  m.fragment(speech);
+  return m;
+}
 MessageBuilder& push_count(MessageBuilder& m, int count, std::string_view singular, std::string_view plural) {
   m.list_item().fragment(std::format("{} {}", count, count == 1 ? singular : plural));
+  return m;
+}
+
+MessageBuilder& push_vitals(MessageBuilder& m, double life, float life_max, float energy, float energy_max) {
+  m.list_item().fragment(kHealth).fragment(std::format("{:.0f} of {:.0f}", life, life_max));
+  m.list_item().fragment(kEnergy).fragment(std::format("{:.0f} of {:.0f}", energy, energy_max));
+  return m;
+}
+MessageBuilder& push_health_percent(MessageBuilder& m, int percent) {
+  m.fragment(kHealth).fragment(std::format("{}", percent)).fragment(kPercent);
+  return m;
+}
+MessageBuilder& push_combat_hit(MessageBuilder& m, std::string_view number, bool crit) {
+  m.fragment(number);
+  if (crit) m.fragment(kCrit);
+  return m;
+}
+MessageBuilder& push_combat_word(MessageBuilder& m, std::string_view word) {
+  m.fragment(word);
   return m;
 }
 

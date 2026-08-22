@@ -116,11 +116,13 @@ def main():
     p = argparse.ArgumentParser(); sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("status").set_defaults(f=cmd_status)
     s = sub.add_parser("launch"); s.add_argument("--speak", action="store_true"); s.add_argument("--nobuild", action="store_true"); s.set_defaults(f=cmd_launch)
-    for name in ("health", "text", "buttons"):
+    for name in ("health", "text", "buttons", "voices", "combat"):
         sub.add_parser(name).set_defaults(f=lambda a, n=name: print(get("/" + n), end=""))
     s = sub.add_parser("log"); s.add_argument("--since", type=int, default=0); s.set_defaults(f=lambda a: print(get(f"/log?since={a.since}"), end=""))
     s = sub.add_parser("speech"); s.add_argument("--since", type=int, default=0); s.add_argument("--wait", type=float, default=0); s.set_defaults(f=cmd_speech)
     s = sub.add_parser("say"); s.add_argument("text"); s.set_defaults(f=lambda a: print(get("/say" + q(text=a.text)), end=""))
+    s = sub.add_parser("voice"); s.add_argument("text", nargs="?"); s.add_argument("--voice", default="mark"); s.add_argument("--pan", default="0"); s.add_argument("--since", type=int)
+    s.set_defaults(f=lambda a: print(get("/voice" + (q(say=a.text, voice=a.voice, pan=a.pan) if a.text else q(since=a.since or 0))), end=""))
     s = sub.add_parser("mute"); s.add_argument("on"); s.set_defaults(f=lambda a: print(get("/mute" + q(on=a.on)), end=""))
     s = sub.add_parser("gamekeys"); s.add_argument("on"); s.set_defaults(f=lambda a: print(get("/gamekeys" + q(on=a.on)), end=""))
     s = sub.add_parser("key"); s.add_argument("name"); s.add_argument("--ch"); s.add_argument("--shift", action="store_true"); s.add_argument("--ctrl", action="store_true"); s.add_argument("--alt", action="store_true")

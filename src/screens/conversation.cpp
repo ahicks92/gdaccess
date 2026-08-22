@@ -3,42 +3,27 @@
 #include "core/graph_builder.h"
 #include "core/message_builder.h"
 #include "core/strings.h"
+#include "exe_ui.h"
 #include "hooks.h"
 #include "screens/controls.h"
 #include "speech.h"
-#include "world.h"
+#include "textcap.h"
 
 namespace gd::screens {
 using namespace gd::core;
+using exe_ui::ConvRow;
+using exe_ui::ConvWindow;
 
-static constexpr std::string_view kScreen = "conversation";
 static const ControlType kSpeechType{"text", {"value"}, [] { return std::vector<NodeAnnouncement>{}; }};
-// ConversationStep::Type as observed 2026-08-21: 0 root/speaker, 1 NPC speech, 2 player response
-// (tagContinue), 6 end-of-conversation response (tagEndConversation, e.g. "(Receive Item: ...)"). Anything
-// that is not the root or the speech is treated as a response.
-constexpr int kRoot = 0, kSpeech = 1;
 
-struct Node { std::string speaker, speech; std::vector<std::pair<void*, std::string>> responses; bool open = false; };
-
-// The current node from the capture, and whether the game still shows it (a response row, or the speaker
-// line, drawn on screen -- the capture happens once per node, so the drawn text is the open/closed oracle).
-static Node current() {
-  Node n;
-  world::ConvState s = world::conversation_state();
-  for (const world::ConvStep& st : s.steps) {
-    if (st.type == kRoot) n.speaker = st.text;
-    else if (st.type == kSpeech) n.speech = st.text;
-    else if (st.available) n.responses.push_back({st.step, st.text});
-  }
-  for (auto& [step, text] : n.responses) if (textcap::has_text(text)) { n.open = true; break; }
-  if (!n.open && !n.speaker.empty() && !n.speech.empty() && textcap::has_text(n.speaker)) n.open = true;
-  return n;
-}
-
+// The NPC conversation, read from the game's conversation window (docs/exe-ui-layout.md): the speaker, the
+// full speech, and the response rows the game shows for this node (a single "Continue" while the speech is
+// paginated, one per available response, or "End conversation"). Choosing a row is a click at the row's own
+// rectangle -- the game's click path runs the step's quest actions, so it is not bypassed.
 class ConversationScreen : public Screen {
  public:
   std::string_view key() const override { return "conversation"; }
-  bool is_active() override { return current().open; }
+  bool is_active() override { return exe_ui::available() && exe_ui::conv_window().open(); }
   std::string screen_name() const override { return std::string(strings::kConversation); }
   int layer() const override { return 30; }
   bool exclusive() const override { return true; }
@@ -47,48 +32,47 @@ class ConversationScreen : public Screen {
   }
   void on_focus() override {
     Screen::on_focus();
-    Node n = current();
-    MessageBuilder m;
-    if (!n.speaker.empty()) m.fragment(n.speaker);
-    if (!n.speech.empty()) m.list_item().fragment(n.speech);
-    speech::speak(m.build(), false);
-    last_speech_ = n.speech;
+    ConvWindow w = exe_ui::conv_window();
+    last_speech_ = w.speech();
+    speech::speak(narration(w), false);
   }
   // A new node in the same dialog (a response picked): read the new speech, keep focus on the responses.
   void on_update() override {
-    Node n = current();
-    if (n.speech != last_speech_) {
-      last_speech_ = n.speech;
-      MessageBuilder m;
-      if (!n.speaker.empty()) m.fragment(n.speaker);
-      m.list_item().fragment(n.speech);
-      speech::speak(m.build(), true);
-    }
+    ConvWindow w = exe_ui::conv_window();
+    std::string s = w.speech();
+    if (s != last_speech_) { last_speech_ = s; speech::speak(narration(w), true); }
   }
   void build(GraphBuilder& b) override {
-    Node n = current();
-    b.begin_stop("dialog");
-    {
-      auto v = std::make_shared<NodeVtable>();
-      v->control_type = &kSpeechType;
-      std::string text = n.speaker.empty() ? n.speech : n.speaker + ": " + n.speech;
-      v->announcements = {NodeAnnouncement([text] { return text; }, false, announcement_kinds::kValue)};
-      b.add_item(ControlId::structural("conversation.speech"), v);
-    }
+    ConvWindow w = exe_ui::conv_window();
+    if (!w) return;
+    // Responses first: focus lands there (the speech was just narrated); the speech item follows for re-reading.
     b.begin_stop("responses");
-    for (size_t i = 0; i < n.responses.size(); ++i) {
-      std::string text = n.responses[i].second;
+    std::vector<ConvRow> rows = w.rows();
+    for (size_t i = 0; i < rows.size(); ++i) {
+      ConvRow r = rows[i];
+      std::string text = textcap::speakable(r.text());
       auto v = std::make_shared<NodeVtable>();
       v->control_type = &kButtonType;
       v->announcements = {NodeAnnouncement([text] { return text; }, false, announcement_kinds::kLabel)};
-      v->on_activate = [text] { click_label(kScreen, text); };  // the response's drawn row
+      v->on_activate = [w, r] { w.choose(r); };
       b.add_item(ControlId::structural(std::format("conversation.response{}", i)), v);
     }
+    b.begin_stop("dialog");
+    {
+      std::string text = narration(w);
+      auto v = std::make_shared<NodeVtable>();
+      v->control_type = &kSpeechType;
+      v->announcements = {NodeAnnouncement([text] { return text; }, false, announcement_kinds::kValue)};
+      b.add_item(ControlId::structural("conversation.speech"), v);
+    }
   }
-  // Land on the responses, not the speech: the speech was just read.
-  bool start_unfocused() const override { return false; }
 
  private:
+  static std::string narration(const ConvWindow& w) {
+    MessageBuilder m;
+    gd::strings::push_speech(m, textcap::speakable(w.speaker()), textcap::speakable(w.speech()));
+    return m.build();
+  }
   std::string last_speech_;
 };
 

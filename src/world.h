@@ -12,11 +12,14 @@ bool install();   // attach the capture hooks (Game.dll/Engine.dll exports)
 void remove();
 
 bool in_world();                 // the engine, the main player and its controller have all been seen
+void* game_engine();             // the GAME::GameEngine instance (captured from GameEngine::Update; null before)
 bool player_position(Vec3& p);   // world-space position of the main player (feet)
 std::string player_name();
 std::string region_name();
 double life();                   // current life (0 when unknown)
 float life_max();
+float energy();                  // "mana" in the exports, "energy" in the UI
+float energy_max();
 float camera_yaw();              // the game camera's yaw, as reported (units logged)
 
 // Navmesh probes around the player. dir is a unit vector in the horizontal plane (x, z), distances in the
@@ -26,6 +29,7 @@ bool on_navmesh(const Vec3& world_point);
 float free_distance(float dir_x, float dir_z, float max_dist, float step);
 
 std::string debug_dump();        // for the dev server: pointers, raw coordinate bytes, probes
+std::string classinfo_dump();    // dev: the game's RTTI_ClassInfo layout (parent pointer?)
 
 // What stopped a probe: an OBSTACLE has walkable navmesh a few units beyond it along the probe direction
 // (the character walks round it), a WALL has none (cliffs, buildings, level geometry). The nearby-entity
@@ -51,11 +55,28 @@ std::vector<ScanItem> scan(ScanGroup group, float radius = 40.0f);  // nearest f
 // group's "nothing" text. Also locks the virtual cursor on it.
 std::string cycle_review(ScanGroup group, int dir);
 unsigned reviewed_id();
-// Interact with the reviewed thing: a left click on it (attack for an enemy, talk / open / pick up for
-// the rest -- the game decides by what is under the cursor).
-bool interact_reviewed();
+// The mouse buttons as keys (J left, I right; hold = hold): the button goes down at the virtual cursor --
+// the reviewed thing when one is locked, else the real cursor -- and the game decides what that means
+// (attack, talk, open, pick up, move, skill). A locked thing the camera does not show cannot be clicked:
+// "too far away", nothing happens. Per frame from the in-game screen with the key's held state.
+void mouse_key(int button, bool held);
+// Whether an entity projects inside the game window (the camera shows it).
+bool on_screen(unsigned id);
+// Camera lock (per frame from the in-game screen): zoom at the far end of its range, yaw 0 (north up).
+void pin_camera();
 // Bearing of a world point from the player as a clock hour (12 = screen-up), and distance in units.
 int clock_hour(const Vec3& p);
+// Pan (-1..1, by ear-frame bearing) and gain (ref/(ref+dist), >= 0.15) of a world point from the player: the
+// one rule for positioned sounds and voices.
+void ear_frame(const Vec3& p, float& pan, float& gain);
+// The voices' own rolloff (the pings keep the sonar curve above): full level out to `near`, falling linearly
+// to `floor` at `far`, flat beyond. Defaults from the game's range table (gameengine.dbr): near = moderateRange
+// 9, far = bossRange 32 (the farthest a pet's hit can be), floor 0.4. Live-tunable: /voice?near=&far=&floor=.
+float voice_gain(float dist);
+void set_voice_rolloff(float near_d, float far_d, float floor_g);  // <0 = keep
+std::string voice_rolloff();
+// A raw WorldVec3 (Region* + Vec3, 24 bytes) to world space; false when it has no region.
+bool world_point(const void* worldvec3, Vec3& out);
 // The review ping (wotr's Semicolon, also played on every landing): one of three sounds for the route
 // from the player to the reviewed thing -- straight walk, path around, unreachable -- positioned toward it
 // (pan by bearing, volume ref/(ref+distance)). Returns the kind for the log; empty = nothing reviewed.

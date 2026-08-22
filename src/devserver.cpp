@@ -5,8 +5,11 @@
 #include "speech.h"
 #include "textcap.h"
 #include "world.h"
+#include "exe_ui.h"
 #include "audio.h"
 #include "audio_mute.h"
+#include "combat.h"
+#include "voice.h"
 #include "screens/in_game.h"
 #include <cmath>
 #include <winsock2.h>
@@ -62,6 +65,8 @@ static int key_code(const std::string& name) {
     {"f1", 0x3b}, {"f2", 0x3c}, {"f3", 0x3d}, {"f4", 0x3e}, {"f5", 0x3f}, {"f6", 0x40}, {"f7", 0x41}, {"f8", 0x42}, {"f9", 0x43}, {"f10", 0x44},
     {"f11", 0x57}, {"f12", 0x58},
     {"home", 0x78}, {"up", 0x79}, {"pageup", 0x7a}, {"left", 0x7b}, {"right", 0x7c}, {"end", 0x7d}, {"down", 0x7e}, {"pagedown", 0x7f},  // from the game's own key names
+    {"lbracket", 0x1a}, {"rbracket", 0x1b}, {"semicolon", 0x27}, {"apostrophe", 0x28}, {"grave", 0x29}, {"backslash", 0x2b},
+    {"comma", 0x33}, {"period", 0x34}, {"slash", 0x35}, {"numpadplus", 0x4e}, {"numpadminus", 0x4a},
   };
   auto it = k.find(name);
   return it == k.end() ? -1 : it->second;
@@ -72,8 +77,34 @@ static std::string handle(const std::string& path, const std::map<std::string, s
   if (path == "/health")
     return std::format("ok pid={} frame={} backend={} speech_muted={} game_keys_muted={} keyboard={}\n", GetCurrentProcessId(), hooks::frame(),
                        speech::backend_name(), speech::muted(), hooks::game_keys_muted(), app::owns_keyboard() ? "mod" : "game") + hooks::counters() + "\n";
-  if (path == "/speech" || path == "/log") {
-    auto& ring = path == "/speech" ? speech::history() : log::ring();
+  if (path == "/voices") return voice::status() + "rolloff: " + world::voice_rolloff() + "\n";  // the positional voices: state, bound voices, counters, the installed list
+  if (path == "/voice") {  // /voice?since=N the spoken-line ring; ?say=..&voice=mark|zira&pan=&gain=&replace=1 a test line; knobs enable= vol=
+    if (q.count("enable")) voice::set_enabled(truthy(q.at("enable")));
+    if (q.count("vol")) voice::set_gain((float)atof(q.at("vol").c_str()));
+    if (q.count("coalesce")) combat::set_coalesce(truthy(q.at("coalesce")));
+    if (q.count("window")) combat::set_window(atof(q.at("window").c_str()));
+    if (q.count("cap")) combat::set_cap(parse_int(q.at("cap"), 4));
+    if (q.count("near") || q.count("far") || q.count("floor"))
+      world::set_voice_rolloff(q.count("near") ? (float)atof(q.at("near").c_str()) : -1.0f, q.count("far") ? (float)atof(q.at("far").c_str()) : -1.0f, q.count("floor") ? (float)atof(q.at("floor").c_str()) : -1.0f);
+    if (q.count("max")) voice::set_max_concurrent(q.count("voice") && q.at("voice") == "zira" ? voice::Which::Zira : voice::Which::Mark, parse_int(q.at("max"), 4));
+    if (q.count("say")) {
+      voice::Say s;
+      s.voice = q.count("voice") && q.at("voice") == "zira" ? voice::Which::Zira : voice::Which::Mark;
+      s.text = q.at("say");
+      s.pan = q.count("pan") ? (float)atof(q.at("pan").c_str()) : 0.0f;
+      s.gain = q.count("gain") ? (float)atof(q.at("gain").c_str()) : 1.0f;
+      s.policy = q.count("replace") && truthy(q.at("replace")) ? voice::Policy::Replace : voice::Policy::Overlap;
+      s.group = s.voice == voice::Which::Zira ? voice::kGroupSelf : voice::kGroupEnemy;
+      voice::say(s);
+      return "queued\n";
+    }
+  }
+  if (path == "/combat") {  // /combat?raw=N arms a hex dump of the next N 0x1b events into /log
+    if (q.count("raw")) combat::arm_raw_log(parse_int(q.at("raw"), 10));
+    return combat::status();
+  }
+  if (path == "/speech" || path == "/log" || path == "/voice") {
+    auto& ring = path == "/speech" ? speech::history() : path == "/voice" ? voice::history() : log::ring();
     uint64_t since = q.count("since") ? strtoull(q.at("since").c_str(), nullptr, 10) : 0;
     auto [lines, cur] = ring.since(since);
     std::string out = std::format("cursor: {}\n", cur);
@@ -139,6 +170,14 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     return "queued click\n";
   }
   if (path == "/player") return world::debug_dump();
+  if (path == "/classinfo") return world::classinfo_dump();
+  if (path == "/scan") {  // /scan?group=0..3&max=40 -- the review cursor's list for a group (enemies, people, bystanders, objects)
+    int g = q.count("group") ? parse_int(q.at("group"), 3) : 3;
+    float r = q.count("max") ? (float)atof(q.at("max").c_str()) : 40.0f;
+    std::string out;
+    for (const world::ScanItem& it : world::scan((world::ScanGroup)g, r)) out += std::format("{:6.1f} id={} {} '{}' {}\n", it.dist, it.id, it.cls, it.label, it.record);
+    return out.empty() ? "nothing\n" : out;
+  }
   if (path == "/keydown" || path == "/keyup") {  // hold a key across frames: /keydown?name=w ... /keyup?name=w
     int code = q.count("name") ? key_code(q.at("name")) : parse_int(q.count("code") ? q.at("code") : "", -1);
     if (code < 0) { status = 400; return "unknown key\n"; }
@@ -154,6 +193,38 @@ static std::string handle(const std::string& path, const std::map<std::string, s
   if (path == "/where") { screens::speak_where(); return "ok\n"; }
   if (path == "/blocks") return world::blocks_dump();
   if (path == "/conv") return world::conversation_dump();
+  if (path == "/ui") return exe_ui::ui_dump();            // the exe's menu widget tree (framework A)
+  if (path == "/ui/activate") {                           // /ui/activate?ptr=0x... presses a framework A button through its listeners
+    uintptr_t p = q.count("ptr") ? (uintptr_t)strtoull(q.at("ptr").c_str(), nullptr, 0) : 0;
+    return exe_ui::activate_ptr(p) ? "activated\n" : "not a button in the current tree (see /ui)\n";
+  }
+  if (path == "/ingame") return exe_ui::ingame_dump();    // InGameUI's windows and the prompt box (framework B)
+  if (path == "/peek") {                                 // /peek?ptr=0x...&n=256 -- hex dump (dev; SEH-guarded)
+    uintptr_t p = q.count("ptr") ? (uintptr_t)strtoull(q.at("ptr").c_str(), nullptr, 0) : 0;
+    return exe_ui::peek(p, q.count("n") ? parse_int(q.at("n"), 256) : 256);
+  }
+  if (path == "/convwin") {                              // the game's conversation window: speaker/speech elements, rows with their steps
+    exe_ui::ConvWindow w = exe_ui::conv_window();
+    if (!w) return "no conversation window\n";
+    std::string out = std::format("window {} open={} rect=({:.0f},{:.0f} {:.0f}x{:.0f}) speaker='{}' page='{}'\nspeech='{}'\n", w.p, (int)w.open(), w.rect().x, w.rect().y, w.rect().w, w.rect().h, w.speaker(), w.page_text(), w.speech());
+    for (exe_ui::ConvRow r : w.rows()) out += std::format("  row {} step={} rect=({:.0f},{:.0f} {:.0f}x{:.0f}) '{}'\n", r.p, r.step(), r.rect().x, r.rect().y, r.rect().w, r.rect().h, r.text());
+    out += exe_ui::conv_elements_dump();
+    return out;
+  }
+  if (path == "/tips") {                                 // the game's tip manager: live tips with kind/state/lines; /tips?dismiss=1 closes tutorial tips
+    std::string out;
+    for (exe_ui::Tip t : exe_ui::tips()) {
+      out += std::format("tip {} kind={} state={} page={}\n", t.p, t.kind(), t.state(), t.page());
+      for (const std::string& l : t.lines()) out += "  | " + l + "\n";
+      if (q.count("dismiss") && t.kind() == 1) t.dismiss();
+    }
+    return out.empty() ? "no tips\n" : out;
+  }
+  if (path == "/loc") return hooks::localize(q.count("tag") ? q.at("tag").c_str() : "") + "\n";  // /loc?tag=tagVideoTitle
+  if (path == "/dialog") {                                // /dialog?answer=yes|no|okay answers the game's message box through DialogManager
+    if (q.count("answer")) { std::string a = q.at("answer"); return exe_ui::answer_dialog(a == "yes" || a == "okay") ? "answered\n" : "no dialog open\n"; }
+    return exe_ui::dialog_dump();
+  }
   if (path == "/entities") return world::entities_dump(q.count("max") ? (float)atof(q.at("max").c_str()) : 40.0f);
   if (path == "/lock") {  // /lock?id=N parks the cursor over the entity each frame; /lock?off=1 releases; no args: report
     if (q.count("off")) world::unlock_target();

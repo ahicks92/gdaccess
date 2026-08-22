@@ -2,6 +2,7 @@
 #include "core/graph_builder.h"
 #include "core/message_builder.h"
 #include "core/strings.h"
+#include "exe_ui.h"
 #include "speech.h"
 #include "textcap.h"
 
@@ -20,11 +21,8 @@ static bool find_tip(std::string& out) {
 class LoadingScreen : public Screen {
  public:
   std::string_view key() const override { return "loading"; }
-  // A tip line with no HUD and no menu around it.
-  bool is_active() override {
-    std::string tip;
-    return find_tip(tip) && !textcap::has_text("Credits") && !textcap::has_text("Active Quests");
-  }
+  // App state 10 = entering the world (App::ApplyPendingState, exe+0xbe410); it holds until the world is up.
+  bool is_active() override { return exe_ui::available() && exe_ui::app_state() == 10; }
   std::string screen_name() const override { return std::string(strings::kLoading); }
   int layer() const override { return 40; }
   bool exclusive() const override { return true; }

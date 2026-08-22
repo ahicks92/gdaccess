@@ -4,6 +4,9 @@ namespace gd::names {
 // protected: class std::basic_string<unsigned short,struct std::char_traits<unsigned short>,class std::allocator<unsigned short> > __cdecl GAME::LocalizationManager::GetText(char const * __ptr64) __ptr64
 inline constexpr const char* LocalizationManager_GetText_DLL = "Engine.dll";
 inline constexpr const char* LocalizationManager_GetText = "?GetText@LocalizationManager@GAME@@IEAA?AV?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@PEBD@Z";
+// public: unsigned short const * __ptr64 __cdecl GAME::LocalizationManager::LocalizeWithoutParams(char const * __ptr64) __ptr64
+inline constexpr const char* LocalizationManager_LocalizeWithoutParams_DLL = "Engine.dll";
+inline constexpr const char* LocalizationManager_LocalizeWithoutParams = "?LocalizeWithoutParams@LocalizationManager@GAME@@QEAAPEBGPEBD@Z";
 // public: void __cdecl GAME::Display::Update(void) __ptr64
 inline constexpr const char* Display_Update_DLL = "Engine.dll";
 inline constexpr const char* Display_Update = "?Update@Display@GAME@@QEAAXXZ";
@@ -67,6 +70,15 @@ inline constexpr const char* Character_GetCurrentLife = "?GetCurrentLife@Charact
 // public: float const __cdecl GAME::Character::GetLifeLimit(void)const __ptr64
 inline constexpr const char* Character_GetLifeLimit_DLL = "Game.dll";
 inline constexpr const char* Character_GetLifeLimit = "?GetLifeLimit@Character@GAME@@QEBA?BMXZ";
+// public: float const __cdecl GAME::Character::GetCurrentMana(void)const __ptr64
+inline constexpr const char* Character_GetCurrentMana_DLL = "Game.dll";
+inline constexpr const char* Character_GetCurrentMana = "?GetCurrentMana@Character@GAME@@QEBA?BMXZ";
+// public: float const __cdecl GAME::Character::GetManaLimit(void)const __ptr64
+inline constexpr const char* Character_GetManaLimit_DLL = "Game.dll";
+inline constexpr const char* Character_GetManaLimit = "?GetManaLimit@Character@GAME@@QEBA?BMXZ";
+// public: void __cdecl GAME::EventManager::Send(struct GAME::GameEvent const * __ptr64,unsigned int) __ptr64
+inline constexpr const char* EventManager_Send_DLL = "Engine.dll";
+inline constexpr const char* EventManager_Send = "?Send@EventManager@GAME@@QEAAXPEBUGameEvent@2@I@Z";
 // public: unsigned short const * __ptr64 __cdecl GAME::Player::GetPlayerName(void)const __ptr64
 inline constexpr const char* Player_GetPlayerName_DLL = "Game.dll";
 inline constexpr const char* Player_GetPlayerName = "?GetPlayerName@Player@GAME@@QEBAPEBGXZ";
@@ -193,6 +205,51 @@ inline constexpr const char* ConversationStep_GetFlags = "?GetFlags@Conversation
 // public: class GAME::Conversation * __ptr64 __cdecl GAME::Character::GetConversation(void)const __ptr64
 inline constexpr const char* Character_GetConversation_DLL = "Game.dll";
 inline constexpr const char* Character_GetConversation = "?GetConversation@Character@GAME@@QEBAPEAVConversation@2@XZ";
+// public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::FixedActor::GetStaticClassInfo(void)
+inline constexpr const char* FixedActor_GetStaticClassInfo_DLL = "Game.dll";
+inline constexpr const char* FixedActor_GetStaticClassInfo = "?GetStaticClassInfo@FixedActor@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
+// public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::Item::GetStaticClassInfo(void)
+inline constexpr const char* Item_GetStaticClassInfo_DLL = "Game.dll";
+inline constexpr const char* Item_GetStaticClassInfo = "?GetStaticClassInfo@Item@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
+// public: virtual bool __cdecl GAME::FixedActor::IsOfInterest(void)const __ptr64
+inline constexpr const char* FixedActor_IsOfInterest_DLL = "Game.dll";
+inline constexpr const char* FixedActor_IsOfInterest = "?IsOfInterest@FixedActor@GAME@@UEBA_NXZ";
+// public: virtual bool __cdecl GAME::Item::IsOfInterest(void)const __ptr64
+inline constexpr const char* Item_IsOfInterest_DLL = "Game.dll";
+inline constexpr const char* Item_IsOfInterest = "?IsOfInterest@Item@GAME@@UEBA_NXZ";
+// const GAME::FixedActor::`vftable'{for `GAME::Object'}
+inline constexpr const char* FixedActor_vftable_DLL = "Game.dll";
+inline constexpr const char* FixedActor_vftable = "??_7FixedActor@GAME@@6BObject@1@@";
+// const GAME::Item::`vftable'{for `GAME::Object'}
+inline constexpr const char* Item_vftable_DLL = "Game.dll";
+inline constexpr const char* Item_vftable = "??_7Item@GAME@@6BObject@1@@";
+// public: bool __cdecl GAME::Npc::HasConversation(void)const __ptr64
+inline constexpr const char* Npc_HasConversation_DLL = "Game.dll";
+inline constexpr const char* Npc_HasConversation = "?HasConversation@Npc@GAME@@QEBA_NXZ";
+// public: void __cdecl GAME::GameCamera::SetZoom(float) __ptr64
+inline constexpr const char* GameCamera_SetZoom_DLL = "Game.dll";
+inline constexpr const char* GameCamera_SetZoom = "?SetZoom@GameCamera@GAME@@QEAAXM@Z";
+// public: void __cdecl GAME::GameCamera::ResetZoom(void) __ptr64
+inline constexpr const char* GameCamera_ResetZoom_DLL = "Game.dll";
+inline constexpr const char* GameCamera_ResetZoom = "?ResetZoom@GameCamera@GAME@@QEAAXXZ";
+// public: virtual void __cdecl GAME::GameCamera::SetCameraYaw(float) __ptr64
+inline constexpr const char* GameCamera_SetCameraYaw_DLL = "Game.dll";
+inline constexpr const char* GameCamera_SetCameraYaw = "?SetCameraYaw@GameCamera@GAME@@UEAAXM@Z";
+// public: class GAME::DialogManager & __ptr64 __cdecl GAME::GameEngine::GetDialogManager(void) __ptr64
+inline constexpr const char* GameEngine_GetDialogManager_DLL = "Game.dll";
+inline constexpr const char* GameEngine_GetDialogManager = "?GetDialogManager@GameEngine@GAME@@QEAAAEAVDialogManager@2@XZ";
+// public: int __cdecl GAME::DialogManager::GetNumDialog(void)const __ptr64
+inline constexpr const char* DialogManager_GetNumDialog_DLL = "Game.dll";
+inline constexpr const char* DialogManager_GetNumDialog = "?GetNumDialog@DialogManager@GAME@@QEBAHXZ";
+// public: struct GAME::DialogManager::Dialog const & __ptr64 __cdecl GAME::DialogManager::PeekTopDialog(void) __ptr64
+inline constexpr const char* DialogManager_PeekTopDialog_DLL = "Game.dll";
+inline constexpr const char* DialogManager_PeekTopDialog = "?PeekTopDialog@DialogManager@GAME@@QEAAAEBUDialog@12@XZ";
+// public: void __cdecl GAME::DialogManager::AddResponse(struct GAME::DialogManager::YesNoResponse const & __ptr64) __ptr64
+inline constexpr const char* DialogManager_AddResponse_DLL = "Game.dll";
+inline constexpr const char* DialogManager_AddResponse = "?AddResponse@DialogManager@GAME@@QEAAXAEBUYesNoResponse@12@@Z";
+// public: void __cdecl GAME::DialogManager::RemoveTopDialog(void) __ptr64
+inline constexpr const char* DialogManager_RemoveTopDialog_DLL = "Game.dll";
+inline constexpr const char* DialogManager_RemoveTopDialog = "?RemoveTopDialog@DialogManager@GAME@@QEAAXXZ";
 // public: virtual class std::basic_string<unsigned short,struct std::char_traits<unsigned short>,class std::allocator<unsigned short> > __cdecl GAME::Monster::GetGameDescription(bool,bool)const __ptr64
 inline constexpr const char* Monster_GetGameDescription_DLL = "Game.dll";
 inline constexpr const char* Monster_GetGameDescription = "?GetGameDescription@Monster@GAME@@UEBA?AV?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@_N0@Z";

@@ -37,6 +37,12 @@ void set_game_key_filter(std::function<bool(int code)> pass);  // ... except cod
 struct SynthMouse { int type; float x, y; uint8_t left, right; uint8_t held[6]; bool shift, ctrl, alt; };
 void push_mouse_event(const SynthMouse& m);              // one event, its own frame
 void click(float x, float y, int button = 1);            // down + up over two frames, cursor overridden meanwhile (1 left, 2 right, 3 middle)
+// A real hold: the down transition is injected once, then every real event the game polls reports the button
+// held (the game re-issues the command each tick -- move, attack, skill -- and tears it down on the first
+// event with both buttons up), and the up transition is injected on release. Position = the cursor override
+// when one is on, else the real cursor. Game thread.
+void set_mouse_hold(int button, bool held);              // 1 left, 2 right
+bool mouse_held(int button);
 void set_cursor_override(bool on, float x, float y);
 void set_fake_active(bool on);                           // dev: make the game believe its window is active     // DirectInputDevice::GetCursorPosition returns this
 std::string button_query_stats();                        // which Button values the game polls via IsButtonDown
@@ -46,6 +52,7 @@ std::string counters();
 // Tutorial tips the game fetched recently (tag, text with colour codes stripped, frame), oldest first.
 struct Tip { std::string tag, text; uint64_t frame; };
 std::vector<Tip> recent_tips();
+std::string localize(const char* tag);  // a localization tag -> the game's text (empty until the game has localized anything)
 void* engine_object();  // the GAME::Engine instance, captured from its input poll (null before the first frame)
 // Keyboard state as seen in the game's device poll this frame (real AND synthetic events), for the mod's
 // own InputManager. Valid between the poll and the end of Display::Update; cleared per frame.

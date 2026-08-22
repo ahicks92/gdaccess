@@ -1,53 +1,35 @@
 #include "screens/tip.h"
-#include <algorithm>
-#include <cstdlib>
 #include <format>
 #include "core/graph_builder.h"
 #include "core/message_builder.h"
 #include "core/strings.h"
+#include "exe_ui.h"
 #include "screens/controls.h"
 #include "speech.h"
+#include "textcap.h"
 
 namespace gd::screens {
 using namespace gd::core;
 
-static constexpr std::string_view kScreen = "tip";
 static const ControlType kLineType{"text", {"value"}, [] { return std::vector<NodeAnnouncement>{}; }};
-// The popup sits top-left (measured 2026-08-21 at 1600x900: lines at x 197, y 73..121); its lines are drawn
-// one per RenderText2d call. The title is the first line; the body is whatever sits under it in that column.
-constexpr int kTitleMaxX = 600, kTitleMaxY = 250, kColumnSlack = 260, kBodyHeight = 220;
 
-// The on-screen line that starts a recently fetched tip: a drawn line that is a prefix of the tip text
-// (the loc string's first line is its title).
-static bool find_title(textcap::Item& title) {
-  std::vector<hooks::Tip> tips = hooks::recent_tips();
-  for (const textcap::Item& it : textcap::snapshot()) {
-    if (it.x > kTitleMaxX || it.y > kTitleMaxY) continue;
-    std::string t = textcap::speakable(it.text);
-    if (t.size() < 4) continue;
-    for (const hooks::Tip& tip : tips)
-      if (tip.text.rfind(t, 0) == 0) { title = it; return true; }
-  }
-  return false;
+// A tutorial tip, read from the game's tip manager (exe_ui::tips): its lines are the localized text already
+// split by the game (line 0 = title). Shown as a mod-owned overlay while the tip is up; Close dismisses it the
+// way a right click does. Notifications (kind 0) are not tips and stay with the game.
+static exe_ui::Tip current_tip() {
+  for (exe_ui::Tip t : exe_ui::tips()) if (t.kind() == 1 && t.showing()) return t;
+  return {};
 }
-static std::vector<std::string> body_lines(const textcap::Item& title) {
-  std::vector<std::pair<int, std::string>> lines;
-  for (const textcap::Item& it : textcap::snapshot()) {
-    if (it.y <= title.y || it.y > title.y + kBodyHeight || std::abs(it.x - title.x) > kColumnSlack) continue;
-    std::string t = textcap::speakable(it.text);
-    if (!t.empty()) lines.push_back({it.y, t});
-  }
-  std::sort(lines.begin(), lines.end());
+static std::vector<std::string> lines_of(const exe_ui::Tip& t) {
   std::vector<std::string> out;
-  for (auto& [y, t] : lines)
-    if (out.empty() || out.back() != t) out.push_back(t);  // the game draws each line twice (shadow pass)
+  for (const std::string& l : t.lines()) { std::string s = textcap::speakable(l); if (!s.empty()) out.push_back(s); }
   return out;
 }
 
 class TipScreen : public Screen {
  public:
   std::string_view key() const override { return "tip"; }
-  bool is_active() override { textcap::Item t; return find_title(t); }
+  bool is_active() override { return exe_ui::available() && (bool)current_tip(); }
   std::string screen_name() const override { return std::string(strings::kTip); }
   int layer() const override { return 35; }
   bool exclusive() const override { return true; }
@@ -55,19 +37,17 @@ class TipScreen : public Screen {
   void on_focus() override {
     Screen::on_focus();
     // Read the whole tip at once on arrival; the items below let the player re-read line by line.
-    textcap::Item title;
-    if (!find_title(title)) return;
+    exe_ui::Tip t = current_tip();
+    if (!t) return;
     MessageBuilder m;
-    m.fragment(textcap::speakable(title.text));
-    for (const std::string& l : body_lines(title)) m.fragment(l);
+    for (const std::string& l : lines_of(t)) m.fragment(l);
     speech::speak(m.build(), false);
   }
   void build(GraphBuilder& b) override {
-    textcap::Item title;
-    if (!find_title(title)) return;
+    exe_ui::Tip t = current_tip();
+    if (!t) return;
     b.begin_stop("tip");
-    std::vector<std::string> lines = body_lines(title);
-    lines.insert(lines.begin(), textcap::speakable(title.text));
+    std::vector<std::string> lines = lines_of(t);
     for (size_t i = 0; i < lines.size(); ++i) {
       auto v = std::make_shared<NodeVtable>();
       v->control_type = &kLineType;
@@ -86,11 +66,7 @@ class TipScreen : public Screen {
   }
 
  private:
-  // The game closes a tip on a right click over it.
-  static void close() {
-    textcap::Item title;
-    if (find_title(title)) hooks::click((float)title.x, (float)(title.y + 10), 2);
-  }
+  static void close() { exe_ui::Tip t = current_tip(); if (t) t.dismiss(); }
 };
 
 std::unique_ptr<Screen> make_tip() { return std::make_unique<TipScreen>(); }

@@ -64,10 +64,32 @@ project by the same author) — see `docs/design-notes-from-wotr.md` for the dec
   Dynamic class names: `Object::GetRTTIClassInfo` dispatched through the vtable slot found in `Object::vftable`
   (the export is the base implementation); `RTTI_ClassInfo` = vptr + `const char* name` ("Player", "Npc",
   "Monster", "PlayerSpawnPoint"). `/entities`, `/project?id=`, `/lock?id=|off=1`, `/target` are the dev routes.
-- Hot-reloading the DLL while the game is IN THE WORLD aborted the game once (CRT "Runtime Error" box =
-  `abort()` from a `std::bad_function_call` thrown inside our DLL on the game thread, unresolved -- the old
-  DLL's frames were symbolized against the new PDB). Until understood: reload at the main menu, or relaunch.
-  `tools/windows.py` reads the text of a modal dialog the unfocused game put up.
+- Hot reload crashes (the in-world `bad_function_call` abort of 2026-08-21 and a main-menu crash inside our
+  tick on 2026-08-22) were Detours transactions updating only the calling thread: `gdaccess_unload` runs on a
+  remote thread, so the game thread could sit in a trampoline being freed (and the new DLL maps at the old
+  base, which is why the stale frames symbolized against the new PDB). Fixed: `hooks.cpp ThreadUpdater`
+  suspends/updates every thread of the process in every transaction, and the unload sleeps 250 ms after
+  detaching so in-flight hook bodies finish before FreeLibrary. Verified: 3 reloads at the main menu and 2 in
+  the world. `tools/windows.py` reads the text of a modal dialog the unfocused game put up.
+- Combat feedback (static RE 2026-08-22, `docs/combat-feedback.md`): floating numbers/Miss/Dodge/Block are
+  `EventManager::Send(ev, 0x1b)` from `CombatManager::TakeAttack` (text at ev+0x40, u16); all damage runs
+  through exported `CombatManager::ApplyDamage(float, PlayStatsDamageType const&, CombatAttributeType,
+  vector<attackerId>)` on the victim; no player combat log exists (`gLogCombat` is a dev printf switch);
+  popups = `ControllerPlayer::SetUserText(tag)`, banners = `GameEngine::AddUINotification`.
+- Positional voices (2026-08-22, verified through the loop): `src/tts_onecore.cpp` (own OneCore backend via
+  C++/WinRT, the only TU including `winrt/*`; worker-thread MTA only; api-ms-win-core-winrt-* delay-loaded so a
+  missing runtime loses combat speech, not the mod) -> `src/voice.cpp` (Mark = at the enemy, Zira = the
+  player; worker queue, per-text PCM cache, `audio::play_pcm` with groups/replace; own ring at `/voice`,
+  `/voices` status; falls back to `speech::speak` tagged "(prism)") -> `src/combat.cpp` (the `EventManager::Send`
+  0x1b hook, `core/combat_text` parse, `core/combat_coalesce` 150 ms same-place merge, `core/threshold_watcher`
+  10 % health steps, H = vitals). Menus/UI stay on `speech::speak` (prism/NVDA). Synthesis is 4-15 ms per line.
+  Dev: `/voice?say=&voice=mark|zira&pan=&replace=1`, knobs `vol= coalesce= window= cap= max= near= far= floor=`,
+  `/combat[?raw=N]`. Voice level: lines are peak-normalized (0.8), bypass the 0.6 master, and use their own
+  rolloff `world::voice_gain` (1.0 out to 9 units = moderateRange, linear to 0.4 at 32 = bossRange); the review
+  pings keep the sonar curve. The game's range table is `records/game/gameengine.dbr` (`tools/arz.py` reads
+  database.arz): meleeRange 1.25, meleeTargetDistance 2.4, shortRange 4.75, moderateRange 9, longRange 15,
+  maximumRange 18, bossRange 32, camera 20..48; skills pick one by `distanceProfile`.
+  Known: the first `/keydown` hold right after a hot reload did not register once (second try worked).
 - Tooltips/descriptions are exported as data: `Item::GetUIDisplayText`, `Monster::CreateUISummaryText`,
   `Conversation::GetText`, `Quest2::GetText`, `LocalizationManager::GetText(tag)`.
 - Movement/targeting substrate (all `GAME::ControllerPlayer`, exported): `SetControllerDirection(Vec3)` +
@@ -188,6 +210,54 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   id, false)` (via `GameEngine::GetFactionManager`) calls foes -- guards are Monsters too. Objects = labelled
   non-character entities only (engine helpers ScriptEntity/PatrolPoint have no label); nothing qualifies at
   the spawn yet -- chests/doors/items need a class survey. docs/controls.md has the player-facing table.
+- Structured menus (2026-08-22, verified through the loop): `src/exe_ui.cpp` reads the exe's widget objects
+  (RVAs + offsets from static RE with `tools/exe_dis.py`, which now resolves imports/xrefs/strings offline;
+  `docs/exe-ui-layout.md` is the reference). `main_menu` (12 widget-backed items incl. the unlabeled
+  Options/Exit icons), `create_character` (name read from the edit box, Male/Female/Hardcore from the toggles'
+  pressed byte, Next's enabled byte), `difficulty_select` (tiles pressed/enabled, description from its text
+  widgets), `message_box` (DialogManager in the world, the menu popup window at the main menu) and
+  `pause_menu` (the exit window's four TextButtons pressed through its registry) no longer touch screen
+  space. Round trip main menu -> Create -> Difficulty -> Start -> world -> pause -> Exit -> Yes -> main menu
+  runs on those paths. `app.cpp` skips key dispatch on the frame a screen becomes current (structured
+  detection is immediate; the Escape that opens the pause menu would otherwise close it). Dev: `/ui`,
+  `/ui/activate?ptr=`, `/ingame`, `/dialog[?answer=]`. Synthetic `/key` events are served to the game AND
+  the mod, so dev-driven Escape closes a menu dialog natively before our Back runs (not a bug for real keys).
+  The exe layout check runs on first use (injection happens before SteamStub unpacks the code).
+- UI pass completed 2026-08-22 (all verified through the loop): `delete_character` (prompt, the DELETE edit box,
+  Accept/Cancel), `options` (7 tabs named from their rollover tags via `hooks::localize`; pages of check boxes
+  with tooltip descriptions, sliders (Left/Right 5 %, large 20 %), drop-downs (Left/Right), the key-binding
+  table read-only; Apply/Default/Close), `tip` (read from the exe's tip manager, Close = the right-click's
+  state write), `conversation` (the conversation window: speaker, speech, rows; choosing = a click at the
+  row's own rect so the step's quest actions run), `loading` (app state 10), `in_game` (InGameUI present).
+  `screens/edit_field.h` (EditSession) is the shared typing-into-a-game-edit-box behaviour. `textcap` is now
+  dev-only (`/text`) except the loading tip line. The navigator rerenders before rebaselining its live watch
+  after activate/adjust (values were being spoken twice). Key-binding REBINDING, the Options discard prompt on
+  Close (not seen yet), the Multiplayer/Network screens and the in-world windows (character, inventory,
+  skills, quests, journal -- framework B, offsets in docs/exe-ui-layout.md's InGameUI map) are not modelled.
+- In-world input, decided 2026-08-22 (explicitly deviating from wotr: the player is always embodied, perception
+  and interaction are what the camera shows, the camera is the player's): **J = left mouse button, I = right,
+  Enter = left, U = the game's own Interact (nearest usable thing within 10 units, no aiming); hold = hold.**
+  The button goes down at the virtual cursor (the locked review target while the camera shows it, else the real
+  cursor) and the game decides (attack / talk / open / pick up / skill; click-to-move is off with
+  `movementType = 1`). Hold semantics (static RE, `re_mouse_hold.md`): the exe re-issues the command every
+  10-50 ms while a button is held and tears it down on the first event with both buttons up, so
+  `hooks::set_mouse_hold` injects the transition once and then patches every REAL polled event to report the
+  button held (+0x10/+0x11), active (+0x18) and at the override position. Verified: holding J on the locked
+  dummy walked the character 22 units to it and attacked continuously (100 `HandleActionFromMouse` calls in 3 s).
+  NPC talk / pickup / use are one-shot in the game (they clear the command themselves). A locked thing the
+  camera does not show: "too far away" on the key, nothing sent; the review readout says "distant" for it and
+  the cursor override is only parked while it is on screen. **Camera locked** (`world::pin_camera`, per frame
+  from the in-game screen; the user found zoom does not change what they hear): `GameCamera::SetZoom` at the
+  far end of its range (+0x590..+0x594, current fraction +0x584) and `SetCameraYaw(0)` = north up, re-applied
+  when the game drifts them; the zoom preset keys were removed. Far zoom brought the 25-unit-away dummy on screen. The Interact key (`tagUse`, action 0x36) and Pickup
+  (0x37) are proximity searches, not cursor actions (`re_interact_key.md`); `tools/arc_unpack.py` reads the
+  game's localized strings offline. Review groups now use the game's own predicates (2026-08-22): people =
+  `Npc::HasConversation()`, bystanders = Npcs without one, objects = `FixedActor`/`Item` whose virtual
+  `IsOfInterest()` is true (the Interact key's filter; slot found in each class's exported vftable, is-a via
+  `RTTI_ClassInfo+0x10` parent walk) -- Hangman Jarvis is a person again; near the spawn only the riftgate
+  (47 units) and a lore note qualify as objects, the locked gate and the checkpoint do not. Dev:
+  `/scan?group=0..3&max=`, `/classinfo`, `/entities` marks `[FixedActor|Item interest|no-interest]`, `/key`
+  knows period/comma/semicolon/... names. Open: whether wall tones / pings should follow zoom (by ear), key rebinding.
 - Next (needs the user's hands): player-facing targeting keys (nearest enemy / cycle / announce name,
   distance, direction -- the hover name arrives as `box_font` HUD text), an attack key that clicks the locked
   target, wall-tone tuning by ear, hover sounds, the Delete-character screen, the main menu icon buttons.
@@ -210,17 +280,24 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   `tools/exports/` (regenerate after a game patch).
 - `tools/gen_names.py` — resolves the exports we hook by regex over the undecorated listing and writes
   `src/gd_names.h`; fails loudly if a pattern does not match exactly one export.
+- `tools/arz.py <record-path-regex> [field-regex]` — reads `database.arz` offline (records + their fields).
 - `tools/stacks.py [pid|exe] [n]` — native stack dump of all threads via dbghelp; `tools/pe_survey.py`,
   `tools/dinput_hook_scan.py` — static analysis helpers; `tools/hookmon.py` — LL keyboard hook monitor.
 - Reference implementations in `reference/`: `iagd` (injected Detours hook DLL for this game, MIT) and
   `GDCommunityLauncher`.
 
 ## Design rules (agreed 2026-08-21)
-- **Menus one by one, no crawlers.** Each game screen is a dedicated `Screen` subclass declaring its graph
-  over OUR model of that screen (the controls it has, in player-sensible order), activating through a
-  synthesized click at the control's known position, a key, or an exported game call. Text capture is a
-  discovery/verification tool and a yes/no checkpoint oracle (`textcap::has_text`), never the UI model.
-  Unknown screens get an honest "unsupported screen" fallback that speaks its name.
+- **Menus one by one, no crawlers, no screen space.** Each game screen is a dedicated `Screen` subclass
+  declaring its graph over OUR model of that screen (the controls it has, in player-sensible order). Identity,
+  labels, state and activation come from the game's own objects through `src/exe_ui.h` (the exe's two private
+  widget frameworks, reached by base-relative layout; `docs/exe-ui-layout.md`) or exported calls
+  (`DialogManager` for message boxes): a button is pressed through its listeners / its window's registry,
+  never by a click at a drawn label or a measured pixel. Text capture (`textcap`) is a dev discovery tool
+  (`/text`) and the fallback's name source only. Unknown screens get the honest "unsupported screen"
+  fallback; a game build whose code bytes fail `exe_ui::available()` gets "game version not supported" once.
+  No screen clicks at drawn text any more; the two remaining synthesized clicks land on a widget's OWN rectangle
+  (an edit box taking focus, a conversation row) because the game's handler for them has side effects we
+  must not bypass.
 - **No player-facing "focus mode".** Who gets the keyboard is decided every frame by the screen stack:
   a modelled screen declares `owns_keyboard()` (default true; the game then sees no key events and we drive
   it by clicks/calls), the `unsupported` fallback and any screen where the game itself must handle keys

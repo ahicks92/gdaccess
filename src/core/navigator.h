@@ -90,6 +90,7 @@ class GraphNavigator {
   void announce_move(const MoveResult& r);
   bool vtable_activate();
   bool vtable_adjust(int sign);
+  void feedback_after_change();  // speak state_text, rerender, rebaseline the live watch
   void speak_focused_state();
   void play_hover(const GraphNode* node);
   void speak(std::string_view text, bool interrupt);

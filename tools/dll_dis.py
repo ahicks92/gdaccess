@@ -18,7 +18,12 @@ def und(n):
 def main():
     dll, needle = sys.argv[1], sys.argv[2]
     count = int(sys.argv[3], 0) if len(sys.argv) > 3 else 120
-    pe = pefile.PE(os.path.join(G, dll))
+    pe = pefile.PE(os.path.join(G, dll), fast_load=True)
+    pe.parse_data_directories(directories=[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_EXPORT']])
+    # pefile caps exports at 8192 by default; Game.dll has 25100 (see gen_exports.py)
+    if len(pe.DIRECTORY_ENTRY_EXPORT.symbols) >= 8192:
+        pe = pefile.PE(os.path.join(G, dll), fast_load=True, max_symbol_exports=40000)
+        pe.parse_data_directories(directories=[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_EXPORT']])
     syms = [(s.address, s.name.decode()) for s in pe.DIRECTORY_ENTRY_EXPORT.symbols if s.name]
     syms.sort()
     rvas = [a for a, _ in syms]

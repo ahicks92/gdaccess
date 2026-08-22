@@ -4,11 +4,14 @@
 #include <format>
 #include "app.h"
 #include "audio.h"
+#include "combat.h"
 #include "core/graph_builder.h"
 #include "core/message_builder.h"
 #include "core/strings.h"
 #include "log.h"
 #include "speech.h"
+#include "exe_ui.h"
+#include "hooks.h"
 #include "textcap.h"
 #include "world.h"
 
@@ -99,7 +102,9 @@ void speak_where() {
 class InGameScreen : public Screen {
  public:
   std::string_view key() const override { return "in_game"; }
-  bool is_active() override { return world::in_world() && !textcap::has_text("Credits"); }
+  // The player is live AND the exe's world screen holds its InGameUI (null at the menus; the engine-side
+  // player/controller pointers outlive a trip back to the main menu).
+  bool is_active() override { return world::in_world() && exe_ui::ingame_ui() != nullptr; }
   std::string screen_name() const override { return std::string(strings::kInGame); }
   int layer() const override { return 0; }
   // We own the keyboard in the world: the frequent game keys pass straight through (movement, quickbar,
@@ -120,9 +125,21 @@ class InGameScreen : public Screen {
   bool start_unfocused() const override { return true; }
   std::vector<InputCategory> input_categories() const override { return {InputCategory::InGame}; }
   void build(GraphBuilder&) override {}
-  void on_update() override { world::tick(); walltones::tick(); }
-  void on_unfocus() override { walltones::silence(); }
-  void on_pop() override { walltones::silence(); }
+  void on_update() override {
+    world::pin_camera();
+    world::tick();
+    combat::tick();
+    walltones::tick();
+    // The mouse buttons as keys, with real hold semantics: J (or Enter) = left, I = right, for as long as the
+    // key is down and no modifier is held (Ctrl+J/I are lifted game keys).
+    constexpr int kJ = 0x24, kI = 0x17, kEnter = 0x1c;
+    const KeySource& ks = hooks::key_source();
+    bool mods = ks.ctrl() || ks.shift() || ks.alt();
+    world::mouse_key(1, !mods && (ks.held(kJ) || ks.held(kEnter)));
+    world::mouse_key(2, !mods && ks.held(kI));
+  }
+  void on_unfocus() override { walltones::silence(); world::mouse_key(1, false); world::mouse_key(2, false); }
+  void on_pop() override { walltones::silence(); world::mouse_key(1, false); world::mouse_key(2, false); }
 };
 
 std::unique_ptr<Screen> make_in_game() { return std::make_unique<InGameScreen>(); }
