@@ -5,7 +5,7 @@ unpacked exe (`tools/exe_dis.py`). The combat-text event layout (section 1) was 
 2026-08-22 by hooking `EventManager::Send` (src/combat.cpp, `/combat?raw=`): every offset matched; the
 style field holds the resolved record path ("records/ui/styles/text/style_fl...") rather than the variable
 name, +0x68 is a pointer and +0x70.. is more state the exe reads (unused). Implemented: src/combat.cpp +
-src/voice.cpp speak the outgoing text in Mark, panned; health steps and the H key in Zira.
+src/voice.cpp speak the outgoing text in Mark, panned; health steps in Zira; the H key reads vitals through the screen reader (keys always do).
 
 ## Summary
 - The only per-hit text the game draws is the **floating number over an enemy you (or your pet) hit**, plus

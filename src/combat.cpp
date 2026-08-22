@@ -17,6 +17,7 @@
 #include "hooks.h"
 #include "log.h"
 #include "msvc_string.h"
+#include "speech.h"
 #include "voice.h"
 #include "world.h"
 
@@ -169,11 +170,13 @@ void tick() {
   }
 }
 
+// The H key is a screen-reader readout like every other key (the positional voices are only for things that
+// happen in the world, not for what the player asked for).
 void speak_vitals() {
-  if (!world::in_world()) { voice::say({voice::Which::Zira, std::string(strings::kNotInWorld), 0.0f, 1.0f, voice::Policy::Replace, voice::kGroupSelf}); return; }
+  if (!world::in_world()) { speech::speak(strings::kNotInWorld, true); return; }
   MessageBuilder m;
   strings::push_vitals(m, world::life(), world::life_max(), world::energy(), world::energy_max());
-  voice::say({voice::Which::Zira, m.build(), 0.0f, 1.0f, voice::Policy::Replace, voice::kGroupSelf});
+  speech::speak(m.build(), true);
 }
 
 std::string status() {

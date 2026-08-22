@@ -82,7 +82,7 @@ project by the same author) — see `docs/design-notes-from-wotr.md` for the dec
   player; worker queue, per-text PCM cache, `audio::play_pcm` with groups/replace; own ring at `/voice`,
   `/voices` status; falls back to `speech::speak` tagged "(prism)") -> `src/combat.cpp` (the `EventManager::Send`
   0x1b hook, `core/combat_text` parse, `core/combat_coalesce` 150 ms same-place merge, `core/threshold_watcher`
-  10 % health steps, H = vitals). Menus/UI stay on `speech::speak` (prism/NVDA). Synthesis is 4-15 ms per line.
+  10 % health steps). H = vitals, menus/UI and every other KEY stay on `speech::speak` (prism/NVDA): the voices are for what happens in the world, keys are screen-reader readouts unless noted. Synthesis is 4-15 ms per line.
   Dev: `/voice?say=&voice=mark|zira&pan=&replace=1`, knobs `vol= coalesce= window= cap= max= near= far= floor=`,
   `/combat[?raw=N]`. Voice level: lines are peak-normalized (0.8), bypass the 0.6 master, and use their own
   rolloff `world::voice_gain` (1.0 out to 9 units = moderateRange, linear to 0.4 at 32 = bossRange); the review
@@ -258,6 +258,11 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   (47 units) and a lore note qualify as objects, the locked gate and the checkpoint do not. Dev:
   `/scan?group=0..3&max=`, `/classinfo`, `/entities` marks `[FixedActor|Item interest|no-interest]`, `/key`
   knows period/comma/semicolon/... names. Open: whether wall tones / pings should follow zoom (by ear), key rebinding.
+- In-world windows surveyed statically 2026-08-22 (`docs/ingame-ui-survey.md`: every InGameUI window's offset,
+  ctor, controls, the exports that feed it, and a difficulty verdict; none exercised live). Two corrections
+  from it: `gGameEngine`/`gEngine` ARE exported data symbols, and `LocalizationManager::Instance()` +
+  `LocalizeWithoutParams` are public exports (no hook needed). The inventory/character window is
+  `InGameUI+0xbbf0` (missing from exe-ui-layout.md; `+0x52258` is the Inspect twin).
 - Next (needs the user's hands): player-facing targeting keys (nearest enemy / cycle / announce name,
   distance, direction -- the hover name arrives as `box_font` HUD text), an attack key that clicks the locked
   target, wall-tone tuning by ear, hover sounds, the Delete-character screen, the main menu icon buttons.
