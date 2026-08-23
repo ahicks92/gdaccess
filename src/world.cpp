@@ -192,6 +192,7 @@ struct Api {
   void (*GetCurrentAttackTarget)(void*, unsigned*, void*, unsigned*) = nullptr;
   void* (*GetFactionManager)(void*) = nullptr;
   bool (*FactionManager_IsFoe)(void*, unsigned, unsigned, bool) = nullptr;  // by object ids
+  bool (*Character_IsAlive)(const void*) = nullptr;   // virtual; the base body is the Monster implementation (only Player overrides)
   // labels: basic_string<unsigned short> by value -> hidden return pointer (2nd arg)
   MsvcStringW* (*Monster_GetGameDescription)(const void*, MsvcStringW*, bool, bool) = nullptr;
   MsvcStringW* (*Npc_GetRolloverDescription)(const void*, MsvcStringW*) = nullptr;
@@ -288,6 +289,7 @@ void load_api() {
   LOAD(GetCurrentAttackTarget, Character_GetCurrentAttackTarget);
   LOAD(GetFactionManager, GameEngine_GetFactionManager);
   LOAD(FactionManager_IsFoe, FactionManager_IsFoe);
+  LOAD(Character_IsAlive, Character_IsAlive);
   LOAD(Monster_GetGameDescription, Monster_GetGameDescription);
   LOAD(Npc_GetRolloverDescription, Npc_GetRolloverDescription);
   LOAD(Player_GetRolloverDescription, Player_GetRolloverDescription);
@@ -802,6 +804,7 @@ std::string entities_dump(float max_dist) {
     if (g_api.FixedActor_StaticClassInfo && is_kind_of(r.ci, g_api.FixedActor_StaticClassInfo())) kind = " [FixedActor";
     else if (g_api.Item_StaticClassInfo && is_kind_of(r.ci, g_api.Item_StaticClassInfo())) kind = " [Item";
     if (!kind.empty()) kind += is_of_interest(e, r.ci) ? " interest]" : " no-interest]";
+    if (cls == "Monster" && g_api.Character_IsAlive && !g_api.Character_IsAlive(e)) kind += " [dead]";   // a corpse: not an enemy
     rows.push_back({d, std::format("{:6.1f}  id={:<8} {:<12} label='{}' at ({:.1f}, {:.1f}, {:.1f}) {} '{}'{}", d, r.id, cls, entity_label(e, cls),
                                    r.pos.x, r.pos.y, r.pos.z, e, r.name, kind)});
   }
@@ -928,7 +931,14 @@ void tick() {
   if (!g_locked_id) return;
   if (!in_world()) { unlock_target(); return; }
   // Re-find every 30 frames (the pointer may die); project every frame.
-  if (g_lock_frames++ % 30 == 0) { g_locked_entity = find_entity(g_locked_id); if (!g_locked_entity) { unlock_target(); return; } }
+  if (g_lock_frames++ % 30 == 0) {
+    g_locked_entity = find_entity(g_locked_id);
+    if (!g_locked_entity) { unlock_target(); return; }
+    // A locked Monster that died is a corpse: release it, so the cursor does not sit on a body and the next
+    // enemy key enters at the nearest living one (the corpse is no longer in the enemy scan either).
+    EntityRaw r{};
+    if (g_api.Character_IsAlive && read_entity(g_locked_entity, r) && rtti_name(r.ci) == "Monster" && !g_api.Character_IsAlive(g_locked_entity)) { unlock_target(); return; }
+  }
   float x, y;
   RECT rc{};
   HWND w = FindWindowA("Grim Dawn", nullptr);
@@ -1180,6 +1190,8 @@ std::vector<ScanItem> scan(ScanGroup group, float radius) {
       void* p = player();
       unsigned pid = p && g_api.Object_GetObjectId ? g_api.Object_GetObjectId(p) : 0;
       if (fm && g_api.FactionManager_IsFoe && pid && !g_api.FactionManager_IsFoe(fm, pid, r.id, false)) continue;
+      // Corpses stay Monsters (and foes) until the game reaps them: only the living are enemies (2026-08-22).
+      if (g_api.Character_IsAlive && !g_api.Character_IsAlive(e)) continue;
     }
     std::string label = entity_label(e, cls);  // an unlabelled object is read by its class name (cycle_review)
     out.push_back({r.id, cls, label, record, r.pos, d});
