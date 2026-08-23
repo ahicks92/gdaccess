@@ -323,7 +323,11 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   docs/exe-ui-layout.md "Riftgate travel"). Review groups: N = people + non-loot objects of interest, M = loot.
   Sonar sweep (`src/sonar.cpp`, wotr's SonarSystem: enemies / loot / dungeon entrances pinged left to right,
   rear high shelf on every spatial cue; `/sonar`). Labels: every Actor through the virtual GetGameDescription.
-  Corpses are not enemies (`Character::IsAlive`). Main-menu character SELECTION is still unmodelled.
+  Corpses are not enemies (`Character::IsAlive`). Main-menu character selection is a middle Tab stop of the
+  main menu (the exe's CharacterPicker, docs/exe-ui-layout.md). **The virtual cursor parks at the entity's
+  bounding-box CENTRE** (`Entity::GetRegionBoundingBox` = {centre, half-extents}, region frame): the fixed +1.0
+  lift put the cursor above ground items, the click hit the ground and fired the default attack (2026-08-22;
+  verified: a lore note and the training dummy both resolve by id in `HandleActionFromMouse`).
 - Next (needs the user's hands): player-facing targeting keys (nearest enemy / cycle / announce name,
   distance, direction -- the hover name arrives as `box_font` HUD text), an attack key that clicks the locked
   target, wall-tone tuning by ear, hover sounds, the Delete-character screen, the main menu icon buttons.

@@ -862,12 +862,26 @@ void* find_entity(unsigned id) {
   }
   return nullptr;
 }
+struct BBoxRaw { float v[6]; bool ok; };
+bool read_bbox(void* e, BBoxRaw& b);
 bool project(void* entity, float& x, float& y) {
   void* cam = g_game_engine && g_api.GetCamera ? g_api.GetCamera(g_game_engine) : nullptr;
   if (!cam || !g_api.Project || !g_api.Viewport_ctor) return false;
   Buf wv; if (!entity_world_vec(entity, wv)) return false;
-  // Lift the point to roughly chest height so the cursor lands on the body, not the feet.
-  Vec3 pos; memcpy(&pos, wv.b + 8, sizeof pos); pos.y += 1.0f; memcpy(wv.b + 8, &pos, sizeof pos);
+  // Park the cursor at the centre of the entity's bounding box: mid-body for a character, the item itself for
+  // loot lying on the ground (a fixed +1.0 lift put the cursor a metre above ground items, the click landed on
+  // the ground and "attack here" fired instead of a pickup -- the user, 2026-08-22). The box is region-relative
+  // like the position; a box that is missing or implausible falls back to the chest-height lift.
+  // ABBox = {centre xyz, half-extents xyz} (measured 2026-08-22: a vertical beam standing at y 14 reports centre
+  // y 18.6, extent 4.6), in the entity's region frame like its position.
+  Vec3 pos; memcpy(&pos, wv.b + 8, sizeof pos);
+  BBoxRaw bb{};
+  Vec3 at{pos.x, pos.y + 1.0f, pos.z};
+  if (read_bbox(entity, bb) && bb.ok) {
+    float dx = bb.v[0] - pos.x, dy = bb.v[1] - pos.y, dz = bb.v[2] - pos.z;
+    if (dx > -3.0f && dx < 3.0f && dz > -3.0f && dz < 3.0f && dy > -1.0f && dy < 3.0f) at = Vec3{bb.v[0], bb.v[1] < pos.y + 0.1f ? pos.y + 0.1f : bb.v[1], bb.v[2]};
+  }
+  memcpy(wv.b + 8, &at, sizeof at);
   RECT rc{};
   HWND w = FindWindowA("Grim Dawn", nullptr);
   if (!w || !GetClientRect(w, &rc)) return false;
@@ -964,7 +978,6 @@ constexpr float kNearbyRadius = 14.0f;
 constexpr ULONGLONG kNearbyRefreshMs = 200;
 constexpr float kWallHeight = 1.6f;   // a blocker shorter than this (units ~ metres) is an obstacle the character walks round
 
-struct BBoxRaw { float v[6]; bool ok; };
 bool read_bbox(void* e, BBoxRaw& b) {
   __try {
     const float* bb = g_api.Entity_GetRegionBoundingBox ? g_api.Entity_GetRegionBoundingBox(e, false) : nullptr;
