@@ -82,7 +82,7 @@ class WorldMap:
 
     def level_body(self, region: Region) -> bytes:
         os.makedirs(self.cache_dir, exist_ok=True)
-        path = os.path.join(self.cache_dir, f"Region{region.name}.lvl")
+        path = os.path.join(self.cache_dir, f"Region{region.name}_{region.size}.lvl")   # names collide (two 0W021s)
         if os.path.exists(path) and os.path.getsize(path) == region.size:
             with open(path, "rb") as f:
                 return f.read()

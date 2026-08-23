@@ -115,11 +115,13 @@ def cmd_grid(wm, args):
         render_grid(grid, f"{OUT}/{name}_clear.png", scale=1, clearance=clear)
 
 
-def build_area(wm, names, want_roads):
-    """Stitch the named chunks; returns (grid, roads mask or None, chunks used, signature)."""
+def build_area(wm, regs, want_roads):
+    """Stitch the chunk records; returns (grid, roads mask or None, chunks used, signature).
+    Takes Region records, not names: chunk NAMES collide in the map (two different 0W021s; the by_name
+    first-record-wins dict silently swapped Hargate's Isle for a far-west water chunk, 2026-08-23)."""
     grids, hasher = [], hashlib.blake2b(digest_size=16)
-    for name in names:
-        r = wm.by_name[name]
+    for r in regs:
+        name = r.name
         body = wm.level_body(r)
         tiles = parse_tiles(body)
         hasher.update(wm.signature(body).encode())
@@ -162,8 +164,9 @@ def cmd_area(wm, args):
     regs = [r for r in wm.by_location(key) if not r.underground or args.underground]
     names = [r.name for r in regs]
     if args.only:
-        names = [n for n in args.only.split(",") if n in names] or args.only.split(",")
-    print(f"{key}: {len(names)} chunks {names}")
+        only = args.only.split(",")
+        regs = [r for r in regs if r.name in only]
+    print(f"{key}: {len(regs)} chunks {[r.name for r in regs]}")
     db = RoomsDb(DB)
     if args.set:
         stored = db.params(key) or {}
@@ -176,7 +179,7 @@ def cmd_area(wm, args):
         db.set_name(key, args.name)
     params = params_from(args, db.params(key))
     print("  params:", asdict(params))
-    grid, roads, chunks, signature = build_area(wm, names, args.roads)
+    grid, roads, chunks, signature = build_area(wm, regs, args.roads)
     seg = run_segment(grid, roads, params, args.out or f"{OUT}/{key}_rooms.png", args.scale)
     if args.write:
         counts = db.write_segmentation(key, args.name, regs[0].location if regs else key, chunks, params, signature, ALGO_VERSION, grid, seg)
