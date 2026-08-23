@@ -217,6 +217,8 @@ bool GraphNavigator::arrow(GraphDir dir) {
   // Edge-wired movement first (rows/grids/flattened tree rows all ride edges).
   MoveResult move = graph_->move(dir);
   if (move.moved) { announce_move(move); return true; }
+  focus_node = graph_->current_node();  // move() rerendered: the node captured above may be a stale render's
+  if (!focus_node) return false;
   // At an edge. Left/Right get tree semantics: expand/collapse a group, descend into an expanded one,
   // ascend from a child -- generic engine operations over parent/expandable.
   if (dir == GraphDir::Left || dir == GraphDir::Right) {
@@ -231,9 +233,29 @@ bool GraphNavigator::arrow(GraphDir dir) {
       case KeyGraph::TreeMove::None: break;
     }
   }
-  // Nothing moved: consume edges inside trees; bubble from plain lists so an unfocused screen's arrows
-  // fall through to the overlay.
+  // Nothing moved: at the edge of the list, repeat the focused item rather than go silent (the user,
+  // 2026-08-22; wotr's sibling games do this). Only along the list's own axis: Left/Right in a vertical
+  // list are not an edge, they are nothing -- and Up/Down in a pure row likewise.
+  if (on_list_axis(focus_node, dir)) repeat_focused();
+  // Consume edges inside trees; bubble from plain lists so an unfocused screen's arrows fall through to
+  // the overlay.
   return KeyGraph::in_tree(graph_->current_node());
+}
+
+bool GraphNavigator::on_list_axis(const GraphNode* node, GraphDir dir) {
+  bool vertical = node->has_transition(GraphDir::Up) || node->has_transition(GraphDir::Down);
+  bool horizontal = node->has_transition(GraphDir::Left) || node->has_transition(GraphDir::Right);
+  if (dir == GraphDir::Up || dir == GraphDir::Down) return vertical || !horizontal;  // a lone item counts as vertical
+  return horizontal;
+}
+
+// The focused item's own readout again, as a fresh landing (hover sound, interrupting).
+void GraphNavigator::repeat_focused() {
+  const GraphNode* node = graph_ ? graph_->current_node() : nullptr;
+  if (!node) return;
+  play_hover(node);
+  if (auto t = GraphAnnouncer::leaf_text(node)) speak(*t, true);
+  mark_spoken(node);
 }
 
 // Speak the focused group's post-toggle state and rebaseline the differ + live watch.
@@ -294,13 +316,13 @@ bool GraphNavigator::jump_edge(bool first) {
   if (!focus_node) return false;
   if (KeyGraph::in_tree(focus_node)) {  // first/last sibling at the current depth
     MoveResult sib = graph_->move_to_sibling_edge(first);
-    if (sib.moved) announce_move(sib);
+    if (sib.moved) announce_move(sib); else repeat_focused();  // already there: say so by repeating it
     return true;
   }
   // Home/End run along the list; in a row (no vertical edges) that is left/right.
   bool vertical = focus_node->has_transition(GraphDir::Up) || focus_node->has_transition(GraphDir::Down);
   MoveResult move = graph_->move_to_edge(vertical ? (first ? GraphDir::Up : GraphDir::Down) : (first ? GraphDir::Left : GraphDir::Right));
-  if (move.moved) announce_move(move);
+  if (move.moved) announce_move(move); else repeat_focused();
   return true;
 }
 

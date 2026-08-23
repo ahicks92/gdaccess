@@ -86,6 +86,8 @@ class GraphNavigator {
   bool tab(int step);
   bool land_on_stop(const Key& stop_key);
   bool jump_edge(bool first);
+  static bool on_list_axis(const GraphNode* node, GraphDir dir);  // is `dir` along the list the node sits in
+  void repeat_focused();                                           // the edge case: say the focused item again
   bool region_jump(int dir);
   void announce_move(const MoveResult& r);
   bool vtable_activate();
