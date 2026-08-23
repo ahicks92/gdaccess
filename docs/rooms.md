@@ -76,15 +76,18 @@ what the mod will use. Floor plans: `build/rooms/*.png`, north (-z) up, exits as
 
 ## Runtime (`src/rooms.cpp`, `src/core/rooms_model.*`)
 - Per frame from the in-game screen: chunk (`world::region_name()`) -> region (the db's `chunks`) ->
-  the region's grid (loaded once) -> `label_at(x, z, ring 8 cells)` -> room. `Hysteresis` (dwell 400 ms,
-  `/room?dwell=`) confirms a change; the first room after entering is immediate.
+  the region's grid (loaded once) -> `label_at(x, z, ring 8 cells)` -> room. `Hysteresis`: after 1 s in a
+  room (`settle`) any change is announced at once; within that first second a change must persist 400 ms
+  (`dwell`) so boundary flapping stays quiet (`/room?dwell=&settle=`); the first room is immediate.
 - On a confirmed change one line in the player's own voice (Zira, `voice::kGroupInfo`): the region name
   if it changed, the sub-region name if it changed, the room title -- or "room N" for untitled rooms while
   nothing is authored (`/room?untitled=0` to silence). "Devil's Crossing, room 193" at the spawn.
-- **X** speaks the room's description through the screen reader ("no description yet" until authored).
+- **X** speaks the room's title, then its description, through the screen reader ("no description yet"
+  until authored).
 - **V / Shift+V** cycle the current room's exits nearest-first: "room 190, 5 away, 4 o'clock, 1 of 3"
-  (destination title, else "room N"), "blocked" when the live `IsPointOnPathMesh` says no where the bake
-  says yes (a quest gate); each landing parks the review cursor on the opening (`world::lock_point`).
+  (destination title, else "room N"); "blocked" when the live `IsPointOnPathMesh` refuses a 5-point cross
+  (centre and 0.75 units each way) at the opening although the bake allows it -- a runtime obstacle such as
+  a shut gate or barricade; each landing parks the review cursor on the opening (`world::lock_point`).
 - Dev: `/room` (the lookup chain, the current room, its exits with live walkability; `?say=1` repeats,
   `?reload=1` reopens the db after a tools rewrite), `/regions?max=`, `/portals`, `/navprobe?x0=&z0=&x1=&z1=&step=`
   (the live mesh sampled; `build/rooms/compare_navprobe.py` diffs it against the bake).

@@ -199,6 +199,7 @@ static std::string handle(const std::string& path, const std::map<std::string, s
   if (path == "/blocks") return world::blocks_dump();
   if (path == "/room") {      // the rooms feature: current place + exits; ?dwell=ms ?untitled=0|1 ?say=1 (re-announce) ?reload=1
     if (q.count("dwell")) rooms::set_dwell_ms(parse_int(q.at("dwell"), 400));
+    if (q.count("settle")) rooms::set_settle_ms(parse_int(q.at("settle"), 1000));
     if (q.count("untitled")) rooms::set_say_untitled(truthy(q.at("untitled")));
     if (q.count("reload")) rooms::reload();
     if (q.count("say")) rooms::announce_now();

@@ -174,6 +174,7 @@ void init() { open_db(); }
 void shutdown() { g_regions.clear(); g_current = nullptr; g_db.reset(); }
 void reset() { g_hyst.reset(); g_cycle.reset(); g_cycle_room = -1; g_announced_region.clear(); g_announced_subregion.clear(); g_current = nullptr; }
 void set_dwell_ms(int ms) { g_hyst.dwell_ms = ms; }
+void set_settle_ms(int ms) { g_hyst.settle_ms = ms; }
 void set_say_untitled(bool on) { g_say_untitled = on; }
 void announce_now() { announce(true); }
 void reload() { shutdown(); g_chunk_region.clear(); reset(); open_db(); }
@@ -196,7 +197,20 @@ void tick() {
 void speak_description() {
   if (!g_current || g_hyst.current < 0) { speech::speak(strings::kNoRoom, true); return; }
   const Room& rm = g_current->rooms[g_hyst.current];
-  speech::speak(rm.body.empty() ? std::string(strings::kNoDescription) : rm.body, true);
+  MessageBuilder m;
+  m.list_item().fragment(room_label(*g_current, g_hyst.current));
+  m.list_item().fragment(rm.body.empty() ? std::string(strings::kNoDescription) : rm.body);
+  speech::speak(m.build(), true);
+}
+
+// An exit is "blocked" when the live mesh refuses the opening although the bake allows it (a runtime
+// obstacle: door, barricade, gate). The live mesh is up to ~1.5 units narrower than the bake at edges, so one
+// point is not enough: probe a cross and call it blocked only if every point fails.
+bool exit_blocked(const world::Vec3& at) {
+  const float d = 0.75f;
+  const world::Vec3 pts[] = {at, {at.x + d, at.y, at.z}, {at.x - d, at.y, at.z}, {at.x, at.y, at.z + d}, {at.x, at.y, at.z - d}};
+  for (const world::Vec3& p : pts) if (world::on_navmesh(p)) return false;
+  return true;
 }
 
 void cycle_exits(int dir) {
@@ -219,7 +233,7 @@ void cycle_exits(int dir) {
   const Exit& e = g_current->exits[g_cycle_exits[k]];
   int other = e.a == room ? e.b : e.a;
   world::Vec3 at{e.x, p.y, e.z};
-  bool blocked = !world::on_navmesh(at);
+  bool blocked = exit_blocked(at);
   std::string dest = room_label(*g_current, other);
   if (dest.empty()) dest = other >= 0 && other < (int)g_current->rooms.size() ? g_current->rooms[other].cls : std::string(strings::kRoom);
   world::lock_point(at);
@@ -230,7 +244,7 @@ void cycle_exits(int dir) {
 
 std::string status() {
   if (!g_db) return "rooms: no database\n";
-  std::string s = std::format("db open, {} chunks mapped, {} regions loaded, dwell {} ms, untitled {}\n", g_chunk_region.size(), g_regions.size(), g_hyst.dwell_ms, g_say_untitled);
+  std::string s = std::format("db open, {} chunks mapped, {} regions loaded, dwell {} ms, settle {} ms, untitled {}\n", g_chunk_region.size(), g_regions.size(), g_hyst.dwell_ms, g_hyst.settle_ms, g_say_untitled);
   for (const auto& [chunk, key] : g_chunk_region) s += std::format("  '{}' -> {}\n", chunk, key);
   s += std::format("ticks {}\n", g_ticks);
   world::Vec3 p;

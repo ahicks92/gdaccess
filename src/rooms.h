@@ -15,7 +15,8 @@ void speak_description();    // X
 void cycle_exits(int dir);   // V (+1) / Shift+V (-1)
 void announce_now();         // dev: repeat the current place
 void reload();               // dev: drop the cached regions and reopen the db (after a tools rewrite)
-void set_dwell_ms(int ms);
+void set_dwell_ms(int ms);        // wait before a change within the settle window counts (boundary flapping)
+void set_settle_ms(int ms);       // time in a room after which any change is announced immediately
 void set_say_untitled(bool on);   // untitled rooms are announced as "room N" (default on until authored)
 std::string status();        // dev: /room
 }  // namespace gd::rooms

@@ -41,15 +41,17 @@ TEST_CASE("label_at maps world coordinates through origin and cell, with a ring 
   CHECK(g.label_at(0, 0) == -1);             // far outside
 }
 
-TEST_CASE("hysteresis: first room immediate, later changes wait for the dwell, flapping is ignored") {
-  Hysteresis h; h.dwell_ms = 400;
+TEST_CASE("hysteresis: first room immediate, a settled room changes at once, boundary flapping waits for the dwell") {
+  Hysteresis h; h.dwell_ms = 400; h.settle_ms = 1000;
   CHECK(h.update(3, 0)); CHECK(h.current == 3);
-  CHECK_FALSE(h.update(4, 100));            // candidate 4 since 100
+  CHECK_FALSE(h.update(4, 100));            // within the settle window: candidate 4 since 100
   CHECK_FALSE(h.update(3, 200));            // back in 3: candidate cleared
   CHECK_FALSE(h.update(4, 300));            // candidate 4 since 300
   CHECK_FALSE(h.update(4, 600));
-  CHECK(h.update(4, 700)); CHECK(h.current == 4);
+  CHECK(h.update(4, 700)); CHECK(h.current == 4);          // dwell met
   CHECK_FALSE(h.update(-1, 800)); CHECK(h.current == 4);   // off the grid keeps the room
+  CHECK(h.update(5, 1800)); CHECK(h.current == 5);         // settled for 1.1 s: immediate
+  CHECK_FALSE(h.update(4, 1900));                          // just changed: flapping back waits again
   h.reset(); CHECK(h.current == -1);
 }
 

@@ -45,12 +45,13 @@ int LabelGrid::label_at(double x, double z, int ring) const {
 bool Hysteresis::update(int observed, int now_ms) {
   if (observed == current) { candidate = -1; return false; }
   if (observed < 0) { candidate = -1; return false; }       // off the grid: keep the current room
-  if (observed != candidate) { candidate = observed; candidate_since = now_ms; }
-  if (now_ms - candidate_since >= dwell_ms || current < 0) {  // the first room is immediate
-    current = observed; candidate = -1;
-    return true;
+  bool settled = current < 0 || now_ms - entered >= settle_ms;   // the first room is immediate too
+  if (!settled) {
+    if (observed != candidate) { candidate = observed; candidate_since = now_ms; }
+    if (now_ms - candidate_since < dwell_ms) return false;
   }
-  return false;
+  current = observed; candidate = -1; entered = now_ms;
+  return true;
 }
 
 int Cycle::next(int count, int dir) {

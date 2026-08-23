@@ -20,14 +20,18 @@ struct LabelGrid {
   int label_at(double x, double z, int ring = 2) const;
 };
 
-// A candidate room must persist dwell_ms before it becomes current; returns true on the frame it does.
+// The current room changes immediately once the player has been in it for settle_ms (a genuine move);
+// within the first settle_ms after a change (the back-and-forth on a boundary) a candidate must persist
+// dwell_ms first. Returns true on the frame the current room changes. Off-grid observations (-1) are ignored.
 struct Hysteresis {
   int dwell_ms = 400;
+  int settle_ms = 1000;
   int current = -1;
   int candidate = -1;
   int candidate_since = 0;
+  int entered = 0;           // when `current` became current
   bool update(int observed, int now_ms);
-  void reset() { current = candidate = -1; candidate_since = 0; }
+  void reset() { current = candidate = -1; candidate_since = entered = 0; }
 };
 
 // "i of n" cycling with wrap; next(count, +1/-1) from the last index (wotr's continue-from rule).
