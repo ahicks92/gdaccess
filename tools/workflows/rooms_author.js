@@ -51,7 +51,8 @@ const REVIEW_SCHEMA = {
 if (args.subregions) {
   phase('Sub-regions')
   const r = await agent(`${COMMON}
-Task: divide the region into 5-15 named SUB-REGIONS and assign EVERY room to one. A sub-region is the
+Task: divide the region into named SUB-REGIONS (5-15 for a large overworld region; a small dungeon of a
+few dozen rooms may need only 2-4, e.g. one per level) and assign EVERY room to one. A sub-region is the
 level of place a player without the map plans a route by ("the prison", "the north road", "the graveyard");
 names are short noun phrases, consistent in voice, unique, no room ids or coordinates.
 Inputs: run "${CLI} export ${region}" and read the JSON it writes (rooms with plan_id, anchor_x/anchor_z in

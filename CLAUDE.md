@@ -317,8 +317,21 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   ~13M Opus tokens for the region). `devilscrossing:-70:-183` is orphan (its anchor is bake-only; the live
   mesh refuses it). **Hargate's Isle** (chunk 0W021, boat-only via the Row Boat DungeonEntrance) was restored by
   the by-record chunk fix and authored as its own sub-region (14 rooms; 216 total). The dev character dies while posing for screenshots (level 2 among monsters): the shots run
-  toggles Lua `ToggleInvincible`, and a shot whose outline is <30 % visible is the tell of a respawn. Next:
-  road helpers, the next regions, region names from `tagWorldMap*`.
+  toggles Lua `ToggleInvincible`, and a shot whose outline is <30 % visible is the tell of a respawn.
+  **Lower Crossing + Burial Cave authored** (2026-08-23, covers the first quest): 212 rooms / 12 sub-regions
+  (Burial Hill, The Hidden Path and the mires; the sub-region agent reads the game's area names off the
+  shots' minimap corner) and the cave as its own region key `burialcave` (`rooms.py area --only --key`;
+  25 rooms / 5 sub-regions), all verified; reviewer findings fed the consistency pass as notes. Pipeline
+  hardening from those runs (shots.py): approach-then-wait teleports (chunks stream around the PLAYER),
+  grid-sampled stepping stones instead of room anchors (the east cliffs are a walkable island 170
+  anchor-units off the mainland), `/teleport` calls `Region::BackgroundLoadLevel` for unloaded chunks
+  (off-map dungeons like the cave never stream by proximity; no-route targets get force-load + direct
+  jump), in-process `gd.capture()`, black-frame retry, open-window guard, `ToggleInvincible(true)` at
+  region start (a setter despite the name), flushed per-room timing (~3 s/room). Describers return
+  `shots_suspect` and flagged rooms are re-shot + re-described. Known: rooms are a 2D union where floors
+  stack (the prison's upstairs announces the downstairs room) -- fix = per-layer grids with a y-band per
+  cell, re-attaching authored rooms by anchor; agreed to do it as its own task. Next: road helpers, the
+  next regions, region names from `tagWorldMap*`.
 - Riftgate travel screen (2026-08-22, verified live through the loop incl. a real trip Lower Crossing -> Devil's
   Crossing): `screens/riftgate.cpp` over the world map in riftgate mode (`exe_ui::riftgate_*`, layout in
   docs/exe-ui-layout.md "Riftgate travel"). Review groups: N = people + non-loot objects of interest, M = loot.
