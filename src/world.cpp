@@ -195,6 +195,7 @@ struct Api {
   void (*ItemAction)(void*, bool, bool, const void*, const void*) = nullptr;   // ControllerPlayer: (no_walk, unused, WorldVec3 const&, Item const*)
   void (*SetCommandRepeated)(void*, bool) = nullptr;                           // ControllerPlayer +0x430; ItemAction no-ops while it is set
   bool (*Character_IsAlive)(const void*) = nullptr;   // virtual; the base body is the Monster implementation (only Player overrides)
+  const MsvcStringA* (*Engine_GetAreaNameTag)(const void*) = nullptr;   // std::string const& (a localization tag)
   // labels: basic_string<unsigned short> by value -> hidden return pointer (2nd arg)
   MsvcStringW* (*Monster_GetGameDescription)(const void*, MsvcStringW*, bool, bool) = nullptr;
   MsvcStringW* (*Npc_GetRolloverDescription)(const void*, MsvcStringW*) = nullptr;
@@ -296,6 +297,7 @@ void load_api() {
   LOAD(ItemAction, ControllerPlayer_ItemAction);
   LOAD(SetCommandRepeated, ControllerPlayer_SetCommandRepeated);
   LOAD(Character_IsAlive, Character_IsAlive);
+  LOAD(Engine_GetAreaNameTag, Engine_GetAreaNameTag);
   LOAD(Monster_GetGameDescription, Monster_GetGameDescription);
   LOAD(Npc_GetRolloverDescription, Npc_GetRolloverDescription);
   LOAD(Player_GetRolloverDescription, Player_GetRolloverDescription);
@@ -478,6 +480,22 @@ std::string player_name() {
   void* p = player();
   const char16_t* n = p && g_api.GetPlayerName ? g_api.GetPlayerName(p) : nullptr;
   return n ? log::utf8(n) : std::string();
+}
+static bool read_area_tag(const void* eng, char* out, size_t cap) {   // POD only (SEH)
+  __try {
+    const MsvcStringA* s = g_api.Engine_GetAreaNameTag(eng);
+    if (!s || s->size == 0 || s->size >= cap) return false;
+    memcpy(out, s->data(), s->size); out[s->size] = 0;
+    return true;
+  } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+std::string area_name() {
+  load_api();
+  void* eng = gd::hooks::engine_object();
+  char tag[256];
+  if (!eng || !g_api.Engine_GetAreaNameTag || !read_area_tag(eng, tag, sizeof tag)) return {};
+  std::string text = gd::hooks::localize(tag);
+  return text.empty() ? std::string(tag) : text;
 }
 std::string region_name() {
   void* p = player();

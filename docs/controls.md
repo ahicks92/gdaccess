@@ -90,6 +90,7 @@ stationary attack, Ctrl pet targeting) and typing into the game's chat field.
 | G | Pick up the nearest item on the ground (the game's own Pickup action: within 10 units, loot filter applied; auto-equips into an empty slot like the game does) |
 | (automatic) | Place changes, in Zira: the region when it changes, the sub-region when it changes, then the room's title ("Devil's Crossing, the prison, cell block corridor"; "room 193" while a room has no title yet). See docs/rooms.md |
 | X | The current room: title, then the authored description ("no description yet" until then), through the screen reader |
+| T | Note this place: appends the area name, chunk, position and room state to `untagged_rooms.txt` at the repo root (the list of what to author next); speaks "noted, Lower Crossing, room ..." |
 | V / Shift+V | Next / previous exit of the current room: one more review group like . N B M -- destination title (or "room N"), "blocked" if the live mesh refuses the opening, distance, clock bearing, "i of n"; the landing pings the route, ; re-pings, the cursor parks on the opening |
 
 ## The main menu (2026-08-22)

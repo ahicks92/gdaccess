@@ -1,4 +1,6 @@
 #include "rooms.h"
+#include <cstdio>
+#include "audio.h"
 #include "audio.h"
 #include "db.h"
 #include "log.h"
@@ -190,6 +192,32 @@ void tick() {
   // spawn: ours from x 62.45, the game from 61.0), so search 8 cells = 2 units around the player.
   int label = r->grid.label_at(p.x, p.z, kLookupRing);
   if (g_hyst.update(label, now_ms())) announce(false);
+}
+
+void note_place() {
+  world::Vec3 p{};
+  bool have = world::player_position(p);
+  std::string area = world::area_name();
+  std::string room = "no room";
+  if (g_current && g_hyst.current >= 0) {
+    const Room& rm = g_current->rooms[g_hyst.current];
+    room = rm.key + (rm.title.empty() ? " untitled" : " '" + rm.title + "'");
+  }
+  SYSTEMTIME t; GetLocalTime(&t);
+  std::string line = std::format("{:04}-{:02}-{:02} {:02}:{:02}  area='{}'  chunk={}  at ({:.1f}, {:.1f})  region={}  room={}\n",
+                                 t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, area, world::region_name(), have ? p.x : 0.0f, have ? p.z : 0.0f,
+                                 g_current ? g_current->key : std::string("none"), room);
+  // build/ninja/gdaccess.dll -> the repo root is two levels up; fall back to the log directory.
+  std::string path = audio::module_dir() + "..\\..\\untagged_rooms.txt";
+  FILE* f = fopen(path.c_str(), "ab");
+  if (!f) { char la[MAX_PATH] = {}; GetEnvironmentVariableA("LOCALAPPDATA", la, MAX_PATH); path = std::string(la) + "\\gdaccess\\untagged_rooms.txt"; f = fopen(path.c_str(), "ab"); }
+  if (f) { fputs(line.c_str(), f); fclose(f); }
+  log::writef("rooms: noted {}", line);
+  MessageBuilder m;
+  m.list_item().fragment(f ? strings::kNoted : strings::kNoteFailed);
+  if (!area.empty()) m.list_item().fragment(area);
+  m.list_item().fragment(room);
+  speech::speak(m.build(), true);
 }
 
 void speak_description() {

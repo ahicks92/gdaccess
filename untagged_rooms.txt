@@ -1,0 +1,1 @@
+2026-08-23 12:15  area='Lower Crossing'  chunk=Levels/Region0A004.lvl  at (14.6, -36.0)  region=devilscrossing  room=devilscrossing:24:-40 'ruined house yard'

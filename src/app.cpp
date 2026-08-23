@@ -142,6 +142,7 @@ static void register_actions() {
   // Rooms (docs/rooms.md): X = the current room's title and description; its exits are the scanner's Exits
   // group (V above). Place changes are announced automatically in the player's voice.
   m.register_action("rooms.describe", "Describe the room", InputCategory::InGame, [] { rooms::speak_description(); }).bind(0x2d);   // X
+  m.register_action("rooms.note", "Note this place for authoring", InputCategory::InGame, [] { rooms::note_place(); }).bind(0x14);    // T
   // The mouse buttons (J left, I right, Enter = left; hold to hold) are polled per frame by the in-game screen,
   // not dispatched as actions: a hold needs the key's held state, not a press.
   // The camera is locked (far zoom, north up) by the in-game screen; no zoom/rotate keys.

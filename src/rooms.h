@@ -12,6 +12,9 @@ void shutdown();             // closes the db; before db::shutdown()
 void tick();                 // per frame from the in-game screen
 void reset();                // forget the announced place (re-entering the world re-announces)
 void speak_description();    // X
+// T: append where the player stands (area name, chunk, position, region/room state) to untagged_rooms.txt at the
+// repo root (next to the build tree), so the next areas to author can be read off the file. Speaks what it noted.
+void note_place();
 // The current room's exits as review items (ScanGroup::Exits; registered with world::set_exit_provider by
 // init): V / Shift+V cycle them through the scanner like every other group (ping on landing, ; re-pings).
 void announce_now();         // dev: repeat the current place
