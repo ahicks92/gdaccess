@@ -327,7 +327,10 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   main menu (the exe's CharacterPicker, docs/exe-ui-layout.md). **The virtual cursor parks at the entity's
   bounding-box CENTRE** (`Entity::GetRegionBoundingBox` = {centre, half-extents}, region frame): the fixed +1.0
   lift put the cursor above ground items, the click hit the ground and fired the default attack (2026-08-22;
-  verified: a lore note and the training dummy both resolve by id in `HandleActionFromMouse`).
+  verified: a lore note and the training dummy both resolve by id in `HandleActionFromMouse`). Ground EQUIPMENT still
+  resolves nothing (sighted players click its floating label): J on a reviewed Item issues
+  `ControllerPlayer::ItemAction` after `SetCommandRepeated(false)` (docs/re_pickup.md; verified walking 16 units
+  to a note). `/jkey?down=1|0` presses J without the game seeing a J key (synthetic /key goes to both).
 - Next (needs the user's hands): player-facing targeting keys (nearest enemy / cycle / announce name,
   distance, direction -- the hover name arrives as `box_font` HUD text), an attack key that clicks the locked
   target, wall-tone tuning by ear, hover sounds, the Delete-character screen, the main menu icon buttons.

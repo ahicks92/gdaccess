@@ -208,6 +208,7 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     }
     return screens::walltones::status();
   }
+  if (path == "/jkey") { world::mouse_key(1, q.count("down") ? parse_int(q.at("down"), 1) != 0 : true); return "ok\n"; }   // dev: J (left button at the reviewed thing) down/up without the game seeing a J key
   if (path == "/riftgates") {   // the riftgate travel map's rows (dev)
     std::string out = std::format("map_open={}\n", exe_ui::riftgate_map_open());
     for (const exe_ui::Riftgate& g : exe_ui::riftgates())

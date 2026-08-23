@@ -31,6 +31,9 @@ inline constexpr const char* ControllerPlayer_Update = "?Update@ControllerPlayer
 // public: void __cdecl GAME::ControllerPlayer::SetCombatEnemy(unsigned int) __ptr64
 inline constexpr const char* ControllerPlayer_SetCombatEnemy_DLL = "Game.dll";
 inline constexpr const char* ControllerPlayer_SetCombatEnemy = "?SetCombatEnemy@ControllerPlayer@GAME@@QEAAXI@Z";
+// public: void __cdecl GAME::ControllerPlayer::SetCommandRepeated(bool) __ptr64
+inline constexpr const char* ControllerPlayer_SetCommandRepeated_DLL = "Game.dll";
+inline constexpr const char* ControllerPlayer_SetCommandRepeated = "?SetCommandRepeated@ControllerPlayer@GAME@@QEAAX_N@Z";
 // public: unsigned int __cdecl GAME::ControllerPlayer::GetCombatEnemy(void)const __ptr64
 inline constexpr const char* ControllerPlayer_GetCombatEnemy_DLL = "Game.dll";
 inline constexpr const char* ControllerPlayer_GetCombatEnemy = "?GetCombatEnemy@ControllerPlayer@GAME@@QEBAIXZ";

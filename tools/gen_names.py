@@ -16,6 +16,7 @@ ENTRIES = [
     ("GameEngine_GetAllTargetsInRadius", "Game", r"GAME::GameEngine::GetAllTargetsInRadius\("),
     ("ControllerPlayer_Update", "Game", r"GAME::ControllerPlayer::Update\(int\)"),
     ("ControllerPlayer_SetCombatEnemy", "Game", r"GAME::ControllerPlayer::SetCombatEnemy\("),
+    ("ControllerPlayer_SetCommandRepeated", "Game", r"GAME::ControllerPlayer::SetCommandRepeated\(bool\)"),
     ("ControllerPlayer_GetCombatEnemy", "Game", r"GAME::ControllerPlayer::GetCombatEnemy\("),
     ("ControllerPlayer_ClearTarget", "Game", r"GAME::ControllerPlayer::ClearTarget\("),
     ("ControllerPlayer_FaceTarget", "Game", r"GAME::ControllerPlayer::FaceTarget\("),

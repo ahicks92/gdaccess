@@ -192,6 +192,8 @@ struct Api {
   void (*GetCurrentAttackTarget)(void*, unsigned*, void*, unsigned*) = nullptr;
   void* (*GetFactionManager)(void*) = nullptr;
   bool (*FactionManager_IsFoe)(void*, unsigned, unsigned, bool) = nullptr;  // by object ids
+  void (*ItemAction)(void*, bool, bool, const void*, const void*) = nullptr;   // ControllerPlayer: (no_walk, unused, WorldVec3 const&, Item const*)
+  void (*SetCommandRepeated)(void*, bool) = nullptr;                           // ControllerPlayer +0x430; ItemAction no-ops while it is set
   bool (*Character_IsAlive)(const void*) = nullptr;   // virtual; the base body is the Monster implementation (only Player overrides)
   // labels: basic_string<unsigned short> by value -> hidden return pointer (2nd arg)
   MsvcStringW* (*Monster_GetGameDescription)(const void*, MsvcStringW*, bool, bool) = nullptr;
@@ -291,6 +293,8 @@ void load_api() {
   LOAD(GetCurrentAttackTarget, Character_GetCurrentAttackTarget);
   LOAD(GetFactionManager, GameEngine_GetFactionManager);
   LOAD(FactionManager_IsFoe, FactionManager_IsFoe);
+  LOAD(ItemAction, ControllerPlayer_ItemAction);
+  LOAD(SetCommandRepeated, ControllerPlayer_SetCommandRepeated);
   LOAD(Character_IsAlive, Character_IsAlive);
   LOAD(Monster_GetGameDescription, Monster_GetGameDescription);
   LOAD(Npc_GetRolloverDescription, Npc_GetRolloverDescription);
@@ -868,6 +872,7 @@ bool project(void* entity, float& x, float& y) {
   void* cam = g_game_engine && g_api.GetCamera ? g_api.GetCamera(g_game_engine) : nullptr;
   if (!cam || !g_api.Project || !g_api.Viewport_ctor) return false;
   Buf wv; if (!entity_world_vec(entity, wv)) return false;
+  { void* rgn = nullptr; memcpy(&rgn, wv.b, sizeof rgn); if (!rgn) return false; }   // WorldCamera::Project derefs the region (a Lua-spawned item had none)
   // Park the cursor at the centre of the entity's bounding box: mid-body for a character, the item itself for
   // loot lying on the ground (a fixed +1.0 lift put the cursor a metre above ground items, the click landed on
   // the ground and "attack here" fired instead of a pickup -- the user, 2026-08-22). The box is region-relative
@@ -1354,6 +1359,29 @@ bool on_screen(unsigned id) {
   if (!w || !GetClientRect(w, &rc)) return false;
   return x >= 0 && y >= 0 && x < (float)rc.right && y < (float)rc.bottom;
 }
+// J on a reviewed ITEM lying on the ground is not a click (static RE 2026-08-22, docs/re_pickup.md): the sighted
+// player clicks the item's floating name label, which the game draws only when the loot filter shows it, and a
+// click on the item's model resolves nothing ("attack here"). The label click ends in
+// ControllerPlayer::ItemAction(false, false, pos, item) -- the range test, the navmesh approach point and the
+// MoveToItem -> PickupItem chain are all inside -- so that is what J issues for an item, on the press. It
+// silently does nothing while the controller's IsCommandRepeated byte is set (our mouse hold leaves it on).
+static bool call_item_action(void* ctrl, const void* wv, const void* item) {   // POD only: SEH cannot unwind C++ objects
+  __try {
+    if (g_api.SetCommandRepeated) g_api.SetCommandRepeated(ctrl, false);
+    g_api.ItemAction(ctrl, false, false, wv, item);
+    return true;
+  } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+static bool pickup_locked_item() {
+  if (!g_locked_id || !g_locked_entity || !g_controller || !g_api.ItemAction || !g_api.Item_StaticClassInfo) return false;
+  EntityRaw r{};
+  if (!read_entity(g_locked_entity, r) || !is_kind_of(r.ci, g_api.Item_StaticClassInfo())) return false;
+  Buf wv;
+  if (!entity_world_vec(g_locked_entity, wv)) return false;
+  if (!call_item_action(g_controller, wv.b, g_locked_entity)) { log::write("world: ItemAction faulted"); return false; }
+  log::writef("world: ItemAction on {} '{}'", g_locked_id, label_of(g_locked_id));
+  return true;
+}
 void mouse_key(int button, bool held) {
   static bool key_down[3] = {};
   bool& prev = key_down[button == 2 ? 2 : 1];
@@ -1363,6 +1391,12 @@ void mouse_key(int button, bool held) {
     if (edge) gd::speech::speak(gd::strings::kTooFarAway, true);  // the lock is on something the camera does not show
     gd::hooks::set_mouse_hold(button, false);
     return;
+  }
+  static bool pickup_held = false;   // J went down on an item: the hold that follows must not become a click
+  if (button == 1) {
+    if (!held) pickup_held = false;
+    else if (edge && g_locked_id && !is_point_id(g_locked_id) && pickup_locked_item()) pickup_held = true;
+    if (pickup_held) { gd::hooks::set_mouse_hold(button, false); return; }
   }
   gd::hooks::set_mouse_hold(button, held);
 }
