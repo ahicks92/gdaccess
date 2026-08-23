@@ -208,7 +208,7 @@ static std::string handle(const std::string& path, const std::map<std::string, s
   if (path == "/portals") return world::portals_dump();   // the player's chunk's portals
   if (path == "/teleport") {  // /teleport?x=&z= -- the player, floored (authoring; docs/rooms.md M4)
     if (!q.count("x") || !q.count("z")) { status = 400; return "need x and z\n"; }
-    return world::teleport((float)atof(q.at("x").c_str()), (float)atof(q.at("z").c_str()));
+    return world::teleport((float)atof(q.at("x").c_str()), (float)atof(q.at("z").c_str()), q.count("check") > 0);   // &check=1: report only
   }
   if (path == "/project" && q.count("pts")) {  // /project?pts=x,z;x,z;... -- ground points to screen (or POST the list)
     std::vector<world::Vec3> pts;

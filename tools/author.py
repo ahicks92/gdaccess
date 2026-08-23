@@ -58,6 +58,15 @@ def cmd_facts(db, a):
         neighbours.append({"room": other, "title": o[0] if o else None, "cls": o[1] if o else None, "subregion": o[2] if o else None,
                            "bearing": bearing, "width": width, "cap_cut": bool(cut)})
     shots = sorted(f for f in os.listdir(shot_dir(a.key)) if f.endswith("_overlay.png")) if os.path.isdir(shot_dir(a.key)) else []
+    # the agents see a downscaled copy (image tokens): 1100 px wide, made on first use
+    from PIL import Image
+    small = []
+    for f in shots:
+        src = os.path.join(shot_dir(a.key), f); dst = src.replace("_overlay.png", "_small.png")
+        if not os.path.exists(dst):
+            im = Image.open(src); im.resize((1100, int(im.height * 1100 / im.width)), Image.LANCZOS).save(dst)
+        small.append(dst)
+    shots = [os.path.basename(s) for s in small]
     out = {"room": room, "region_name": region[0] if region else region_key, "subregion": {"key": room["subregion_key"], "name": sub[0] if sub else None, "summary": sub[1] if sub else None},
            "terrain": meta.get("terrain", {}), "samples": [{"x": s["x"], "z": s["z"], "entities": s["entities"]} for s in meta.get("samples", [])],
            "shots": [os.path.abspath(os.path.join(shot_dir(a.key), f)) for f in shots], "exits": neighbours}
@@ -99,7 +108,7 @@ def cmd_assign(db, a):
 
 
 def cmd_describe(db, a):
-    n = db.c.execute("UPDATE rooms SET title=?, body=?, status='described' WHERE key=?", (a.title.strip(), a.body.strip(), a.key)).rowcount
+    n = db.c.execute("UPDATE rooms SET title=?, body=?, status='described' WHERE key=?", (a.title.strip().lower(), a.body.strip(), a.key)).rowcount
     db.c.commit(); print("ok" if n else "no such room")
 
 
@@ -110,6 +119,64 @@ def cmd_verify(db, a):
     else:
         n = db.c.execute("UPDATE rooms SET status='verified' WHERE key=? AND title IS NOT NULL", (a.key,)).rowcount
         print("ok" if n else "no such room or no title")
+    db.c.commit()
+
+
+BANNED = ["exit", "way out", "ways out", "leads ", "lead north", "lead south", "lead east", "lead west", "carries on", "carry on",
+          "runs on to", "runs north", "runs south", "runs east", "runs west", "opens north", "opens south", "opens east", "opens west",
+          "to the north", "to the south", "to the east", "to the west", "northward", "southward", "eastward", "westward",
+          "locked", "looted", "dead ", "alive", "spawn", "quest", "you are", "this room"]
+ADJ_SOUP = ["weathered", "splintered", "mist-filled", "forcing up", "hemmed in", "threads between", "scribed", "shoulders the way",
+            "beaten down", "trodden down", "crowding", "scattered papers", "scatter of"]
+
+
+def check_room(db, key: str) -> list[str]:
+    region_key = key.split(":", 1)[0]
+    room = next((r for r in db.rooms(region_key) if r["key"] == key), None)
+    if not room:
+        return ["no such room"]
+    title, body = (room["title"] or "").strip(), (room["body"] or "").strip()
+    problems = []
+    words = title.split()
+    if not (2 <= len(words) <= 4): problems.append(f"title must be 2-4 words (has {len(words)})")
+    if title != title.lower(): problems.append("title must be lowercase")
+    if any(ch.isdigit() for ch in title): problems.append("title contains digits")
+    sub_name = (db.c.execute("SELECT name FROM subregions WHERE key=?", (room["subregion_key"] or "",)).fetchone() or [""])[0] or ""
+    region_name = (db.c.execute("SELECT name FROM regions WHERE key=?", (region_key,)).fetchone() or [""])[0] or ""
+    for n in (sub_name, region_name):
+        core = n.lower().removeprefix("the ").strip()
+        if core and core in title.lower(): problems.append(f"title repeats '{n}'")
+    dup = db.c.execute("SELECT key FROM rooms WHERE region_key=? AND subregion_key IS ? AND lower(title)=? AND key<>?",
+                       (region_key, room["subregion_key"], title.lower(), key)).fetchone()
+    if dup: problems.append(f"title duplicates {dup[0]}")
+    sentences = [s for s in __import__("re").split(r"[.!?]+", body) if s.strip()]
+    if not (1 <= len(sentences) <= 2): problems.append(f"body must be 1-2 sentences (has {len(sentences)})")
+    if len(body.split()) > 40: problems.append(f"body over 40 words ({len(body.split())})")
+    low = " " + body.lower() + " "
+    for b in BANNED:
+        if b in low: problems.append(f"banned phrase '{b.strip()}'")
+    for b in ADJ_SOUP:
+        if b in low: problems.append(f"thesaurus phrase '{b}'")
+    meta_path = os.path.join(shot_dir(key), "meta.json")
+    if os.path.exists(meta_path):
+        meta = json.load(open(meta_path, encoding="utf-8"))
+        names = {e["label"] for s in meta.get("samples", []) for e in s["entities"] if e.get("label") and e["cls"] in ("Npc", "Monster", "Player")}
+        for n in names:
+            if n and n.lower() in low: problems.append(f"names a unit '{n}'")
+    for (other,) in db.c.execute("SELECT CASE WHEN room_a=? THEN room_b ELSE room_a END FROM exits WHERE region_key=? AND (room_a=? OR room_b=?)", (key, region_key, key, key)):
+        t = (db.c.execute("SELECT title FROM rooms WHERE key=?", (other,)).fetchone() or [None])[0]
+        if t and t.lower() in low: problems.append(f"mentions neighbour '{t}'")
+    return problems
+
+
+def cmd_check(db, a):
+    problems = check_room(db, a.key)
+    if problems:
+        db.c.execute("UPDATE rooms SET status='described' WHERE key=? AND title IS NOT NULL", (a.key,))
+        print("FAIL: " + "; ".join(problems))
+    else:
+        db.c.execute("UPDATE rooms SET status='verified' WHERE key=? AND title IS NOT NULL", (a.key,))
+        print("ok")
     db.c.commit()
 
 
@@ -132,6 +199,7 @@ def main():
     s = sub.add_parser("describe"); s.add_argument("key"); s.add_argument("--title", required=True); s.add_argument("--body", required=True); s.set_defaults(fn=cmd_describe)
     s = sub.add_parser("verify"); s.add_argument("key"); s.add_argument("--fail"); s.set_defaults(fn=cmd_verify)
     s = sub.add_parser("status"); s.add_argument("region"); s.set_defaults(fn=cmd_status)
+    s = sub.add_parser("check"); s.add_argument("key"); s.set_defaults(fn=cmd_check)
     a = ap.parse_args()
     a.fn(RoomsDb(DB), a)
 

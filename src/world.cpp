@@ -565,7 +565,7 @@ std::string portals_dump() {
 }
 // ---- authoring dev routes (docs/rooms.md M4): teleport, batch projection, fog reveal ----
 namespace { bool project_point(const Vec3& world_point, float& x, float& y); }   // defined with the cursor lock below
-std::string teleport(float x, float z) {
+std::string teleport(float x, float z, bool check_only) {
   load_api();
   void* p = player();
   Buf base; void* region = nullptr;
@@ -573,7 +573,11 @@ std::string teleport(float x, float z) {
   // Target chunk: the one containing (x, z), reached from the player's chunk; the chunk's frame is world minus
   // its offset (verified 2026-08-22), so region-relative = world - GetOffsetFromWorld().
   void* target = g_api.World_GetRegionContainingXZ && g_world ? g_api.World_GetRegionContainingXZ(g_world, region, x, z) : nullptr;
-  if (!target) target = region;
+  if (!target) return std::format("no chunk contains ({:.1f}, {:.1f})\n", x, z);
+  // Into an unloaded chunk SetCoords crashes the game (2026-08-22, the first far room of a region run):
+  // the caller hops closer and waits until the chunk's level is streamed in.
+  bool loaded = g_api.Region_IsLevelLoaded ? g_api.Region_IsLevelLoaded(target) : false;
+  if (check_only || !loaded) return std::format("target chunk {} loaded={}{}\n", region_label(target), loaded, loaded ? "" : " (refused)");
   const int* off = g_api.Region_GetOffsetFromWorld ? g_api.Region_GetOffsetFromWorld(target) : nullptr;
   Vec3 wb = world_pos_of(base);
   Vec3 rel{x - (off ? (float)off[0] : 0.f), wb.y - (off ? (float)off[1] : 0.f), z - (off ? (float)off[2] : 0.f)};

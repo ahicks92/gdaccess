@@ -36,6 +36,43 @@ def get(path, **q):
     return urllib.request.urlopen(url, timeout=30).read().decode("utf-8", "replace")
 
 
+def player_xz() -> tuple[float, float]:
+    m = re.search(r"player world=\(([-\d.]+), [-\d.]+, ([-\d.]+)\)", get("/player"))
+    return (float(m.group(1)), float(m.group(2))) if m else (0.0, 0.0)
+
+
+def teleport(x: float, z: float, hop: float = 60.0, wait_s: float = 25.0) -> str:
+    """Far targets crash the game if their chunk is not streamed in: hop toward them and wait for the load."""
+    px, pz = player_xz()
+    while True:
+        dx, dz = x - px, z - pz
+        dist = (dx * dx + dz * dz) ** 0.5
+        chk = get("/teleport", x=f"{x:.2f}", z=f"{z:.2f}", check=1)
+        if "loaded=true" in chk and dist <= hop * 1.5:
+            break
+        if dist <= hop * 1.5:
+            t0 = time.time()
+            while "loaded=true" not in get("/teleport", x=f"{x:.2f}", z=f"{z:.2f}", check=1):
+                if time.time() - t0 > wait_s:
+                    return f"chunk for ({x:.1f}, {z:.1f}) never loaded"
+                time.sleep(1.0)
+            break
+        hx, hz = px + dx / dist * hop, pz + dz / dist * hop
+        # hop to the nearest walkable point along the way: try the hop point, then fall back shorter
+        moved = False
+        for frac in (1.0, 0.7, 0.4):
+            r = get("/teleport", x=f"{px + (hx - px) * frac:.2f}", z=f"{pz + (hz - pz) * frac:.2f}")
+            if r.startswith("teleported"):
+                moved = True
+                break
+            time.sleep(1.0)
+        if not moved:
+            return f"cannot hop toward ({x:.1f}, {z:.1f}) from ({px:.1f}, {pz:.1f})"
+        time.sleep(2.0)
+        px, pz = player_xz()
+    return get("/teleport", x=f"{x:.2f}", z=f"{z:.2f}").strip()
+
+
 def shot(path: str) -> None:
     subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "gd.py"), "shot", path], check=True,
                    stdout=subprocess.DEVNULL)
@@ -90,9 +127,26 @@ def parse_entities(txt: str) -> list[dict]:
     return ents
 
 
+_WM = None
+_CHUNK_CACHE: dict[str, tuple] = {}   # chunk name -> (region, grid, [(record, cells)])
+
+
+def chunk_terrain(wm, name: str):
+    """Per-process cache: the chunk's grid and each painted layer's cells (the map parse is the slow part)."""
+    from gdmap.level import mask_to_cells, parse_terrain_layers, parse_tiles, walk_grid
+    if name not in _CHUNK_CACHE:
+        r = wm.by_name[name]
+        body = wm.level_body(r)
+        g = walk_grid(parse_tiles(body))
+        ox, oz = float(r.world_offset[0]), float(r.world_offset[2])
+        layers = [(l.record, mask_to_cells(l.mask, g, ox, oz)) for l in parse_terrain_layers(body) if l.mask is not None]
+        _CHUNK_CACHE[name] = (r, g, layers)
+    return _CHUNK_CACHE[name]
+
+
 def terrain_facts(region_key: str, room: dict, grid) -> dict:
     """Fraction of the room's cells under each painted terrain layer (the describer's 'muddy', 'cobbled')."""
-    from gdmap.level import mask_to_cells, parse_terrain_layers, parse_tiles, walk_grid
+    global _WM
     from gdmap.mapfile import WorldMap
     x0, z0, cell, labels, label_keys = grid
     label = label_keys.index(room["key"])
@@ -100,21 +154,20 @@ def terrain_facts(region_key: str, room: dict, grid) -> dict:
     n = int(mask.sum())
     if n == 0:
         return {}
-    wm = WorldMap()
+    if _WM is None:
+        _WM = WorldMap()
+    wm = _WM
     chunks = json.loads(RoomsDb(DB).c.execute("SELECT chunks FROM regions WHERE key=?", (region_key,)).fetchone()[0])
     bx0, bz0, bx1, bz1 = json.loads(room["bbox"])
     out = {}
     for lvl in chunks:
-        r = wm.by_name[lvl.rsplit("/", 1)[-1].replace("\\", "/").removeprefix("Region").removesuffix(".lvl")]
+        name = lvl.rsplit("/", 1)[-1].replace("\\", "/").removeprefix("Region").removesuffix(".lvl")
+        r = wm.by_name[name]
         ox, oz = r.world_offset[0], r.world_offset[2]
         if bx1 < ox or bx0 > ox + 128 or bz1 < oz or bz0 > oz + 128:
             continue
-        body = wm.level_body(r)
-        g = walk_grid(parse_tiles(body))
-        for layer in parse_terrain_layers(body):
-            if layer.mask is None:
-                continue
-            cells = mask_to_cells(layer.mask, g, float(ox), float(oz))
+        _, g, layers = chunk_terrain(wm, name)
+        for record, cells in layers:
             # place the chunk grid's cells into the region grid frame
             c0 = int(round((g.x0 - x0) / cell)); r0 = int(round((g.z0 - z0) / cell))
             sub = np.zeros_like(mask)
@@ -124,8 +177,8 @@ def terrain_facts(region_key: str, room: dict, grid) -> dict:
                 sub[rs, cs] = cells[rs.start - r0: rs.stop - r0, cs.start - c0: cs.stop - c0]
             k = int((sub & mask).sum())
             if k:
-                name = layer.record.rsplit("/", 1)[-1].removesuffix(".dbr")
-                out[name] = round(out.get(name, 0) + k / n, 3)
+                lname = record.rsplit("/", 1)[-1].removesuffix(".dbr")
+                out[lname] = round(out.get(lname, 0) + k / n, 3)
     return dict(sorted(out.items(), key=lambda kv: -kv[1]))
 
 
@@ -151,7 +204,10 @@ def shoot_room(db: RoomsDb, region_key: str, room: dict, grid, samples: int, fog
     meta = {"room": room, "samples": [], "exits": exits, "outline_points": len(outline),
             "terrain": terrain_facts(region_key, room, grid)}
     for i, (sx, sz) in enumerate(pts):
-        tele = get("/teleport", x=f"{sx:.2f}", z=f"{sz:.2f}").strip()
+        tele = teleport(sx, sz)
+        if not tele.startswith("teleported"):
+            print(f"  {room['key']} sample {i}: {tele}; skipped")
+            continue
         if fog:
             get("/fog", x=f"{sx:.2f}", z=f"{sz:.2f}", radius=40)
         time.sleep(1.6)     # let the chunk stream and the camera settle
@@ -190,9 +246,9 @@ def shoot_room(db: RoomsDb, region_key: str, room: dict, grid, samples: int, fog
 def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
-    s = sub.add_parser("room"); s.add_argument("key"); s.add_argument("--samples", type=int, default=3); s.add_argument("--no-fog", action="store_true")
+    s = sub.add_parser("room"); s.add_argument("key"); s.add_argument("--samples", type=int, default=2); s.add_argument("--no-fog", action="store_true")
     s = sub.add_parser("region"); s.add_argument("region"); s.add_argument("--status", default="unseen"); s.add_argument("--limit", type=int, default=0)
-    s.add_argument("--samples", type=int, default=3); s.add_argument("--no-fog", action="store_true")
+    s.add_argument("--samples", type=int, default=2); s.add_argument("--no-fog", action="store_true")
     args = ap.parse_args()
     db = RoomsDb(DB)
     if args.cmd == "room":
@@ -201,6 +257,13 @@ def main():
     else:
         region_key = args.region
         rooms = [r for r in db.rooms(region_key) if r["status"] == args.status]
+        # a nearest-neighbour tour from the character's position keeps every hop short (chunk streaming)
+        px, pz = player_xz()
+        tour = []
+        while rooms:
+            i = min(range(len(rooms)), key=lambda k: (rooms[k]["anchor_x"] - px) ** 2 + (rooms[k]["anchor_z"] - pz) ** 2)
+            r = rooms.pop(i); tour.append(r); px, pz = r["anchor_x"], r["anchor_z"]
+        rooms = tour
         if args.limit:
             rooms = rooms[:args.limit]
     grid = db.grid(region_key)
