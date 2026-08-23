@@ -65,8 +65,9 @@ class Grid:
     x0: float
     z0: float
     walk: np.ndarray       # bool
-    height: np.ndarray     # float32, NaN where unwalkable
-    layers: int            # how many cells had more than one layer (bridges)
+    height: np.ndarray     # float32 floor y of the LOWEST layer, NaN where unwalkable
+    layers: int            # how many cells had more than one layer (bridges, overpasses)
+    over: np.ndarray | None = None   # float32 floor y of the HIGHEST layer where stacked, NaN elsewhere
 
     @property
     def shape(self):
@@ -80,8 +81,10 @@ class Grid:
 
 
 def walk_grid(tiles: list[Tile]) -> Grid:
-    """Union of all layers per (x, z): a bridge and the passage under it become one walkable cell. Rare
-    (counted in Grid.layers); acceptable for segmentation, revisit if a region relies on it."""
+    """The base plane is the LOWEST layer per (x, z); where layers stack (a bridge, an overpass -- counted
+    in Grid.layers) the HIGHEST layer's floor y goes into Grid.over. The segmentation runs on the base
+    plane; overlay cells adopt a neighbouring room's label offline (rooms.resolve_overlays) and the mod
+    picks base vs overlay at runtime by which floor y is nearer the player's y."""
     if not tiles:
         raise ValueError("no tiles")
     tx0 = min(t.tx for t in tiles)
@@ -89,7 +92,8 @@ def walk_grid(tiles: list[Tile]) -> Grid:
     w = (max(t.tx for t in tiles) - tx0 + 1) * TILE_CELLS
     h = (max(t.ty for t in tiles) - ty0 + 1) * TILE_CELLS
     walk = np.zeros((h, w), dtype=bool)
-    height = np.full((h, w), np.nan, dtype=np.float32)
+    hmin = np.full((h, w), np.inf, dtype=np.float32)
+    hmax = np.full((h, w), -np.inf, dtype=np.float32)
     count = np.zeros((h, w), dtype=np.uint8)
     for t in tiles:
         r, c = (t.ty - ty0) * TILE_CELLS, (t.tx - tx0) * TILE_CELLS
@@ -97,10 +101,13 @@ def walk_grid(tiles: list[Tile]) -> Grid:
         hv = t.bmin[1] + t.heights.astype(np.float32) * CH
         blk = (slice(r, r + TILE_CELLS), slice(c, c + TILE_CELLS))
         walk[blk] |= sub
-        cur = height[blk]
-        height[blk] = np.where(sub & np.isnan(cur), hv, cur)
+        hmin[blk] = np.where(sub, np.minimum(hmin[blk], hv), hmin[blk])
+        hmax[blk] = np.where(sub, np.maximum(hmax[blk], hv), hmax[blk])
         count[blk] += sub
-    return Grid(tx0 * TILE_UNITS, ty0 * TILE_UNITS, walk, height, int((count > 1).sum()))
+    height = np.where(walk, hmin, np.nan).astype(np.float32)
+    stacked = (count > 1) & (hmax - hmin >= 0.9)   # closer layers are the same floor, not an overpass
+    over = np.where(stacked, hmax, np.nan).astype(np.float32)
+    return Grid(tx0 * TILE_UNITS, ty0 * TILE_UNITS, walk, height, int(stacked.sum()), over)
 
 
 @dataclass

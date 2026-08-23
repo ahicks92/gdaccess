@@ -41,6 +41,28 @@ TEST_CASE("label_at maps world coordinates through origin and cell, with a ring 
   CHECK(g.label_at(0, 0) == -1);             // far outside
 }
 
+TEST_CASE("stacked cells resolve by player height: base room below, overlay room above, unlabeled overlay is honest") {
+  LabelGrid g;
+  g.x0 = 0; g.z0 = 0; g.cell = 1.0;
+  auto labels = rle({{3, 4}});               // 2x2, all room 3 on the base plane
+  REQUIRE(g.decode_rle(labels.data(), labels.size(), 2, 2));
+  auto heights = rle({{20, 4}});             // base floor at 2.0 everywhere (decimeters)
+  REQUIRE(g.decode_heights(heights.data(), heights.size()));
+  // overlay at cell (col 1, row 0): a bridge at y 8.0 belonging to room 9; at (col 0, row 1) an
+  // enclosed upper floor no room owns (label -1)
+  std::vector<uint8_t> ob;
+  auto put16 = [&](int v) { ob.push_back((uint8_t)(v & 0xff)); ob.push_back((uint8_t)((v >> 8) & 0xff)); };
+  put16(0); put16(1); put16(80); put16(9);
+  put16(1); put16(0); put16(80); put16(-1 & 0xffff);
+  REQUIRE(g.decode_overlays(ob.data(), ob.size()));
+  CHECK(g.label_at(1.5, 0.5, 2.1, 0) == 3);   // under the bridge: the base room
+  CHECK(g.label_at(1.5, 0.5, 7.8, 0) == 9);   // on the bridge: the overlay room
+  CHECK(g.label_at(1.5, 0.5, 0) == 3);        // no y given: base behaviour unchanged
+  CHECK(g.label_at(0.5, 1.5, 7.8, 0) == -1);  // enclosed upper floor: no room, not the room below
+  CHECK(g.label_at(0.5, 1.5, 2.1, 0) == 3);   // but standing below it is still the base room
+  CHECK(g.label_at(0.5, 0.5, 7.8, 0) == 3);   // an unstacked cell ignores y entirely
+}
+
 TEST_CASE("hysteresis: first room immediate, a settled room changes at once, boundary flapping waits for the dwell") {
   Hysteresis h; h.dwell_ms = 400; h.settle_ms = 1000;
   CHECK(h.update(3, 0)); CHECK(h.current == 3);

@@ -328,10 +328,17 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   (off-map dungeons like the cave never stream by proximity; no-route targets get force-load + direct
   jump), in-process `gd.capture()`, black-frame retry, open-window guard, `ToggleInvincible(true)` at
   region start (a setter despite the name), flushed per-room timing (~3 s/room). Describers return
-  `shots_suspect` and flagged rooms are re-shot + re-described. Known: rooms are a 2D union where floors
-  stack (the prison's upstairs announces the downstairs room) -- fix = per-layer grids with a y-band per
-  cell, re-attaching authored rooms by anchor; agreed to do it as its own task. Next: road helpers, the
-  next regions, region names from `tagWorldMap*`.
+  `shots_suspect` and flagged rooms are re-shot + re-described. **Height handling** (2026-08-23, db schema
+  v2): stacked walkable layers are tiny in practice (DC 72 m² of ramparts/bridges, the cave one 20 m²
+  overpass; the prison's stacked interior is not in the walkable bake at all), so the base plane keeps the
+  LOWEST layer + a per-cell floor y (`grids.heights`, RLE int16 decimeters) and the upper layers are sparse
+  overlay cells (`grids.overlays`) labeled offline by height-continuity BFS (`gdmap.rooms.resolve_overlays`:
+  an overpass joins the room it continues; an enclosed upper floor stays -1 = announce nothing, never the
+  room below). Runtime `LabelGrid::label_at(x, z, y)` picks base vs overlay by which floor y is nearer;
+  layers closer than 0.9 units are one floor. Verified live in the cave: (1234.9, -469.9) at y 7.7 says
+  "stacked coffin floor", the base at -0.5 is "vine curtain gallery"; all 453 authored rooms re-attached
+  by anchor on the schema regen (kept=all, orphaned=0). Next: road helpers, the next regions, region names
+  from `tagWorldMap*`.
 - Riftgate travel screen (2026-08-22, verified live through the loop incl. a real trip Lower Crossing -> Devil's
   Crossing): `screens/riftgate.cpp` over the world map in riftgate mode (`exe_ui::riftgate_*`, layout in
   docs/exe-ui-layout.md "Riftgate travel"). Review groups: N = people + non-loot objects of interest, M = loot.

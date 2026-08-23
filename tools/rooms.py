@@ -182,7 +182,12 @@ def cmd_area(wm, args):
     grid, roads, chunks, signature = build_area(wm, regs, args.roads)
     seg = run_segment(grid, roads, params, args.out or f"{OUT}/{key}_rooms.png", args.scale)
     if args.write:
-        counts = db.write_segmentation(key, args.name, regs[0].location if regs else key, chunks, params, signature, ALGO_VERSION, grid, seg)
+        from gdmap.rooms import resolve_overlays
+        overlays = resolve_overlays(grid, seg.labels)
+        if overlays:
+            orphan = sum(1 for _, _, _, lab in overlays if lab < 0)
+            print(f"  overlay cells: {len(overlays)} ({len(overlays) * 0.0625:.0f} m2), {orphan} unlabeled")
+        counts = db.write_segmentation(key, args.name, regs[0].location if regs else key, chunks, params, signature, ALGO_VERSION, grid, seg, overlays)
         print(f"  written to {DB}: {counts}")
 
 

@@ -99,6 +99,18 @@ Region* load_region(const std::string& key) {
     if (!r->grid.decode_rle(blob.data(), blob.size(), (int)st.int64(2), (int)st.int64(3))) { log::writef("rooms: region '{}' grid does not decode", key); return nullptr; }
     label_keys = json_strings(st.text(6));
   }
+  {
+    // schema v2 height data; a v1 db just lacks the columns (statement fails to prepare) and lookups ignore y
+    db::Stmt st(*g_db, "SELECT heights, overlays FROM grids WHERE region_key=?");
+    if (st.ok()) {
+      st.bind(1, key);
+      if (st.step() && !st.is_null(0)) {
+        std::vector<uint8_t> hb = st.blob(0), ob = st.blob(1);
+        if (!r->grid.decode_heights(hb.data(), hb.size())) log::writef("rooms: region '{}' heights do not decode", key);
+        r->grid.decode_overlays(ob.data(), ob.size());
+      }
+    }
+  }
   r->rooms.resize(label_keys.size());
   std::map<std::string, int> by_key;
   for (size_t i = 0; i < label_keys.size(); ++i) { r->rooms[i].key = label_keys[i]; by_key[label_keys[i]] = (int)i; }
@@ -190,7 +202,7 @@ void tick() {
   if (!r) return;
   // The runtime mesh is up to ~1.5 units wider than the bake at edges (measured 2026-08-22 north of the
   // spawn: ours from x 62.45, the game from 61.0), so search 8 cells = 2 units around the player.
-  int label = r->grid.label_at(p.x, p.z, kLookupRing);
+  int label = r->grid.label_at(p.x, p.z, p.y, kLookupRing);
   if (g_hyst.update(label, now_ms())) announce(false);
 }
 
@@ -267,7 +279,7 @@ std::string status() {
   bool have = world::in_world() && world::player_position(p);
   s += std::format("chunk '{}' -> region {}\n", world::region_name(), g_current ? g_current->key : "none");
   if (!g_current || !have) return s;
-  int label = g_current->grid.label_at(p.x, p.z, kLookupRing);
+  int label = g_current->grid.label_at(p.x, p.z, p.y, kLookupRing);
   s += std::format("player ({:.1f}, {:.1f}) -> label {} current {} candidate {}; last line '{}'\n", p.x, p.z, label, g_hyst.current, g_hyst.candidate, g_last_line);
   if (g_hyst.current >= 0) {
     const Room& rm = g_current->rooms[g_hyst.current];

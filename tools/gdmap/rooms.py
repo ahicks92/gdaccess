@@ -489,6 +489,7 @@ def stitch(parts: list[tuple[Grid, tuple[float, float]]]) -> Grid:
     H = int(round((max(zs1) - Z0) / CELL))
     walk = np.zeros((H, W), dtype=bool)
     height = np.full((H, W), np.nan, dtype=np.float32)
+    over = np.full((H, W), np.nan, dtype=np.float32)
     layers = 0
     for g, (ox, oz) in parts:
         c0 = int(round((g.x0 + ox - X0) / CELL))
@@ -497,5 +498,41 @@ def stitch(parts: list[tuple[Grid, tuple[float, float]]]) -> Grid:
         walk[r0:r0 + h, c0:c0 + w] |= g.walk
         blk = height[r0:r0 + h, c0:c0 + w]
         height[r0:r0 + h, c0:c0 + w] = np.where(np.isnan(blk), g.height, blk)
+        if g.over is not None:
+            oblk = over[r0:r0 + h, c0:c0 + w]
+            over[r0:r0 + h, c0:c0 + w] = np.where(np.isnan(oblk), g.over, oblk)
         layers += g.layers
-    return Grid(X0, Z0, walk, height, layers)
+    return Grid(X0, Z0, walk, height, layers, over)
+
+
+def resolve_overlays(grid: Grid, labels: np.ndarray, step: float = 1.0) -> list[tuple[int, int, float, int]]:
+    """Label the upper-layer (overlay) cells: BFS inward from overlay cells bordering a single-layer walkable
+    cell whose base floor y continues the overlay's (within `step`), carrying that cell's room label -- an
+    overpass joins the room it is the continuation of. Cells no such flood reaches (an enclosed upper floor)
+    keep -1: the mod announces no room there rather than the room below. Returns (row, col, y, label)."""
+    if grid.over is None:
+        return []
+    import collections
+    over = ~np.isnan(grid.over)
+    if not over.any():
+        return []
+    H, W = grid.shape
+    out = np.full((H, W), -1, dtype=np.int32)
+    q = collections.deque()
+    for r, c in zip(*np.nonzero(over)):
+        for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            rr, cc = r + dr, c + dc
+            if 0 <= rr < H and 0 <= cc < W and not over[rr, cc] and grid.walk[rr, cc] \
+                    and labels[rr, cc] >= 0 and abs(float(grid.height[rr, cc]) - float(grid.over[r, c])) <= step:
+                out[r, c] = labels[rr, cc]
+                q.append((r, c))
+                break
+    while q:
+        r, c = q.popleft()
+        for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            rr, cc = r + dr, c + dc
+            if 0 <= rr < H and 0 <= cc < W and over[rr, cc] and out[rr, cc] < 0 \
+                    and abs(float(grid.over[rr, cc]) - float(grid.over[r, c])) <= step:
+                out[rr, cc] = out[r, c]
+                q.append((rr, cc))
+    return [(int(r), int(c), float(grid.over[r, c]), int(out[r, c])) for r, c in zip(*np.nonzero(over))]

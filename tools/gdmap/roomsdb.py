@@ -11,14 +11,15 @@ from dataclasses import asdict
 
 import numpy as np
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2   # v2: grids.heights (RLE int16 decimeter floor y) + grids.overlays (packed upper-layer cells)
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS regions(
   key TEXT PRIMARY KEY, name TEXT, location_record TEXT, chunks TEXT, params TEXT,
   algo_version INTEGER, signature TEXT, stale INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS grids(
-  region_key TEXT PRIMARY KEY, x0 REAL, z0 REAL, w INTEGER, h INTEGER, cell REAL, labels BLOB, label_keys TEXT);
+  region_key TEXT PRIMARY KEY, x0 REAL, z0 REAL, w INTEGER, h INTEGER, cell REAL, labels BLOB, label_keys TEXT,
+  heights BLOB, overlays BLOB);
 CREATE TABLE IF NOT EXISTS rooms(
   key TEXT PRIMARY KEY, region_key TEXT, subregion_key TEXT, anchor_x REAL, anchor_z REAL, cls TEXT,
   area REAL, walk REAL, bbox TEXT, island INTEGER, title TEXT, body TEXT, status TEXT);
@@ -65,7 +66,11 @@ class RoomsDb:
         self.path = path
         self.c = sqlite3.connect(path)
         self.c.executescript(SCHEMA)
-        self.c.execute("INSERT OR IGNORE INTO meta(key, value) VALUES('schema', ?)", (str(SCHEMA_VERSION),))
+        cols = {row[1] for row in self.c.execute("PRAGMA table_info(grids)")}
+        for col in ("heights", "overlays"):   # v1 -> v2 (CREATE IF NOT EXISTS does not add columns)
+            if col not in cols:
+                self.c.execute(f"ALTER TABLE grids ADD COLUMN {col} BLOB")
+        self.c.execute("INSERT OR REPLACE INTO meta(key, value) VALUES('schema', ?)", (str(SCHEMA_VERSION),))
         self.c.commit()
 
     # ---- params ----
@@ -85,7 +90,7 @@ class RoomsDb:
 
     # ---- segmentation ----
     def write_segmentation(self, region_key: str, name: str | None, location: str, chunks: list[str], params,
-                           signature: str, algo_version: int, grid, seg) -> dict:
+                           signature: str, algo_version: int, grid, seg, overlays=()) -> dict:
         """Store grid/rooms/exits for a region. Returns counts incl. kept/orphaned authored rows."""
         c = self.c
         old_name = c.execute("SELECT name FROM regions WHERE key=?", (region_key,)).fetchone()
@@ -106,11 +111,18 @@ class RoomsDb:
         n = int(seg.labels.max()) + 1
         label_keys = [by_label.get(i, "") for i in range(n)]
         lab16 = seg.labels.astype(np.int16)
-        c.execute("""INSERT INTO grids(region_key, x0, z0, w, h, cell, labels, label_keys) VALUES(?,?,?,?,?,?,?,?)
+        # per-cell floor y in decimeters (INT16_MIN where unwalkable); overlay = the stacked upper layer's
+        # cells, each {u16 row, u16 col, i16 y_dm, i16 label} -- the mod picks base vs overlay by player y
+        h_dm = np.where(np.isnan(grid.height), -32768, np.round(np.nan_to_num(grid.height) * 10.0)).astype(np.int16)
+        over_blob = b"".join(struct.pack("<HHhh", r, cc, int(round(y * 10.0)), lab)
+                             for r, cc, y, lab in overlays)
+        c.execute("""INSERT INTO grids(region_key, x0, z0, w, h, cell, labels, label_keys, heights, overlays)
+                     VALUES(?,?,?,?,?,?,?,?,?,?)
                      ON CONFLICT(region_key) DO UPDATE SET x0=excluded.x0, z0=excluded.z0, w=excluded.w, h=excluded.h,
-                     cell=excluded.cell, labels=excluded.labels, label_keys=excluded.label_keys""",
+                     cell=excluded.cell, labels=excluded.labels, label_keys=excluded.label_keys,
+                     heights=excluded.heights, overlays=excluded.overlays""",
                   (region_key, grid.x0, grid.z0, lab16.shape[1], lab16.shape[0], 0.25,
-                   rle_encode(lab16), json.dumps(label_keys)))
+                   rle_encode(lab16), json.dumps(label_keys), rle_encode(h_dm), over_blob))
         existing = {row[0]: row for row in c.execute("SELECT key, title, body, subregion_key, status FROM rooms WHERE region_key=?", (region_key,))}
         kept = 0
         for i, r in enumerate(seg.rooms):

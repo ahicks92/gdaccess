@@ -12,11 +12,23 @@ struct LabelGrid {
   double x0 = 0, z0 = 0, cell = 0.25;
   int w = 0, h = 0;
   std::vector<int16_t> labels;   // row-major [row = z][col = x], -1 = unwalkable
+  // Height handling (db schema v2): heights = the base (lowest) layer's floor y in decimeters per cell
+  // (INT16_MIN unknown; empty vector = no height data, lookups ignore y). Where walkable layers stack
+  // (a bridge, an overpass, an upper floor) the upper layer is a sparse overlay cell whose label was
+  // resolved offline (-1 = an enclosed upper floor no room owns: announce nothing, not the room below).
+  struct Overlay { uint32_t cell; int16_t y_dm; int16_t label; };   // cell = row * w + col; sorted by cell
+  std::vector<int16_t> heights_dm;
+  std::vector<Overlay> overlays;
 
   bool decode_rle(const uint8_t* blob, size_t size, int width, int height);  // (int16 value, uint16 run)*
+  bool decode_heights(const uint8_t* blob, size_t size);                     // same RLE; needs w/h set
+  bool decode_overlays(const uint8_t* blob, size_t size);                    // {u16 row, u16 col, i16 y_dm, i16 label}*
   int at(int col, int row) const;                                              // -1 outside
+  int at(int col, int row, double y) const;      // overlay-aware: picks the layer whose floor y is nearer
   // The label under (x, z), searching rings of radius 0..ring cells for the nearest labelled cell
-  // (wotr's RoomAt: a point just off the mesh still resolves to the room beside it).
+  // (wotr's RoomAt: a point just off the mesh still resolves to the room beside it). Pass the player's y
+  // so a stacked cell resolves to the layer under their feet; NaN ignores height.
+  int label_at(double x, double z, double y, int ring = 2) const;
   int label_at(double x, double z, int ring = 2) const;
 };
 
