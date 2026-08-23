@@ -292,7 +292,14 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   cursor on the opening via `world::lock_point`). Vocabulary: region = the game's named area, sub-region =
   ours, room = a watershed piece, chunk = the engine's `Region`. Dev: `/room`, `/regions`, `/portals`,
   `/navprobe`. Lessons: `Region::IsUnderground` calls `LoadLevel` (never sweep it); a dev route that outlives
-  the 8 s job timeout must own its state (`run_on_game_thread` and `serve()` fixed 2026-08-22). Next: the
+  the 8 s job timeout must own its state (`run_on_game_thread` and `serve()` fixed 2026-08-22). **`World::GetRegionContainingXZ(from, x, z)` takes x,z RELATIVE TO `from`** (world.cpp
+  `region_containing_xz` converts; it only looked right in chunk 0A001 whose offset is zero). `Entity::SetCoords`
+  with a `Region*` that does not contain the position STALLS the player's controller (`ControllerPlayer::Update`
+  stops, WASD dead, chunk streaming stops, `in_world()` was false -> "unsupported screen"); a later SetCoords
+  into a chunk the entity belongs to revived it. `/teleport` now resolves the chunk correctly, tries rising
+  PutOnFloor start heights and refuses landings the navmesh rejects. The game pauses single player when it
+  believes the window lost focus (a hot reload in the world can leave it paused: `/pause[?set=0|1]`,
+  `GAME::Pause/UnpauseGameTime`; `/player` shows `paused=`); `in_world()` no longer needs a live controller. Next: the
   authoring workflow (titles, descriptions, sub-regions; Opus agents, see the plan) and road helpers.
 - Next (needs the user's hands): player-facing targeting keys (nearest enemy / cycle / announce name,
   distance, direction -- the hover name arrives as `box_font` HUD text), an attack key that clicks the locked

@@ -222,6 +222,9 @@ struct Api {
   const int* (*Region_GetOffsetFromWorld)(const void*) = nullptr;   // const IntVec3&
   bool (*Region_IsUnderground)(const void*) = nullptr;
   bool (*Region_IsLevelLoaded)(const void*) = nullptr;
+  bool (*IsGameTimePaused)() = nullptr;
+  void (*PauseGameTime)() = nullptr;
+  void (*UnpauseGameTime)() = nullptr;
   int (*Region_GetNumPortals)(const void*) = nullptr;
   void* (*Region_GetPortal)(const void*, int) = nullptr;
   int (*Region_GetWorldIndex)(const void*) = nullptr;
@@ -310,6 +313,9 @@ void load_api() {
   LOAD(Region_GetOffsetFromWorld, Region_GetOffsetFromWorld);
   LOAD(Region_IsUnderground, Region_IsUnderground);
   LOAD(Region_IsLevelLoaded, Region_IsLevelLoaded);
+  LOAD(IsGameTimePaused, IsGameTimePaused);
+  LOAD(PauseGameTime, PauseGameTime);
+  LOAD(UnpauseGameTime, UnpauseGameTime);
   LOAD(Region_GetNumPortals, Region_GetNumPortals);
   LOAD(Region_GetPortal, Region_GetPortal);
   LOAD(Region_GetWorldIndex, Region_GetWorldIndex);
@@ -444,7 +450,9 @@ bool install() {
 }
 void remove() { gd::hooks::detach_hooks(g_hooks); g_game_engine = nullptr; g_controller = nullptr; g_world = nullptr; }
 
-bool in_world() { return g_game_engine && g_controller && player() != nullptr; }
+// Not gated on the controller: ControllerPlayer::Update stops while the game is paused (alt-tab pauses single
+// player; a hot reload in the world leaves it paused, /pause?set=0), and the world is still there.
+bool in_world() { return g_game_engine && player() != nullptr; }
 void* game_engine() { return g_game_engine; }
 void* controller() { return g_controller; }
 
@@ -564,6 +572,14 @@ std::string portals_dump() {
   return out;
 }
 // ---- authoring dev routes (docs/rooms.md M4): teleport, batch projection, fog reveal ----
+// World::GetRegionContainingXZ(world, from, x, z) takes x,z RELATIVE TO `from` (the disassembly adds them to
+// from's GetOffsetFromWorld before the search; read 2026-08-22 after a shots run resolved every room north
+// of the spawn to the wrong chunk). Our callers think in world coordinates.
+static void* region_containing_xz(void* from, float wx, float wz) {
+  if (!g_api.World_GetRegionContainingXZ || !g_world || !from) return nullptr;
+  const int* off = g_api.Region_GetOffsetFromWorld ? g_api.Region_GetOffsetFromWorld(from) : nullptr;
+  return g_api.World_GetRegionContainingXZ(g_world, from, wx - (off ? (float)off[0] : 0.f), wz - (off ? (float)off[2] : 0.f));
+}
 namespace { bool project_point(const Vec3& world_point, float& x, float& y); }   // defined with the cursor lock below
 std::string teleport(float x, float z, bool check_only) {
   load_api();
@@ -572,7 +588,7 @@ std::string teleport(float x, float z, bool check_only) {
   if (!p || !g_api.Entity_SetCoords || !g_api.Entity_GetCoords || !player_world_vec(base, &region)) return "no player or exports\n";
   // Target chunk: the one containing (x, z), reached from the player's chunk; the chunk's frame is world minus
   // its offset (verified 2026-08-22), so region-relative = world - GetOffsetFromWorld().
-  void* target = g_api.World_GetRegionContainingXZ && g_world ? g_api.World_GetRegionContainingXZ(g_world, region, x, z) : nullptr;
+  void* target = g_api.World_GetRegionContainingXZ && g_world ? region_containing_xz(region, x, z) : nullptr;
   if (!target) return std::format("no chunk contains ({:.1f}, {:.1f})\n", x, z);
   // Into an unloaded chunk SetCoords crashes the game (2026-08-22, the first far room of a region run):
   // the caller hops closer and waits until the chunk's level is streamed in.
@@ -580,18 +596,36 @@ std::string teleport(float x, float z, bool check_only) {
   if (check_only || !loaded) return std::format("target chunk {} loaded={}{}\n", region_label(target), loaded, loaded ? "" : " (refused)");
   const int* off = g_api.Region_GetOffsetFromWorld ? g_api.Region_GetOffsetFromWorld(target) : nullptr;
   Vec3 wb = world_pos_of(base);
-  Vec3 rel{x - (off ? (float)off[0] : 0.f), wb.y - (off ? (float)off[1] : 0.f), z - (off ? (float)off[2] : 0.f)};
-  Buf wv{};
-  g_api.WorldVec3_ctor(&wv, target, &rel);
-  if (g_api.WorldVec3_PutOnFloor) g_api.WorldVec3_PutOnFloor(&wv);
-  Vec3 floored; memcpy(&floored, wv.b + 8, sizeof floored);
+  // PutOnFloor casts DOWN from (y + a small lift): starting under the target's floor finds nothing, the entity
+  // lands off the navmesh, and the controller snaps it back to its last valid spot (2026-08-22, the spawn at
+  // 7.8 reached from a chunk at 1.7). Try rising start heights and keep the first landing the navmesh accepts.
+  Vec3 floored{}; bool found = false; float used_lift = 0.f;
+  for (float lift : {0.f, 5.f, 15.f, 40.f, 80.f}) {
+    Vec3 rel{x - (off ? (float)off[0] : 0.f), wb.y + lift - (off ? (float)off[1] : 0.f), z - (off ? (float)off[2] : 0.f)};
+    Buf wv{};
+    g_api.WorldVec3_ctor(&wv, target, &rel);
+    if (g_api.WorldVec3_PutOnFloor) g_api.WorldVec3_PutOnFloor(&wv);
+    Vec3 cand; memcpy(&cand, wv.b + 8, sizeof cand);
+    Vec3 cand_world{cand.x + (off ? (float)off[0] : 0.f), cand.y + (off ? (float)off[1] : 0.f), cand.z + (off ? (float)off[2] : 0.f)};
+    if (on_navmesh(cand_world)) { floored = cand; found = true; used_lift = lift; break; }
+  }
+  if (!found) return std::format("no navmesh floor at ({:.1f}, {:.1f}) in {} (refused)\n", x, z, region_label(target));
   Buf wc{};
   g_api.Entity_GetCoords(p, &wc);                       // keep the axes, replace region + origin
   memcpy(wc.b, &target, sizeof target);
   memcpy(wc.b + kWorldCoordsOriginOffset, &floored, sizeof floored);
   g_api.Entity_SetCoords(p, &wc);
   Vec3 now; player_position(now);
-  return std::format("teleported to ({:.1f}, {:.1f}, {:.1f}) in {}; on_navmesh={}\n", now.x, now.y, now.z, region_label(target), on_navmesh(now));
+  return std::format("teleported to ({:.1f}, {:.1f}, {:.1f}) in {}; on_navmesh={} lift={}\n", now.x, now.y, now.z, region_label(target), on_navmesh(now), used_lift);
+}
+// The game pauses single player when it believes its window lost focus; a hot reload in the world does exactly
+// that (the foreground fake is gone between unload and re-inject) and the pause outlives the re-inject:
+// ControllerPlayer::Update stops, in_world() turns false, the mod says "unsupported screen" (2026-08-22).
+std::string set_paused(int want) {
+  load_api();
+  if (want == 1 && g_api.PauseGameTime) g_api.PauseGameTime();
+  if (want == 0 && g_api.UnpauseGameTime) g_api.UnpauseGameTime();
+  return std::format("paused={}\n", g_api.IsGameTimePaused ? g_api.IsGameTimePaused() : false);
 }
 std::string project_points(const std::vector<Vec3>& pts) {
   load_api();
@@ -623,7 +657,7 @@ std::string fog_reveal(float x, float z, int radius) {
   void* p = player();
   void* region = p && g_api.Entity_GetRegion ? g_api.Entity_GetRegion(p) : nullptr;
   if (!region || !g_api.Region_GetFogOfWar || !g_api.FogOfWar_AddVisibility) return "no region or exports\n";
-  void* target = g_api.World_GetRegionContainingXZ && g_world ? g_api.World_GetRegionContainingXZ(g_world, region, x, z) : region;
+  void* target = g_api.World_GetRegionContainingXZ && g_world ? region_containing_xz(region, x, z) : region;
   if (!target) target = region;
   void* fow = g_api.Region_GetFogOfWar(target, false);
   if (!fow) return "no fog of war object\n";
@@ -679,8 +713,9 @@ std::string classinfo_dump() {
 }
 std::string debug_dump() {
   load_api();
-  std::string s = std::format("game_engine={} controller={} world={} engine_ticks={} controller_ticks={} nav={} engine={}\n", g_game_engine, g_controller, g_world,
-                              g_engine_ticks, g_controller_ticks, g_api.NavManager_Get ? g_api.NavManager_Get() : nullptr, gd::hooks::engine_object());
+  std::string s = std::format("game_engine={} controller={} world={} engine_ticks={} controller_ticks={} nav={} engine={} paused={}\n", g_game_engine, g_controller, g_world,
+                              g_engine_ticks, g_controller_ticks, g_api.NavManager_Get ? g_api.NavManager_Get() : nullptr, gd::hooks::engine_object(),
+                              g_api.IsGameTimePaused ? g_api.IsGameTimePaused() : false);
   void* p = player();
   s += std::format("player={} name='{}' region='{}' life={:.1f}/{:.1f} camera_yaw={:.4f}\n", p, player_name(), region_name(), life(), life_max(), camera_yaw());
   if (!p) return s;

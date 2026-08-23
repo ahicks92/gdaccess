@@ -207,6 +207,7 @@ static std::string handle(const std::string& path, const std::map<std::string, s
   }
   if (path == "/regions") return world::regions_dump(parse_int(q.count("max") ? q.at("max") : "40", 40));   // engine Regions (chunks): name, offset, loaded, portals; ?max=
   if (path == "/portals") return world::portals_dump();   // the player's chunk's portals
+  if (path == "/pause") return world::set_paused(q.count("set") ? atoi(q.at("set").c_str()) : -1);   // /pause[?set=0|1]: game time
   if (path == "/teleport") {  // /teleport?x=&z= -- the player, floored (authoring; docs/rooms.md M4)
     if (!q.count("x") || !q.count("z")) { status = 400; return "need x and z\n"; }
     return world::teleport((float)atof(q.at("x").c_str()), (float)atof(q.at("z").c_str()), q.count("check") > 0);   // &check=1: report only

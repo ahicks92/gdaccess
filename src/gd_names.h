@@ -100,6 +100,15 @@ inline constexpr const char* Region_IsUnderground = "?IsUnderground@Region@GAME@
 // public: bool __cdecl GAME::Region::IsLevelLoaded(void)const __ptr64
 inline constexpr const char* Region_IsLevelLoaded_DLL = "Engine.dll";
 inline constexpr const char* Region_IsLevelLoaded = "?IsLevelLoaded@Region@GAME@@QEBA_NXZ";
+// bool __cdecl GAME::IsGameTimePaused(void)
+inline constexpr const char* IsGameTimePaused_DLL = "Engine.dll";
+inline constexpr const char* IsGameTimePaused = "?IsGameTimePaused@GAME@@YA_NXZ";
+// void __cdecl GAME::PauseGameTime(void)
+inline constexpr const char* PauseGameTime_DLL = "Engine.dll";
+inline constexpr const char* PauseGameTime = "?PauseGameTime@GAME@@YAXXZ";
+// void __cdecl GAME::UnpauseGameTime(void)
+inline constexpr const char* UnpauseGameTime_DLL = "Engine.dll";
+inline constexpr const char* UnpauseGameTime = "?UnpauseGameTime@GAME@@YAXXZ";
 // public: int __cdecl GAME::Region::GetNumPortals(void)const __ptr64
 inline constexpr const char* Region_GetNumPortals_DLL = "Engine.dll";
 inline constexpr const char* Region_GetNumPortals = "?GetNumPortals@Region@GAME@@QEBAHXZ";

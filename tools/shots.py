@@ -238,7 +238,8 @@ def shoot_room(db: RoomsDb, region_key: str, room: dict, grid, samples: int, fog
         print(f"  {room['key']} sample {i}: {tele}; outline visible {visible}/{len(proj)}; {len(ents)} labelled entities")
     with open(os.path.join(folder, "meta.json"), "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=1)
-    db.c.execute("UPDATE rooms SET status='shot' WHERE key=? AND status IN ('unseen','stale')", (room["key"],))
+    if meta["samples"]:    # a room every sample of which failed stays unseen (the run log says why)
+        db.c.execute("UPDATE rooms SET status='shot' WHERE key=? AND status IN ('unseen','stale')", (room["key"],))
     db.c.commit()
     return meta
 
@@ -257,6 +258,7 @@ def main():
     else:
         region_key = args.region
         rooms = [r for r in db.rooms(region_key) if r["status"] == args.status]
+        print("game", get("/pause", set=0).strip(), "(a hot reload in the world leaves the game paused; unpause before the tour)")
         # a nearest-neighbour tour from the character's position keeps every hop short (chunk streaming)
         px, pz = player_xz()
         tour = []

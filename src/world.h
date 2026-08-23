@@ -41,7 +41,8 @@ std::string blocks_dump();       // the four probe stops with their blockers (de
 std::string regions_dump(int max);  // engine Regions (chunks) 0..max-1: index, name, offset from world, loaded, portals (dev)
 std::string portals_dump();      // the player's chunk's portals: connected chunk, choke point, open (dev)
 std::string navprobe(float x0, float z0, float x1, float z1, float step);  // IsPointOnPathMesh over a grid (dev)
-std::string teleport(float x, float z, bool check_only);                 // dev: Entity::SetCoords on the player (floored); refuses unloaded chunks
+std::string teleport(float x, float z, bool check_only);
+std::string set_paused(int want);                                      // dev: -1 = report, 0/1 = GAME::UnpauseGameTime/PauseGameTime (a hot reload in the world pauses the game)                 // dev: Entity::SetCoords on the player (floored); refuses unloaded chunks
 std::string project_points(const std::vector<Vec3>& pts);                // dev: world ground points -> screen
 std::string fog_reveal(float x, float z, int radius);                    // dev: FogOfWar::AddVisibility
 

@@ -93,6 +93,9 @@ what the mod will use. Floor plans: `build/rooms/*.png`, north (-z) up, exits as
 - Dev: `/room` (the lookup chain, the current room, its exits with live walkability; `?say=1` repeats,
   `?reload=1` reopens the db after a tools rewrite), `/regions?max=`, `/portals`, `/navprobe?x0=&z0=&x1=&z1=&step=`
   (the live mesh sampled; `build/rooms/compare_navprobe.py` diffs it against the bake).
+  Authoring: `/teleport?x=&z=[&check=1]` (world coordinates; refuses unloaded chunks and off-navmesh landings;
+  `tools/shots.py` hops 60 units at a time so chunks stream in), `/project?pts=`, `/fog?x=&z=&radius=`,
+  `/pause?set=0` (a hot reload in the world can leave the game paused).
 
 ## Open
 - Titles, descriptions and sub-regions: the authoring workflow (plan M4/M5) -- screenshots per room via
