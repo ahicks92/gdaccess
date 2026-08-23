@@ -278,6 +278,11 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   prefix in this exe; `EquipmentCtrl::RemoveItem` only detaches (always AddItem to the bag first); the bag
   map's pair sits at +0x1c/+0x20 (4-byte value alignment), the market map's at +0x20/+0x28. Dev routes:
   `/quests /objectives /factions /hotbar /lore /inv /skills /sheet /obj /loc2 /cheat /ingame?action=`.
+- Lua (2026-08-22, `docs/lua.md`): LuaJIT 2.0.4 (`x64\lua51.dll`) behind the LUAGLUE binding layer; one
+  state owned by `LuaManager` at `*(gEngine+0x68)`; `LuaManager::RunCode` is exported (dev route `/lua?code=`,
+  readback via `Game.AddObjective` -> `/objectives`). Sandboxed (no io/os/ffi/debug/require) but `loadfile`
+  reaches real paths. It is the quest/level scripting API (tokens, quest state, spawns, doors, teleports,
+  banners, XP/items) -- nothing UI-side; everything it does our export calls can do too.
 - Next (needs the user's hands): player-facing targeting keys (nearest enemy / cycle / announce name,
   distance, direction -- the hover name arrives as `box_font` HUD text), an attack key that clicks the locked
   target, wall-tone tuning by ear, hover sounds, the Delete-character screen, the main menu icon buttons.

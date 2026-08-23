@@ -117,6 +117,9 @@ std::vector<Stat> character_sheet();
 bool spend_attribute_point(int which);
 unsigned attribute_points();
 
+// ---- Lua (dev): run a chunk in the game's LuaJIT state (LuaManager::RunCode on *(gEngine+0x68)) ----
+bool lua_run(const std::string& code);
+
 // ---- dev dumps ----
 std::string dump_quests(int filter);
 std::string dump_factions();

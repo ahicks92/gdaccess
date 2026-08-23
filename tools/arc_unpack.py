@@ -1,7 +1,8 @@
 """Unpack a Grim Dawn .arc (v3, LZ4 parts) offline -- e.g. resources/Text_EN.arc for every localized string (tagUse=Interact).
 Usage: uv run --with lz4 tools/arc_unpack.py  (edit p / the print below). Left by an RE agent, 2026-08-22."""
 import struct, zlib, lz4.block
-p=r"C:\Program Files (x86)\Steam\steamapps\common\Grim Dawn\resources\Text_EN.arc"
+import sys
+p = sys.argv[2] if len(sys.argv) > 2 else r"C:\Program Files (x86)\Steam\steamapps\common\Grim Dawn\resources\Text_EN.arc"   # usage: arc_unpack.py <line-regex> [arc path]
 d=open(p,'rb').read()
 magic,ver,numE,numP,recSize,strSize,recOff=struct.unpack_from("<IIIIIII",d,0)
 parts=[struct.unpack_from("<III",d,recOff+12*i) for i in range(numP)]

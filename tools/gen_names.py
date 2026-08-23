@@ -329,6 +329,10 @@ ENTRIES = [
     ("GameEngine_RemoveItemFromTransfer", "Game", r"GAME::GameEngine::RemoveItemFromTransfer\(unsigned int\)"),
     ("GameEngine_GetSelectedTransferSackNumber", "Game", r"GAME::GameEngine::GetSelectedTransferSackNumber\("),
     ("GameEngine_IsTransferOpen", "Game", r"GAME::GameEngine::IsTransferOpen\("),
+    # Lua (dev probe): the engine's LuaManager sits at gEngine+0x68 (GameEngine::PostLuaInitialize)
+    ("gEngine", "Engine", r"^class GAME::Engine \* __ptr64 __ptr64 GAME::gEngine$"),
+    ("LuaManager_RunCode", "Engine", r"GAME::LuaManager::RunCode\(char const"),
+    ("LuaManager_Load", "Engine", r"GAME::LuaManager::Load\("),
 ]
 tables = {}
 for dll in ("Engine", "Game", "DirectInput"):

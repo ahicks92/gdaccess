@@ -235,6 +235,7 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     return gameapi::dump_skills();
   }
   if (path == "/sheet") return gameapi::dump_sheet();
+  if (path == "/lua") { std::string code = q.count("code") ? q.at("code") : body; if (code.empty()) return "?code= or POST body\n"; return gameapi::lua_run(code) ? "ok\n" : "failed (see /log)\n"; }   // dev: a chunk in the game's Lua state
   if (path == "/cheat") return q.count("xp") ? (gameapi::dev_add_experience((unsigned)parse_int(q.at("xp"), 0)) ? "ok\n" : "failed\n") : std::string("?xp=N\n");
   if (path == "/obj") return q.count("id") ? gameapi::dump_object((unsigned)parse_int(q.at("id"), 0)) : gameapi::dump_objects_stats();
   if (path == "/loc2") return q.count("tag") ? gameapi::localize(q.at("tag")) + "\n" : std::string("?tag=\n");

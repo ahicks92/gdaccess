@@ -925,4 +925,13 @@ inline constexpr const char* GameEngine_GetSelectedTransferSackNumber = "?GetSel
 // public: bool __cdecl GAME::GameEngine::IsTransferOpen(void)const __ptr64
 inline constexpr const char* GameEngine_IsTransferOpen_DLL = "Game.dll";
 inline constexpr const char* GameEngine_IsTransferOpen = "?IsTransferOpen@GameEngine@GAME@@QEBA_NXZ";
+// class GAME::Engine * __ptr64 __ptr64 GAME::gEngine
+inline constexpr const char* gEngine_DLL = "Engine.dll";
+inline constexpr const char* gEngine = "?gEngine@GAME@@3PEAVEngine@1@EA";
+// public: bool __cdecl GAME::LuaManager::RunCode(char const * __ptr64) __ptr64
+inline constexpr const char* LuaManager_RunCode_DLL = "Engine.dll";
+inline constexpr const char* LuaManager_RunCode = "?RunCode@LuaManager@GAME@@QEAA_NPEBD@Z";
+// public: bool __cdecl GAME::LuaManager::Load(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const & __ptr64) __ptr64
+inline constexpr const char* LuaManager_Load_DLL = "Engine.dll";
+inline constexpr const char* LuaManager_Load = "?Load@LuaManager@GAME@@QEAA_NAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z";
 }  // namespace gd::names

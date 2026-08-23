@@ -71,6 +71,9 @@ struct Api {
   void** HotSlotOptionSkill_vftable = nullptr;
   int (*OptSkill_GetCooldownRemaining)(void*) = nullptr;
   void* (*HotSlotOptionSkill_ctor)(void*, unsigned) = nullptr;
+  // lua (dev)
+  void** gEngine = nullptr;
+  bool (*Lua_RunCode)(void*, const char*) = nullptr;
   // lore
   const MemVec* (*GetLoreCodex)(const void*) = nullptr;
   const MsvcStringA* (*Note_GetCodexTitleTag)(const void*) = nullptr;
@@ -169,6 +172,8 @@ void load() {
   GAPI_LOAD(g, HotSlotOptionSkill_vftable, HotSlotOptionSkill_vftable);
   GAPI_LOAD(g, OptSkill_GetCooldownRemaining, HotSlotOptionSkill_GetCooldownRemaining);
   GAPI_LOAD(g, HotSlotOptionSkill_ctor, HotSlotOptionSkill_ctor);
+  GAPI_LOAD(g, gEngine, gEngine);
+  GAPI_LOAD(g, Lua_RunCode, LuaManager_RunCode);
   GAPI_LOAD(g, GetLoreCodex, Player_GetLoreCodex);
   GAPI_LOAD(g, Note_GetCodexTitleTag, ItemNote_GetCodexTitleTag);
   GAPI_LOAD(g, Note_GetCodexSubHeadingTag, ItemNote_GetCodexSubHeadingTag);
@@ -427,6 +432,18 @@ std::string dump_hotslots() {
   HotSlot p = primary_slot(), q = secondary_slot();
   out += std::format("  primary: type={} skill={} '{}'\n  secondary: type={} skill={} '{}'\n", p.type, p.skill_id, p.name, q.type, q.skill_id, q.name);
   return out;
+}
+
+// ---- Lua (dev) ----
+bool lua_run(const std::string& code) {
+  load();
+  void* eng = g.gEngine ? rdp(g.gEngine, 0) : nullptr;
+  void* mgr = eng ? rdp(eng, 0x68) : nullptr;   // the LuaManager (GameEngine::PostLuaInitialize reads it here)
+  if (!mgr || !g.Lua_RunCode) { log::writef("gameapi: lua: no manager (engine {} mgr {})", eng, mgr); return false; }
+  bool r = false;
+  bool ok = guarded("LuaManager::RunCode", [&] { r = g.Lua_RunCode(mgr, code.c_str()); });
+  log::writef("gameapi: lua RunCode -> {} (call ok {}): {}", r, ok, code.substr(0, 120));
+  return ok && r;
 }
 
 // ---- lore ----
