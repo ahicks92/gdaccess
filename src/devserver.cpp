@@ -277,6 +277,10 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     return gameapi::dump_hotslots();
   }
   if (path == "/lore") { if (q.count("read")) { std::string out; for (const std::string& l : gameapi::note_text(gameapi::object_by_id((unsigned)parse_int(q.at("read"), 0)))) out += l + "\n"; return out.empty() ? "no text\n" : out; } return gameapi::dump_lore(); }
+  if (path == "/vendor") {   // ?id=<market id candidate>: the engine's market map + market_stock(id) (dev)
+    std::string v = std::format("market window: visible={} vendor_market_id={}\n", exe_ui::ingame_window(exe_ui::ingame::kMarket).visible(), exe_ui::vendor_market_id(exe_ui::ingame_window(exe_ui::ingame::kMarket)));
+    return v + gameapi::vendor_dump(q.count("id") ? (unsigned)parse_int(q.at("id"), 0) : 0u);
+  }
   if (path == "/inv") {      // ?tip=<id>[&simple=1] | ?use=<id>[&source=N] | ?drop=<id> | ?unequip=<loc> | ?equip=<id>&loc=<loc> | ?bag=<n> | ?source=N (the UseItem ItemSource knob)
     if (q.count("source")) screens::set_bag_item_source(parse_int(q.at("source"), 0));
     if (q.count("tip")) { std::string out; for (const std::string& l : gameapi::item_tooltip(gameapi::object_by_id((unsigned)parse_int(q.at("tip"), 0)), q.count("simple"), q.count("details"))) out += l + "\n"; return out.empty() ? "no text\n" : out; }

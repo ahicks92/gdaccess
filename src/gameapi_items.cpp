@@ -325,6 +325,27 @@ Bag read_sack(const void* sack, int index) {
 }
 }  // namespace
 // The merchant's stock per Market_TypeEnum (values unknown: 0..7 are probed, the non-empty ones kept).
+// Dev: what the engine's market map holds and what market_stock(id) yields (the vendor screen's id read was
+// garbage on the first live vendor, 2026-08-23: it used 340 for Kerrick, object id 19764).
+std::string vendor_dump(unsigned id) {
+  void* e = engine(); load_items();
+  std::string out;
+  if (!e) return "no engine\n";
+  out += "market map (GameEngine+0x40e0) keys:";
+  for (void* n : map_nodes((const char*)e + 0x40e0, 64))
+    out += std::format(" {}->{}", rd_or<unsigned>(n, 0x20, 0), rdp(n, 0x28));
+  out += "\n";
+  if (id) {
+    std::vector<MarketTab> tabs = market_stock(id);
+    out += std::format("market_stock({}): {} tabs\n", id, tabs.size());
+    for (const MarketTab& t : tabs) {
+      out += std::format("  type {} '{}' {} items", t.type, t.name, t.items.size());
+      if (!t.items.empty()) out += std::format("; first '{}' price '{}'", t.items[0].name, market_price_text(id, t.items[0].id, true));
+      out += "\n";
+    }
+  }
+  return out;
+}
 std::vector<MarketTab> market_stock(unsigned market_id) {
   std::vector<MarketTab> out;
   void* e = engine(); load_items();

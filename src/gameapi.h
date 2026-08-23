@@ -85,6 +85,7 @@ std::vector<MarketTab> market_stock(unsigned market_id);
 std::string market_price_text(unsigned market_id, unsigned item_id, bool buying);   // CreateUIPlayerBuyText / SellText, joined
 bool buy(unsigned market_id, unsigned item_id);          // GameEngine::PlayerPurchaseRequest
 bool sell(unsigned market_id, unsigned item_id);         // the bag's right-click-to-sell: PlayerSaleRequest + bag removal
+std::string vendor_dump(unsigned market_id);              // dev: market map keys + market_stock(id) probe
 std::vector<Bag> stash_sacks();                          // private stash sacks (index 0..) then transfer sacks (index 100..)
 bool stash_to_bag(int sack_index, unsigned item_id);     // the stash grid's shift-click: to the bag
 bool bag_to_stash(unsigned item_id);                     // the bag's shift-click while the caravan is open

@@ -33,7 +33,8 @@ class VendorScreen : public WindowScreen {
     unsigned market = exe_ui::vendor_market_id(active_window());
     const std::vector<gameapi::MarketTab>& stock = stock_.get([market] { return gameapi::market_stock(market); }, 60);
     std::vector<std::string> labels;
-    for (const gameapi::MarketTab& t : stock) labels.push_back(t.name.empty() ? std::format("{} {}", strings::kBuy, t.type + 1) : t.name);
+    // The sacks carry no names (verified live at Kerrick 2026-08-23: types 1..4 stocked), so number the tabs 1..n
+    for (size_t i = 0; i < stock.size(); ++i) labels.push_back(stock[i].name.empty() ? std::format("{} {}", strings::kBuy, i + 1) : stock[i].name);
     labels.push_back(std::string(strings::kSell));
     add_tabs(b, labels);
     int t = tab();

@@ -462,7 +462,14 @@ bool skills_set_pane(int tab, int pane_index) {
   log::writef("exe_ui: SkillsWindow::SetPane(tab {}, pane {})", tab, pane_index);
   return true;
 }
-unsigned vendor_market_id(const WindowB& w) { return w ? rd_or<unsigned>((char*)w.p + 0x2410, 0x54, 0) : 0; }
+// The market id IS the merchant's object id (NpcMerchant::OnPlayerInteract sends event 0x1a with GetObjectId(this);
+// verified live 2026-08-23: market_stock(Kerrick's id) = 4 stocked tabs). The window stores it inline at +0x245c
+// (and again at +0xa4); the earlier read through +0x2410 as a pointer hit a static exe object and gave 340.
+unsigned vendor_market_id(const WindowB& w) {
+  if (!w) return 0;
+  unsigned id = rd_or<unsigned>(w.p, 0x245c, 0);
+  return id ? id : rd_or<unsigned>(w.p, 0xa4, 0);
+}
 int quickbar_page() { void* ui = ingame_ui(); int p = ui ? rd_or<int>(ui, 0x72f0, -1) : -1; return p >= 0 && p < 4 ? p : (ui ? 0 : -1); }
 int skills_tab() { void* ui = ingame_ui(); return ui ? rd_or<int>((char*)ui + ingame::kSkills, kSkillsWindow_Tab, -1) : -1; }
 bool ingame_key_action(int action) {
