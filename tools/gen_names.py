@@ -84,6 +84,7 @@ ENTRIES = [
     ("Character_GetStaticClassInfo", "Game", r"GAME::Character::GetStaticClassInfo\(void\)"),
     ("Monster_GetStaticClassInfo", "Game", r"GAME::Monster::GetStaticClassInfo\(void\)"),
     ("Npc_GetStaticClassInfo", "Game", r"GAME::Npc::GetStaticClassInfo\(void\)"),
+    ("ItemNote_GetStaticClassInfo", "Game", r"GAME::ItemNote::GetStaticClassInfo\(void\)"),
     ("Player_GetStaticClassInfo", "Game", r"GAME::Player::GetStaticClassInfo\(void\)"),
     ("Character_GetCurrentAttackTarget", "Game", r"GAME::Character::GetCurrentAttackTarget\("),
     ("Character_IsAlive", "Game", r"GAME::Character::IsAlive\(void\)"),

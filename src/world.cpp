@@ -210,6 +210,7 @@ struct Api {
   // say IsOfInterest() (virtual; slot found in each class's vftable), Npc with a conversation.
   const void* (*FixedActor_StaticClassInfo)() = nullptr;
   const void* (*Actor_StaticClassInfo)() = nullptr;   // Actor declares the virtual GetGameDescription every label comes from
+  const void* (*ItemNote_StaticClassInfo)() = nullptr;   // lore notes: J must stay a click for them (the toast + codex entry come from the exe click path)
   const void* (*Item_StaticClassInfo)() = nullptr;
   bool (*FixedActor_IsOfInterest)(const void*) = nullptr;
   bool (*Item_IsOfInterest)(const void*) = nullptr;
@@ -309,6 +310,7 @@ void load_api() {
   LOAD(Object_vftable, Object_vftable);
   LOAD(FixedActor_StaticClassInfo, FixedActor_GetStaticClassInfo);
   LOAD(Actor_StaticClassInfo, Actor_GetStaticClassInfo);
+  LOAD(ItemNote_StaticClassInfo, ItemNote_GetStaticClassInfo);
   LOAD(Item_StaticClassInfo, Item_GetStaticClassInfo);
   LOAD(FixedActor_IsOfInterest, FixedActor_IsOfInterest);
   LOAD(Item_IsOfInterest, Item_IsOfInterest);
@@ -370,10 +372,13 @@ std::string wv_text(const void* wv) {
 }
 
 // Any entity's position as a WorldVec3 built through the game's own ctor from its WorldCoords.
+bool get_coords_guarded(const void* entity, Buf* wc) {   // POD only: the entity may be freed (a picked-up item)
+  __try { g_api.Entity_GetCoords(entity, wc); return true; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
 bool entity_world_vec(const void* entity, Buf& out_wv, void** out_region = nullptr) {
   if (!entity || !g_api.Entity_GetCoords || !g_api.WorldVec3_ctor) return false;
   Buf wc{};
-  g_api.Entity_GetCoords(entity, &wc);
+  if (!get_coords_guarded(entity, &wc)) return false;
   void* region; memcpy(&region, wc.b, sizeof region);
   if (!region) return false;
   Vec3 origin; memcpy(&origin, wc.b + kWorldCoordsOriginOffset, sizeof origin);
@@ -1398,6 +1403,9 @@ static bool pickup_locked_item() {
   if (!g_locked_id || !g_locked_entity || !g_controller || !g_api.ItemAction || !g_api.Item_StaticClassInfo) return false;
   EntityRaw r{};
   if (!read_entity(g_locked_entity, r) || !is_kind_of(r.ci, g_api.Item_StaticClassInfo())) return false;
+  // NOT lore notes: a direct ItemAction consumes a note without the pickup toast or the codex entry (measured
+  // 2026-08-23 -- the exe's click path owns those), and the plain click resolves notes fine. Click them.
+  if (g_api.ItemNote_StaticClassInfo && is_kind_of(r.ci, g_api.ItemNote_StaticClassInfo())) return false;
   Buf wv;
   if (!entity_world_vec(g_locked_entity, wv)) return false;
   if (!call_item_action(g_controller, wv.b, g_locked_entity)) { log::write("world: ItemAction faulted"); return false; }

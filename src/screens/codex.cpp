@@ -65,7 +65,11 @@ class CodexScreen : public WindowScreen {
     const std::vector<gameapi::Note>& notes = notes_.get([] { return gameapi::lore_notes(); }, 60);
     if (notes.empty()) { b.add_item(ControlId::structural("codex.nolore"), line_item(std::string(strings::kEmpty))); return; }
     for (const gameapi::Note& n : notes) {
-      std::string label = n.title.empty() ? std::format("note {}", n.id) : n.title;
+      std::string label = n.title;
+      if (label.empty()) {   // some notes' codex title tag localizes empty: the note item's own name (its tooltip's first line)
+        std::vector<std::string> t = gameapi::note_text(gameapi::object_by_id(n.id));
+        label = t.empty() ? std::format("note {}", n.id) : t.front();
+      }
       std::string heading = n.heading;
       unsigned id = n.id;
       auto read = [id] { void* p = gameapi::object_by_id(id); speak_lines(gameapi::note_text(p)); };
