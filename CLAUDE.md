@@ -318,6 +318,12 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   mesh refuses it). The dev character dies while posing for screenshots (level 2 among monsters): the shots run
   toggles Lua `ToggleInvincible`, and a shot whose outline is <30 % visible is the tell of a respawn. Next:
   road helpers, the next regions, region names from `tagWorldMap*`.
+- Riftgate travel screen (2026-08-22, verified live through the loop incl. a real trip Lower Crossing -> Devil's
+  Crossing): `screens/riftgate.cpp` over the world map in riftgate mode (`exe_ui::riftgate_*`, layout in
+  docs/exe-ui-layout.md "Riftgate travel"). Review groups: N = people + non-loot objects of interest, M = loot.
+  Sonar sweep (`src/sonar.cpp`, wotr's SonarSystem: enemies / loot / dungeon entrances pinged left to right,
+  rear high shelf on every spatial cue; `/sonar`). Labels: every Actor through the virtual GetGameDescription.
+  Corpses are not enemies (`Character::IsAlive`). Main-menu character SELECTION is still unmodelled.
 - Next (needs the user's hands): player-facing targeting keys (nearest enemy / cycle / announce name,
   distance, direction -- the hover name arrives as `box_font` HUD text), an attack key that clicks the locked
   target, wall-tone tuning by ear, hover sounds, the Delete-character screen, the main menu icon buttons.

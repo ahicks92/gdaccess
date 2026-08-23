@@ -23,6 +23,7 @@
 #include "screens/tip.h"
 #include "screens/codex.h"
 #include "screens/factions.h"
+#include "screens/riftgate.h"
 #include "screens/inventory.h"
 #include "screens/skills.h"
 #include "screens/quickbar.h"
@@ -185,6 +186,7 @@ void init() {
   g_screens.register_screen(screens::make_conversation());
   g_screens.register_screen(screens::make_codex());
   g_screens.register_screen(screens::make_factions());
+  g_screens.register_screen(screens::make_riftgate());
   g_screens.register_screen(screens::make_inventory());
   g_screens.register_screen(screens::make_skills());
   g_screens.register_screen(screens::make_quest_reward());

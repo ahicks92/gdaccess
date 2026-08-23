@@ -69,8 +69,11 @@ const Signature kSignatures[] = {
   {0x213840, "InGameUI::Init", "\x48\x8b\xc4\x55\x53\x56\x57\x41\x54\x41\x55\x41"},
   {0x211980, "InGameUI::HandleKeyAction", "\x48\x8b\xc4\x57\x41\x54\x41\x55\x41\x56\x41\x57\x48\x83\xec\x40"},
   {0x27c580, "SkillsWindow::SetPane", "\x40\x57\x48\x83\xec\x30\x48\xc7\x44\x24\x20\xfe\xff\xff\xff\x48"},
+  {0x21be20, "riftgate map open", "\x40\x53\x48\x83\xec\x20\x48\x8d\x99\x60\x22\x04\x00\x48\x8b\x03"},
+  {0x291520, "WorldMapWindow travel", "\x48\x89\x5c\x24\x08\x48\x89\x74\x24\x10\x57\x48\x81\xec\xa0\x00"},
+  {0x28ed20, "WorldMap Icon ctor", "\x48\x89\x5c\x24\x08\x48\x89\x6c\x24\x10\x48\x89\x74\x24\x18\x48"},
 };
-const size_t kSignatureLens[] = {5, 16, 12, 12, 12, 12, 12, 12, 16, 16};   // each <= kSignatureMax
+const size_t kSignatureLens[] = {5, 16, 12, 12, 12, 12, 12, 12, 16, 16, 16, 16, 16};   // each <= kSignatureMax
 constexpr size_t kSignatureMax = 16;
 
 uintptr_t g_base = 0;
@@ -84,6 +87,7 @@ struct {
   const void* (*PeekTopDialog)(void*) = nullptr;
   void (*AddResponse)(void*, const void*) = nullptr;
   void (*RemoveTopDialog)(void*) = nullptr;
+  void (*SetLastUsedTeleportId)(void*, const void*) = nullptr;   // GameEngine, UniqueId const&
 } g_dm;
 
 // ---- guarded memory access (SEH: the functions hold no C++ objects) ----
@@ -168,6 +172,7 @@ bool install() {
   LOAD(PeekTopDialog, DialogManager_PeekTopDialog);
   LOAD(AddResponse, DialogManager_AddResponse);
   LOAD(RemoveTopDialog, DialogManager_RemoveTopDialog);
+  LOAD(SetLastUsedTeleportId, GameEngine_SetLastUsedTeleportId);
 #undef LOAD
   g_version = std::format("exe timestamp={:#x} image={:#x} layout=unchecked", nt->FileHeader.TimeDateStamp, g_image_size);
   g_checked = false;
@@ -295,6 +300,73 @@ bool window_hidden_flag(void* window, unsigned flag_off) { return rd_or<uint8_t>
 // ---- framework B ----
 void* ingame_ui() { return rdp(rdp(main_obj(), off::kMainObj_WorldScreen), off::kWorldScreen_InGameUI); }
 bool WindowB::visible() const { bool v = false; return p && call_bool(p, off::kVt_IsVisible, v) && v; }
+
+// ---- the riftgate travel map (static RE 2026-08-22, docs/exe-ui-layout.md "Riftgate travel") ----
+namespace {
+// MiniMap (InGameUI+0x42260): +0x68 shown, +0x418 mode (1 = the local map, 0 = the riftgate world map); the
+// WorldMapWindow is its sub-object at +0x7940: +0x118 std::list of sections (node+0x30 = section; section
+// +0x08/+0x10 = vector<Icon*>), +0x200 = the object id of the gate being used (0 from the L key).
+// Icon (ctor exe+0x28ed20): +0x00 state (1 = current), +0x128 int[3] world position, +0x134 owner player id,
+// +0x138 the gate's object id, +0x140 u16string name, +0x160 UniqueId (4 ints).
+constexpr size_t kMM_Shown = 0x68, kMM_Mode = 0x418, kMM_WorldMap = 0x7940;
+constexpr size_t kWM_Sections = 0x118, kWM_Here = 0x200;
+constexpr size_t kSec_Begin = 0x08, kSec_End = 0x10, kNode_Section = 0x30;
+constexpr size_t kIcon_State = 0x00, kIcon_Pos = 0x128, kIcon_Owner = 0x134, kIcon_ObjId = 0x138, kIcon_Name = 0x140, kIcon_Uid = 0x160;
+constexpr uintptr_t kWorldMap_Travel = 0x291520;   // (unused this, const int pos[3]): the distance guard + InitiatePlayerTeleport
+typedef void (*TravelFn)(void*, const int*);
+void* worldmap() { void* ui = ingame_ui(); return ui ? (char*)ui + ingame::kMiniMap + kMM_WorldMap : nullptr; }
+}  // namespace
+bool riftgate_map_open() {
+  void* ui = ingame_ui();
+  if (!ui || !available()) return false;
+  WindowB mm{(char*)ui + ingame::kMiniMap};
+  return mm.visible() && rd_or<uint8_t>(mm.p, kMM_Shown, 0) != 0 && rd_or<uint8_t>(mm.p, kMM_Mode, 1) == 0;
+}
+std::vector<Riftgate> riftgates() {
+  std::vector<Riftgate> out;
+  void* wm = worldmap();
+  if (!wm || !available()) return out;
+  void* head = rdp(wm, kWM_Sections);        // the std::list's sentinel
+  size_t count = rd_or<size_t>(wm, kWM_Sections + 8, 0);
+  if (!head || count > 256) return out;
+  unsigned here = (unsigned)rd_or<int>(wm, kWM_Here, 0);
+  void* node = rdp(head, 0);
+  for (size_t i = 0; node && node != head && i < count; ++i, node = rdp(node, 0)) {
+    void* sec = rdp(node, kNode_Section);
+    if (!sec) continue;
+    char* b = (char*)rdp(sec, kSec_Begin); char* e = (char*)rdp(sec, kSec_End);
+    if (!b || !e || e < b || (size_t)(e - b) > 64 * sizeof(void*)) continue;
+    for (char* it = b; it < e; it += sizeof(void*)) {
+      void* icon = rdp(it, 0);
+      if (!icon) continue;
+      Riftgate g;
+      g.name = read_u16(icon, kIcon_Name);
+      for (int k = 0; k < 3; ++k) g.pos[k] = rd_or<int>(icon, kIcon_Pos + k * 4, 0);
+      g.owner = (unsigned)rd_or<int>(icon, kIcon_Owner, 0);
+      g.object_id = (unsigned)rd_or<int>(icon, kIcon_ObjId, 0);
+      for (int k = 0; k < 4; ++k) g.uid[k] = rd_or<int>(icon, kIcon_Uid + k * 4, 0);
+      g.current = rd_or<int>(icon, kIcon_State, 0) == 1 || (g.object_id && g.object_id == here);
+      // The map pre-builds an icon for every gate of the world (27 in the campaign, measured 2026-08-22); the
+      // undiscovered ones sit at (0, 0, 0) with a zero UniqueId. Discovered = keyed (or a personal gate).
+      bool discovered = g.uid[0] || g.uid[1] || g.uid[2] || g.uid[3] || g.owner;
+      if (discovered) out.push_back(std::move(g));
+    }
+  }
+  return out;
+}
+bool riftgate_travel(const Riftgate& g) {
+  if (!available()) return false;
+  void* ge = gd::world::game_engine();
+  bool has_uid = g.uid[0] || g.uid[1] || g.uid[2] || g.uid[3];
+  if (ge && has_uid && g_dm.SetLastUsedTeleportId) {
+    __try { g_dm.SetLastUsedTeleportId(ge, g.uid); } __except (EXCEPTION_EXECUTE_HANDLER) { log::write("exe_ui: SetLastUsedTeleportId faulted"); return false; }
+  }
+  TravelFn f = (TravelFn)(g_base + kWorldMap_Travel);
+  __try { f(nullptr, g.pos); } __except (EXCEPTION_EXECUTE_HANDLER) { log::write("exe_ui: riftgate travel faulted"); return false; }
+  log::writef("exe_ui: riftgate travel to '{}' ({}, {}, {})", g.name, g.pos[0], g.pos[1], g.pos[2]);
+  return true;
+}
+void riftgate_map_close() { WindowB mm = ingame_window(ingame::kMiniMap); if (mm) mm.show(false); }
 void WindowB::show(bool on) const { if (p) call_void_bool(p, off::kVt_Show, on); }
 WindowB ingame_window(unsigned o) { void* ui = ingame_ui(); return ui ? WindowB{(char*)ui + o} : WindowB{}; }
 uintptr_t WidgetB::vtable_rva() const { return vtable_rva_of(p); }

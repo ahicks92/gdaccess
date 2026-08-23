@@ -58,6 +58,8 @@ gd::core::MessageBuilder& push_where(gd::core::MessageBuilder& m, float x, float
 // ---- in-game ----
 // "Hangman Jarvis, 5 away, 2 o'clock, 1 of 3" -- a review-cursor landing (game label verbatim).
 gd::core::MessageBuilder& push_scan_item(gd::core::MessageBuilder& m, std::string_view label, float distance, int clock_hour, int index1, int count, bool distant, std::string_view note = {});
+// "5 away, 2 o'clock" -- the distance and bearing part alone (a riftgate row's value).
+gd::core::MessageBuilder& push_distance_bearing(gd::core::MessageBuilder& m, float distance, int clock_hour);
 // "no enemies nearby"
 gd::core::MessageBuilder& push_nothing_nearby(gd::core::MessageBuilder& m, std::string_view group_plural);
 // "<speaker>: <speech>" -- a conversation node (speaker may be empty).
@@ -121,6 +123,9 @@ inline constexpr std::string_view kNoObjectives = "no objectives";
 inline constexpr std::string_view kObjectives = "objectives";
 inline constexpr std::string_view kReward = "reward";
 inline constexpr std::string_view kFactions = "factions";
+inline constexpr std::string_view kRiftgates = "riftgate travel";
+inline constexpr std::string_view kNoRiftgates = "no riftgates discovered";
+inline constexpr std::string_view kYouAreHere = "you are here";
 inline constexpr std::string_view kNoFactions = "no factions known";
 inline constexpr std::string_view kInventory = "inventory";
 inline constexpr std::string_view kEquipment = "equipment";

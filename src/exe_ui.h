@@ -122,6 +122,19 @@ struct WindowB {
   void show(bool on) const;  // vtable +0xb0
 };
 WindowB ingame_window(unsigned off);   // InGameUI + off (kWin* below)
+// ---- the riftgate travel map (docs/exe-ui-layout.md "Riftgate travel"): the world map in riftgate mode ----
+struct Riftgate {
+  std::string name;      // the zone's localized name ("Devil's Crossing")
+  int pos[3] = {};       // integer world coordinates (what the map's travel call takes)
+  unsigned object_id = 0;  // the gate entity when loaded, else 0
+  unsigned owner = 0;    // a personal riftgate's player id; 0 for the static gates
+  int uid[4] = {};       // UniqueId (the discovered-set key)
+  bool current = false;  // the gate the player is standing at
+};
+bool riftgate_map_open();                  // MiniMap visible + shown + mode byte 0 (the exe's own predicate, exe+0x21be20)
+std::vector<Riftgate> riftgates();         // the discovered gates the map draws, in its section order
+bool riftgate_travel(const Riftgate& g);   // what the click does: SetLastUsedTeleportId + the map's travel call (exe+0x291520)
+void riftgate_map_close();                 // the close button: MiniMap Show(false)
 namespace ingame {
 constexpr unsigned kPromptBox = 0x7378, kCharacter = 0x52258 /*the multiplayer Inspect twin*/, kInventory = 0xbbf0 /*the C/I window*/,  // (+0xb138/+0xb158 are record-path strings)
                    kQuest = 0x285a0, kSkills = 0x3fc20, kMiniMap = 0x42260, kExit = 0x4a300, kParty = 0x4b540,

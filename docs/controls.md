@@ -105,6 +105,7 @@ game's own objects, never from the screen.
 | Vendor (NPC) | Buy tabs per stock type, Sell | Buy rows carry the game's price line; Enter buys. Sell = your bag; Enter sells. Untested live |
 | Caravan (NPC) | Stash sacks, transfer sacks | Rows = items; Enter moves one to the bag. Untested live |
 | Quest reward, Shrine | - | The window's text lines and buttons (Accept; Offer / Close). Untested live |
+| Riftgate travel (use a rift under N, or Ctrl+L once the personal riftgate is yours) | - | The discovered riftgates by name: "Devil's Crossing Rift, 359 away, 5 o'clock, 1 of 2", "you are here" on the one you stand at. Enter travels (the game fades and closes its map), Escape closes. Verified live |
 
 A landing speaks "name, [distant,] distance away, clock bearing, i of n" -- "distant" when the camera does
 not show it, so it cannot be clicked right now -- and parks the game's cursor on the thing while it is on

@@ -310,6 +310,9 @@ inline constexpr const char* GameEngine_GetDialogManager = "?GetDialogManager@Ga
 // public: int __cdecl GAME::DialogManager::GetNumDialog(void)const __ptr64
 inline constexpr const char* DialogManager_GetNumDialog_DLL = "Game.dll";
 inline constexpr const char* DialogManager_GetNumDialog = "?GetNumDialog@DialogManager@GAME@@QEBAHXZ";
+// public: void __cdecl GAME::GameEngine::SetLastUsedTeleportId(class GAME::UniqueId const & __ptr64) __ptr64
+inline constexpr const char* GameEngine_SetLastUsedTeleportId_DLL = "Game.dll";
+inline constexpr const char* GameEngine_SetLastUsedTeleportId = "?SetLastUsedTeleportId@GameEngine@GAME@@QEAAXAEBVUniqueId@2@@Z";
 // public: struct GAME::DialogManager::Dialog const & __ptr64 __cdecl GAME::DialogManager::PeekTopDialog(void) __ptr64
 inline constexpr const char* DialogManager_PeekTopDialog_DLL = "Game.dll";
 inline constexpr const char* DialogManager_PeekTopDialog = "?PeekTopDialog@DialogManager@GAME@@QEAAAEBUDialog@12@XZ";

@@ -117,6 +117,7 @@ ENTRIES = [
     # ---- message boxes (src/exe_ui.cpp): the exported DialogManager behind the exe's prompt box ----
     ("GameEngine_GetDialogManager", "Game", r"GAME::GameEngine::GetDialogManager\(void\)"),
     ("DialogManager_GetNumDialog", "Game", r"GAME::DialogManager::GetNumDialog\(void\)"),
+    ("GameEngine_SetLastUsedTeleportId", "Game", r"GAME::GameEngine::SetLastUsedTeleportId\("),
     ("DialogManager_PeekTopDialog", "Game", r"GAME::DialogManager::PeekTopDialog\(void\)"),
     ("DialogManager_AddResponse", "Game", r"GAME::DialogManager::AddResponse\("),
     ("DialogManager_RemoveTopDialog", "Game", r"GAME::DialogManager::RemoveTopDialog\(void\)"),

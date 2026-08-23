@@ -165,3 +165,21 @@ sure you want to exit to the main menu?" (type 1, party 8). Main-menu boxes are 
 exit window's buttons), `/dialog[?answer=yes|no|okay]`, `/tips[?dismiss=1]`, `/convwin`, `/loc?tag=`,
 `/peek?ptr=&n=` (hex dump with exe pointers annotated -- how the conversation window's rect and text offsets
 were settled live).
+
+## Riftgate travel (static RE 2026-08-22, verified live: list, close, travel)
+The riftgate travel UI is the world map: `WorldMapWindow` = MiniMap (`InGameUI+0x42260`) `+0x7940`, record
+`records/ui/riftgatemap/riftgate_mastertable.dbr`, vtable exe+0x31db78 (HandleMouseEvent exe+0x294500). MiniMap
+`+0x68` = shown, `+0x418` = mode byte (1 = the local map from M, 0 = the riftgate map); the exe's own predicate
+"riftgate map open" is exe+0x21be20 (IsVisible && +0x68 && +0x418 == 0; signature-checked). Openers: using a
+`StaticTeleporter` (`RequestToUse` -> `EventManager::Send` 0x1c -> listener exe+0x21ce84: `InGameUI+0x49da0` =
+the gate's object id (= worldmap+0x200), mode 0, Show(true)); the L key (action 0x21 -> exe+0x211ea3 -> listener
+exe+0x1cde76, a toggle that leaves +0x200 alone; did nothing for a character without the personal riftgate).
+Close: the close button / Escape = MiniMap Show(false) (vtable +0xb0). Sections: `worldmap+0x118` std::list
+(node+0x30 = section; section +0x08/+0x10 = vector<Icon*>). Icon (ctor exe+0x28ed20): +0x00 state (1 = current),
++0x128 int[3] world position, +0x134 owner player id (personal gates), +0x138 the gate's object id, +0x140
+u16string name, +0x160 UniqueId. **The map pre-builds an icon for every gate of the world (27); undiscovered ones
+sit at (0,0,0) with a zero UniqueId.** Travel = what the click does: `GameEngine::SetLastUsedTeleportId(uid)` then
+exe+0x291520(unused, const int pos[3]) (the distance guard + `InitiatePlayerTeleport(x, y, z, effect 1, true)`
+with integer world coordinates); the game closes the map itself. `exe_ui::riftgate_map_open/riftgates/
+riftgate_travel/riftgate_map_close`; dev `/riftgates`. Discovery is the player's per-difficulty teleport UID list
+(`Player::GetTeleportUIDs`, `AddTeleportUID` on binding).

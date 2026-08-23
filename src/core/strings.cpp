@@ -28,10 +28,14 @@ MessageBuilder& push_scan_item(MessageBuilder& m, std::string_view label, float 
   m.list_item().fragment(label);         // the first list item gets no comma; the label must BE an item for "label, N away"
   if (!note.empty()) m.list_item().fragment(note);
   if (distant) m.list_item().fragment(kDistant);
-  m.list_item().fragment(std::format("{:.0f} away", distance));
-  m.list_item().fragment(std::format("{} o'clock", clock_hour));
+  push_distance_bearing(m, distance, clock_hour);
   m.list_item();
   push_position(m, index1, count);
+  return m;
+}
+MessageBuilder& push_distance_bearing(MessageBuilder& m, float distance, int clock_hour) {
+  m.list_item().fragment(std::format("{:.0f} away", distance));
+  m.list_item().fragment(std::format("{} o'clock", clock_hour));
   return m;
 }
 MessageBuilder& push_place(MessageBuilder& m, std::string_view region, std::string_view subregion, std::string_view room) {
