@@ -40,7 +40,8 @@ project by the same author) — see `docs/design-notes-from-wotr.md` for the dec
   `Region*` (`GetWorldPosition`, `SetFromWorldPosition`, `PutOnFloor`); probes: `NavManager::IsPointOnPathMesh`,
   `IsBlocked(Vec3,float)`, `FindStraightMovePoint`, `FindClosestPointOnPathMesh`, `World::GetEntitiesInSphere`,
   `World::GetIntersection(WorldRay)`; `Character::GetCurrentAttackTarget`, `GetMovementTarget`.
-- Measured 2026-08-21 (src/world.cpp): `WorldCoords` = `Region*` (8) + origin `Vec3` (12) + 3x3 axes (36);
+- Measured 2026-08-21 (src/world.cpp): `WorldCoords` = `Region*` (+0) + origin `Vec3` (+8) + pad (+0x14) + 3x3 axes
+  (+0x18, size 0x40; read from the ctor 2026-08-22);
   `Coords` = 3x3 axes then origin (offset 36); `WorldVec3` = `Region*` + `Vec3` (region-relative; region 0A001's
   origin coincides with world). Player "Bob" spawns at world (59.2, 7.8, 97.2) in `Levels/Region0A001.lvl`;
   default camera yaw 0.8727 rad. **WASD is the game's own feature**: `movementType = 1` in options.txt (the
@@ -293,11 +294,17 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   ours, room = a watershed piece, chunk = the engine's `Region`. Dev: `/room`, `/regions`, `/portals`,
   `/navprobe`. Lessons: `Region::IsUnderground` calls `LoadLevel` (never sweep it); a dev route that outlives
   the 8 s job timeout must own its state (`run_on_game_thread` and `serve()` fixed 2026-08-22). **`World::GetRegionContainingXZ(from, x, z)` takes x,z RELATIVE TO `from`** (world.cpp
-  `region_containing_xz` converts; it only looked right in chunk 0A001 whose offset is zero). `Entity::SetCoords`
-  with a `Region*` that does not contain the position STALLS the player's controller (`ControllerPlayer::Update`
-  stops, WASD dead, chunk streaming stops, `in_world()` was false -> "unsupported screen"); a later SetCoords
-  into a chunk the entity belongs to revived it. `/teleport` now resolves the chunk correctly, tries rising
-  PutOnFloor start heights and refuses landings the navmesh rejects. The game pauses single player when it
+  `region_containing_xz` converts; it only looked right in chunk 0A001 whose offset is zero). **Never move the player with
+  `Entity::SetCoords`**: it is a raw 0x40-byte field write + `OnMoved()`; the level bookkeeping is in
+  `World::SetCoords` and the player's per-frame update (`Engine::UpdateForcedEntitiesInPlayerLoadSphere` ->
+  `Entity::Update` -> `ControllerPlayer::Update`) only reaches entities registered in the iterated region, so a
+  raw SetCoords stalled the controller (WASD dead, `in_world()` false -> "unsupported screen") and, once the
+  stale level was torn down with the controller object, crashed the exe's mouse handler in `SetMoveCommand`.
+  `/teleport` uses the game's own `Character::TeleportToLocation(WorldCoords const&)` (Game.dll, exported:
+  `ControllerCharacter::Teleport` -> `World::SetCoords` + `NavManager::ResetObject`; axes taken from the
+  character), tries rising PutOnFloor start heights and refuses landings the navmesh rejects (verified: 60
+  controller ticks/s after same-chunk, cross-chunk and hop-tour teleports). The Lua `Game.TeleportPlayer` is
+  the riftgate fade activity (integer coords, async), not a dev teleport. The game pauses single player when it
   believes the window lost focus (a hot reload in the world can leave it paused: `/pause[?set=0|1]`,
   `GAME::Pause/UnpauseGameTime`; `/player` shows `paused=`); `in_world()` no longer needs a live controller. Next: the
   authoring workflow (titles, descriptions, sub-regions; Opus agents, see the plan) and road helpers.

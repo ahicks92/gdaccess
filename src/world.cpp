@@ -234,7 +234,8 @@ struct Api {
   bool (*Portal_GetIsOpen)(const void*) = nullptr;
   // authoring dev routes
   void* (*World_GetRegionContainingXZ)(const void*, void*, float, float) = nullptr;
-  void (*Entity_SetCoords)(void*, const void*) = nullptr;                 // protected, exported
+  void (*Entity_SetCoords)(void*, const void*) = nullptr;                 // protected, exported -- a raw field write, see teleport()
+  void (*Character_TeleportToLocation)(void*, const void*) = nullptr;     // the game's own teleport (Game.dll): World::SetCoords + nav reset
   void* (*Region_GetFogOfWar)(void*, bool) = nullptr;
   void (*FogOfWar_AddVisibility)(void*, const Vec3*, int) = nullptr;
   bool (*FogOfWar_IsInFog)(const void*, const Vec3*) = nullptr;
@@ -325,6 +326,7 @@ void load_api() {
   LOAD(Portal_GetIsOpen, Portal_GetIsOpen);
   LOAD(World_GetRegionContainingXZ, World_GetRegionContainingXZ);
   LOAD(Entity_SetCoords, Entity_SetCoords);
+  LOAD(Character_TeleportToLocation, Character_TeleportToLocation);
   LOAD(Region_GetFogOfWar, Region_GetFogOfWar);
   LOAD(FogOfWar_AddVisibility, FogOfWar_AddVisibility);
   LOAD(FogOfWar_IsInFog, FogOfWar_IsInFog);
@@ -585,7 +587,7 @@ std::string teleport(float x, float z, bool check_only) {
   load_api();
   void* p = player();
   Buf base; void* region = nullptr;
-  if (!p || !g_api.Entity_SetCoords || !g_api.Entity_GetCoords || !player_world_vec(base, &region)) return "no player or exports\n";
+  if (!p || !g_api.Character_TeleportToLocation || !g_api.Entity_GetCoords || !player_world_vec(base, &region)) return "no player or exports\n";
   // Target chunk: the one containing (x, z), reached from the player's chunk; the chunk's frame is world minus
   // its offset (verified 2026-08-22), so region-relative = world - GetOffsetFromWorld().
   void* target = g_api.World_GetRegionContainingXZ && g_world ? region_containing_xz(region, x, z) : nullptr;
@@ -614,7 +616,15 @@ std::string teleport(float x, float z, bool check_only) {
   g_api.Entity_GetCoords(p, &wc);                       // keep the axes, replace region + origin
   memcpy(wc.b, &target, sizeof target);
   memcpy(wc.b + kWorldCoordsOriginOffset, &floored, sizeof floored);
-  g_api.Entity_SetCoords(p, &wc);
+  // NOT Entity::SetCoords: that is a 0x40-byte field write + OnMoved() and nothing else (Engine.dll 0x7ea00, read
+  // 2026-08-22). The level bookkeeping (Level::RemoveEntity from the old level, GuaranteedGetLevel + add to the
+  // new one, OnAddToLevel) lives in World::SetCoords, and the player's per-frame update
+  // (Engine::UpdateForcedEntitiesInPlayerLoadSphere -> Entity::Update -> ... -> ControllerPlayer::Update) only
+  // reaches an entity registered in the region being iterated: a raw SetCoords stalled the controller (WASD dead)
+  // and, once the stale level was torn down with the controller object, crashed the exe's mouse handler in
+  // SetMoveCommand. Character::TeleportToLocation is the game's path: ControllerCharacter::Teleport ->
+  // World::SetCoords (axes kept from the character, only region + origin used) + NavManager::ResetObject.
+  g_api.Character_TeleportToLocation(p, &wc);
   Vec3 now; player_position(now);
   return std::format("teleported to ({:.1f}, {:.1f}, {:.1f}) in {}; on_navmesh={} lift={}\n", now.x, now.y, now.z, region_label(target), on_navmesh(now), used_lift);
 }

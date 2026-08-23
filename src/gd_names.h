@@ -136,6 +136,9 @@ inline constexpr const char* World_GetRegionContainingXZ = "?GetRegionContaining
 // protected: void __cdecl GAME::Entity::SetCoords(class GAME::WorldCoords const & __ptr64) __ptr64
 inline constexpr const char* Entity_SetCoords_DLL = "Engine.dll";
 inline constexpr const char* Entity_SetCoords = "?SetCoords@Entity@GAME@@IEAAXAEBVWorldCoords@2@@Z";
+// public: virtual void __cdecl GAME::Character::TeleportToLocation(class GAME::WorldCoords const & __ptr64) __ptr64
+inline constexpr const char* Character_TeleportToLocation_DLL = "Game.dll";
+inline constexpr const char* Character_TeleportToLocation = "?TeleportToLocation@Character@GAME@@UEAAXAEBVWorldCoords@2@@Z";
 // public: class GAME::FogOfWar * __ptr64 __cdecl GAME::Region::GetFogOfWar(bool) __ptr64
 inline constexpr const char* Region_GetFogOfWar_DLL = "Engine.dll";
 inline constexpr const char* Region_GetFogOfWar = "?GetFogOfWar@Region@GAME@@QEAAPEAVFogOfWar@2@_N@Z";

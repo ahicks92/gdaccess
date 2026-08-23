@@ -54,6 +54,7 @@ ENTRIES = [
     # authoring dev routes (/teleport, /fog): docs/rooms.md
     ("World_GetRegionContainingXZ", "Engine", r"GAME::World::GetRegionContainingXZ\("),
     ("Entity_SetCoords", "Engine", r"GAME::Entity::SetCoords\(class GAME::WorldCoords const"),
+    ("Character_TeleportToLocation", "Game", r"GAME::Character::TeleportToLocation\(class GAME::WorldCoords const"),
     ("Region_GetFogOfWar", "Engine", r"GAME::Region::GetFogOfWar\(bool\)"),
     ("FogOfWar_AddVisibility", "Engine", r"GAME::FogOfWar::AddVisibility\("),
     ("FogOfWar_IsInFog", "Engine", r"GAME::FogOfWar::IsInFog\("),
