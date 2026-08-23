@@ -20,6 +20,7 @@ void beep(float freq, int ms, float volume, float pan = 0.0f);
 // seamlessly at a fixed pan, volume driven per frame (clamped 0..1, applied directly like wotr).
 bool load_loop(int id, const std::string& wav_path, float pan);
 void set_loop_volume(int id, float volume);
+void set_loop_gain(int id, float gain);   // static trim multiplied with the volume (not clamped; loudness matching)
 void unload_loop(int id);
 // A one-shot sample (WAV decoded once and cached) at volume 0..1 and pan -1..1: the review pings, cues.
 void play_sample(const std::string& wav_path, float volume, float pan);

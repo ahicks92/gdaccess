@@ -193,6 +193,18 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     if (q.count("on")) screens::walltones::set_enabled(truthy(q.at("on")));
     if (q.count("range")) screens::walltones::set_range((float)atof(q.at("range").c_str()));  // world units
     if (q.count("vol")) screens::walltones::set_gain((float)atof(q.at("vol").c_str()));        // 0..1
+    if (q.count("trim")) {   // loudness trims: trim=off | trim=default | trim=<1|2>,<n|e|s|w>,<dB>
+      const std::string& t = q.at("trim");
+      if (t == "off") screens::walltones::set_trim(0, 0, 0);
+      else if (t == "default") screens::walltones::set_trim(-1, 0, 0);
+      else {
+        int bank = 0, dir = -1; float db = 0; char d = 0;
+        if (sscanf_s(t.c_str(), "%d,%c,%f", &bank, &d, 1, &db) == 3) {
+          dir = d == 'n' ? 0 : d == 'e' ? 1 : d == 's' ? 2 : d == 'w' ? 3 : -1;
+          if (dir >= 0) screens::walltones::set_trim(bank, dir, db); else { status = 400; return "trim=<1|2>,<n|e|s|w>,<dB>\n"; }
+        } else { status = 400; return "trim=off | trim=default | trim=<1|2>,<n|e|s|w>,<dB>\n"; }
+      }
+    }
     return screens::walltones::status();
   }
   if (path == "/where") { screens::speak_where(); return "ok\n"; }

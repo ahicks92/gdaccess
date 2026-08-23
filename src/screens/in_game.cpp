@@ -41,6 +41,27 @@ static float g_dist[4] = {g_range, g_range, g_range, g_range};
 static double g_last = 0;
 
 constexpr int kObstacleToneId = 110;  // tone set 2: blockers the character just walks round
+// Loudness match (measured 2026-08-22, A-weighted over the mono decode the mixer plays): the files are RMS-matched
+// (bank 1 all -23.0 dBFS, bank 2 all -20.0) but pitched very differently (bank 1: north 942 Hz, east/west ~487,
+// south 248; bank 2: 1034/759/479/856), so at equal dBFS south sounds 7.7 dB (bank 1) / 4.8 dB (bank 2) softer
+// than north, and bank 2 is 3.8-6.7 dB louder than bank 1. These trims bring every file to bank 1 north's
+// -23.4 dB(A); the loudest resulting peak is -3.6 dBFS. Order = kFile (north, east, south, west), in dB.
+// Reversible: /walltones?trim=off zeroes them, ?trim=default restores, ?trim=<bank 1|2>,<n|e|s|w>,<dB> sets one.
+constexpr float kDefaultTrimDb[2][4] = {{0.0f, 2.7f, 7.7f, 2.7f}, {-3.8f, -2.7f, 1.0f, -2.7f}};
+static float g_trim_db[2][4] = {{0.0f, 2.7f, 7.7f, 2.7f}, {-3.8f, -2.7f, 1.0f, -2.7f}};
+static float db_to_gain(float db) { return std::pow(10.0f, db / 20.0f); }
+static void apply_trims() {
+  for (int i = 0; i < 4; ++i) {
+    audio::set_loop_gain(kToneId + i, db_to_gain(g_trim_db[0][i]));
+    audio::set_loop_gain(kObstacleToneId + i, db_to_gain(g_trim_db[1][i]));
+  }
+}
+void set_trim(int bank, int dir, float db) {   // bank 1|2, dir 0..3 = north east south west; bank 0 = all off, -1 = defaults
+  if (bank == 0) { for (auto& b : g_trim_db) for (float& t : b) t = 0.0f; }
+  else if (bank == -1) { for (int b = 0; b < 2; ++b) for (int i = 0; i < 4; ++i) g_trim_db[b][i] = kDefaultTrimDb[b][i]; }
+  else if ((bank == 1 || bank == 2) && dir >= 0 && dir < 4) g_trim_db[bank - 1][dir] = db;
+  if (g_loaded) apply_trims();
+}
 static void ensure_loaded() {
   if (g_loaded) return;
   g_loaded = true;
@@ -49,6 +70,7 @@ static void ensure_loaded() {
     audio::load_loop(kToneId + i, dir + "1\\" + kFile[i], kPan[i]);
     audio::load_loop(kObstacleToneId + i, dir + "2\\" + kFile[i], kPan[i]);
   }
+  apply_trims();
 }
 static void silence() { for (int i = 0; i < 4; ++i) { audio::set_loop_volume(kToneId + i, 0.0f); audio::set_loop_volume(kObstacleToneId + i, 0.0f); } }
 void set_enabled(bool on) { g_enabled = on; if (!on) silence(); }
@@ -88,7 +110,10 @@ static void tick() {
   }
 }
 std::string status() {
-  return std::format("enabled={} range={:.2f} vol={:.2f} forward={:.1f} right={:.1f} back={:.1f} left={:.1f}\n", g_enabled, g_range, g_gain, g_dist[0], g_dist[1], g_dist[2], g_dist[3]);
+  return std::format("enabled={} range={:.2f} vol={:.2f} forward={:.1f} right={:.1f} back={:.1f} left={:.1f}\n"
+                     "trim dB (north east south west): walls {:+.1f} {:+.1f} {:+.1f} {:+.1f}; obstacles {:+.1f} {:+.1f} {:+.1f} {:+.1f}\n",
+                     g_enabled, g_range, g_gain, g_dist[0], g_dist[1], g_dist[2], g_dist[3],
+                     g_trim_db[0][0], g_trim_db[0][1], g_trim_db[0][2], g_trim_db[0][3], g_trim_db[1][0], g_trim_db[1][1], g_trim_db[1][2], g_trim_db[1][3]);
 }
 }  // namespace walltones
 

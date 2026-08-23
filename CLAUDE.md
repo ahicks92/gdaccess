@@ -195,7 +195,10 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   "Training Dummy", the player's name) via `Monster::GetGameDescription(false,false)`,
   `Npc::GetRolloverDescription`, `Player::GetRolloverDescription`, `Item::GetGameDescription` (u16 by value,
   hidden pointer, SEH-guarded). Wall tones: the wotr WAV loops (assets/audio/walltones, two banks), per-frame
-  probes, range 10, loop gain 1.0 with a 250 ms watchdog; obstacle = walkable navmesh 2-4 units beyond the stop.
+  probes, range 10, loop gain 1.0 with a 250 ms watchdog; obstacle = walkable navmesh 2-4 units beyond the stop. Loudness (measured 2026-08-22): the WAVs are RMS-matched but
+  pitched apart (south 248 Hz vs north 942 in bank 1), so per-file dB trims in `in_game.cpp` bring all eight to
+  bank 1 north's -23.4 dB(A) (`audio::set_loop_gain`); `/walltones?trim=off|default|<1|2>,<n|e|s|w>,<dB>`
+  adjusts live and the status line prints the table.
 - Controls (2026-08-21, docs/controls.md has the full default map, read from screenshots of Options ->
   Controls): the game binds single buttons only, so "lifting to chords" is done on our side -- in the world
   the `in_game` screen owns the keyboard, passes the frequent keys straight through (WASD, 1-0, Space, E, R, U,

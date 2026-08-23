@@ -37,6 +37,7 @@ struct Loop {
   std::vector<float> samples;
   size_t pos = 0;
   float volume = 0;
+  float gain = 1.0f;        // static trim (set_loop_gain, not clamped): the wall tones' per-file loudness match
   float gl = 0.70710677f, gr = 0.70710677f;
   ULONGLONG refreshed = 0;  // GetTickCount64 at the last set_loop_volume: a loop nobody drives goes silent
 };
@@ -100,7 +101,7 @@ void data_callback(ma_device*, void* out, const void*, ma_uint32 frames) {
     float vol = now - lp.refreshed > kLoopStaleMs ? 0.0f : lp.volume;  // watchdog: silent unless driven
     if (lp.samples.empty() || vol <= 0.0f) { if (!lp.samples.empty()) lp.pos = (lp.pos + frames) % lp.samples.size(); continue; }
     for (ma_uint32 i = 0; i < frames; ++i) {
-      float s = lp.samples[lp.pos] * vol;  // loops carry their own gain (set by the driver), not the master
+      float s = lp.samples[lp.pos] * vol * lp.gain;  // loops carry their own gain (set by the driver), not the master
       if (++lp.pos >= lp.samples.size()) lp.pos = 0;  // seamless wrap
       o[i * 2] += s * lp.gl; o[i * 2 + 1] += s * lp.gr;
     }
@@ -198,6 +199,10 @@ bool load_loop(int id, const std::string& wav_path, float pan) {
 void set_loop_volume(int id, float volume) {
   std::lock_guard lk(g_mu);
   for (Loop& l : g_loops) if (l.id == id) { l.volume = volume < 0 ? 0 : volume > 1 ? 1 : volume; l.refreshed = GetTickCount64(); }
+}
+void set_loop_gain(int id, float gain) {
+  std::lock_guard lk(g_mu);
+  for (Loop& l : g_loops) if (l.id == id) l.gain = gain < 0 ? 0 : gain;
 }
 void unload_loop(int id) {
   std::lock_guard lk(g_mu);
