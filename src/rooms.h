@@ -12,7 +12,8 @@ void shutdown();             // closes the db; before db::shutdown()
 void tick();                 // per frame from the in-game screen
 void reset();                // forget the announced place (re-entering the world re-announces)
 void speak_description();    // X
-void cycle_exits(int dir);   // V (+1) / Shift+V (-1)
+// The current room's exits as review items (ScanGroup::Exits; registered with world::set_exit_provider by
+// init): V / Shift+V cycle them through the scanner like every other group (ping on landing, ; re-pings).
 void announce_now();         // dev: repeat the current place
 void reload();               // dev: drop the cached regions and reopen the db (after a tools rewrite)
 void set_dwell_ms(int ms);        // wait before a change within the settle window counts (boundary flapping)

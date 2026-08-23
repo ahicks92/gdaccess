@@ -87,8 +87,8 @@ stationary attack, Ctrl pet targeting) and typing into the game's chat field.
 | Y | The quickbar: "quickbar 1, 1 Cadence, 2 empty, ..., left mouse Cadence, right mouse empty" (the bar the HUD shows; Ctrl+Y still switches bars) |
 | G | Pick up the nearest item on the ground (the game's own Pickup action: within 10 units, loot filter applied; auto-equips into an empty slot like the game does) |
 | (automatic) | Place changes, in Zira: the region when it changes, the sub-region when it changes, then the room's title ("Devil's Crossing, the prison, cell block corridor"; "room 193" while a room has no title yet). See docs/rooms.md |
-| X | Describe the current room (the authored description through the screen reader; "no description yet" until then) |
-| V / Shift+V | Next / previous exit of the current room, nearest first: destination, "blocked" if a gate is shut, distance, clock bearing, "i of n"; parks the review cursor on the opening |
+| X | The current room: title, then the authored description ("no description yet" until then), through the screen reader |
+| V / Shift+V | Next / previous exit of the current room: one more review group like . N B M -- destination title (or "room N"), "blocked" if the live mesh refuses the opening, distance, clock bearing, "i of n"; the landing pings the route, ; re-pings, the cursor parks on the opening |
 
 ## The in-world windows (2026-08-22, first pass)
 Each game window is a screen of the mod while the game shows it (Ctrl+C/I inventory, Ctrl+N skills, Ctrl+Q

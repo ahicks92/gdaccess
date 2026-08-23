@@ -84,10 +84,12 @@ what the mod will use. Floor plans: `build/rooms/*.png`, north (-z) up, exits as
   nothing is authored (`/room?untitled=0` to silence). "Devil's Crossing, room 193" at the spawn.
 - **X** speaks the room's title, then its description, through the screen reader ("no description yet"
   until authored).
-- **V / Shift+V** cycle the current room's exits nearest-first: "room 190, 5 away, 4 o'clock, 1 of 3"
-  (destination title, else "room N"); "blocked" when the live `IsPointOnPathMesh` refuses a 5-point cross
-  (centre and 0.75 units each way) at the opening although the bake allows it -- a runtime obstacle such as
-  a shut gate or barricade; each landing parks the review cursor on the opening (`world::lock_point`).
+- **V / Shift+V** = the scanner's `ScanGroup::Exits`: `rooms.cpp` provides the current room's exits as point
+  items (`world::set_exit_provider`; id = `kPointIdBase` + exit index, label = the destination's title or
+  "room N", note "blocked" when the live `IsPointOnPathMesh` refuses a 5-point cross at the opening although
+  the bake allows it -- a shut gate or barricade) and `world::cycle_review` does what it does for every
+  group: continue from the reviewed id, nearest first, `lock_point` on the opening, the route ping on landing,
+  `;` re-pings, "distant" when off screen. "room 190, blocked, 5 away, 4 o'clock, 1 of 3".
 - Dev: `/room` (the lookup chain, the current room, its exits with live walkability; `?say=1` repeats,
   `?reload=1` reopens the db after a tools rewrite), `/regions?max=`, `/portals`, `/navprobe?x0=&z0=&x1=&z1=&step=`
   (the live mesh sampled; `build/rooms/compare_navprobe.py` diffs it against the bake).

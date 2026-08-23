@@ -118,6 +118,7 @@ static void register_actions() {
     {"scan.neutralNext", "Next person", 0x31, world::ScanGroup::Neutrals, 1, false}, {"scan.neutralPrev", "Previous person", 0x31, world::ScanGroup::Neutrals, -1, true},
     {"scan.bystanderNext", "Next bystander", 0x30, world::ScanGroup::Bystanders, 1, false}, {"scan.bystanderPrev", "Previous bystander", 0x30, world::ScanGroup::Bystanders, -1, true},
     {"scan.objectNext", "Next object", 0x32, world::ScanGroup::Objects, 1, false}, {"scan.objectPrev", "Previous object", 0x32, world::ScanGroup::Objects, -1, true},
+    {"scan.exitNext", "Next exit", 0x2f, world::ScanGroup::Exits, 1, false}, {"scan.exitPrev", "Previous exit", 0x2f, world::ScanGroup::Exits, -1, true},   // V: the current room's exits (docs/rooms.md)
   };
   for (const Cycle& c : cycles) {
     world::ScanGroup g = c.group; int dir = c.dir;
@@ -125,11 +126,9 @@ static void register_actions() {
   }
   m.register_action("scan.ping", "Ping the reviewed thing", InputCategory::InGame,
                     [] { if (world::ping_reviewed().empty()) speech::speak(strings::kNoTarget, true); }).bind(0x27);  // Semicolon
-  // Rooms (docs/rooms.md): X = the current room's description, V / Shift+V = cycle its exits (each landing
-  // parks the review cursor on the opening). Place changes are announced automatically in the player's voice.
+  // Rooms (docs/rooms.md): X = the current room's title and description; its exits are the scanner's Exits
+  // group (V above). Place changes are announced automatically in the player's voice.
   m.register_action("rooms.describe", "Describe the room", InputCategory::InGame, [] { rooms::speak_description(); }).bind(0x2d);   // X
-  m.register_action("rooms.exitNext", "Next exit", InputCategory::InGame, [] { rooms::cycle_exits(1); }).bind(0x2f);                // V
-  m.register_action("rooms.exitPrev", "Previous exit", InputCategory::InGame, [] { rooms::cycle_exits(-1); }).bind(0x2f, false, true, false);
   // The mouse buttons (J left, I right, Enter = left; hold to hold) are polled per frame by the in-game screen,
   // not dispatched as actions: a hold needs the key's held state, not a press.
   // The camera is locked (far zoom, north up) by the in-game screen; no zoom/rotate keys.

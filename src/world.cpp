@@ -1098,10 +1098,21 @@ int clock_hour(const Vec3& p) {
   return hour == 0 ? 12 : hour;
 }
 
+static std::vector<ScanItem> (*g_exit_provider)() = nullptr;
+void set_exit_provider(std::vector<ScanItem> (*provider)()) { g_exit_provider = provider; }
+static Vec3 g_reviewed_point;   // the position of a reviewed point item (set on landing)
+
 std::vector<ScanItem> scan(ScanGroup group, float radius) {
   std::vector<ScanItem> out;
   Vec3 me; Buf base; void* region = nullptr;
-  if (!player_position(me) || !g_api.Region_GetEntitiesInSphere || !player_world_vec(base, &region)) return out;
+  if (!player_position(me)) return out;
+  if (group == ScanGroup::Exits) {
+    if (g_exit_provider) out = g_exit_provider();
+    for (ScanItem& it : out) it.dist = std::sqrt((it.pos.x - me.x) * (it.pos.x - me.x) + (it.pos.z - me.z) * (it.pos.z - me.z));
+    std::sort(out.begin(), out.end(), [](const ScanItem& a, const ScanItem& b) { return a.dist < b.dist; });
+    return out;
+  }
+  if (!g_api.Region_GetEntitiesInSphere || !player_world_vec(base, &region)) return out;
   alignas(16) unsigned char vb[64] = {};
   MemVec* v = (MemVec*)vb;
   const Vec3* rp = g_api.WorldVec3_GetRegionPosition(&base);
@@ -1137,6 +1148,7 @@ static std::string_view group_label(ScanGroup g) {
     case ScanGroup::Enemies: return gd::strings::kEnemies;
     case ScanGroup::Neutrals: return gd::strings::kNeutrals;
     case ScanGroup::Bystanders: return gd::strings::kBystanders;
+    case ScanGroup::Exits: return gd::strings::kExits;
     default: return gd::strings::kObjects;
   }
 }
@@ -1153,10 +1165,11 @@ std::string cycle_review(ScanGroup group, int dir) {
   idx = idx < 0 ? (dir >= 0 ? 0 : count - 1) : ((idx + dir) % count + count) % count;
   const ScanItem& it = items[(size_t)idx];
   g_reviewed_id = it.id;
-  lock_target(it.id);
+  if (is_point_id(it.id)) { g_reviewed_point = it.pos; lock_point(it.pos); }
+  else lock_target(it.id);
   ping_reviewed();  // every landing plays the route ping, like wotr
   std::string label = it.label.empty() ? it.cls : it.label;
-  gd::strings::push_scan_item(m, label, it.dist, clock_hour(it.pos), idx + 1, count, !on_screen(it.id));
+  gd::strings::push_scan_item(m, label, it.dist, clock_hour(it.pos), idx + 1, count, !on_screen(it.id), it.note);
   return m.build();
 }
 unsigned reviewed_id() { return g_reviewed_id; }
@@ -1200,11 +1213,16 @@ bool world_point(const void* worldvec3, Vec3& out) {
 
 std::string ping_reviewed() {
   if (!g_reviewed_id) return {};
-  void* e = find_entity(g_reviewed_id);
   Vec3 me, target;
-  Buf wv;
-  if (!e || !player_position(me) || !entity_world_vec(e, wv)) return {};
-  target = world_pos_of(wv);
+  if (!player_position(me)) return {};
+  if (is_point_id(g_reviewed_id)) {
+    target = g_reviewed_point;
+  } else {
+    void* e = find_entity(g_reviewed_id);
+    Buf wv;
+    if (!e || !entity_world_vec(e, wv)) return {};
+    target = world_pos_of(wv);
+  }
   float dx = target.x - me.x, dz = target.z - me.z;
   float dist = std::sqrt(dx * dx + dz * dz);
   // Route kind: every half unit of the straight line on the navmesh = straight walk; the target's own
@@ -1225,7 +1243,7 @@ std::string ping_reviewed() {
 
 bool on_screen(unsigned id) {
   float x, y;
-  if (!entity_screen_pos(id, x, y)) return false;
+  if (is_point_id(id) ? !project_point(g_reviewed_point, x, y) : !entity_screen_pos(id, x, y)) return false;
   RECT rc{};
   HWND w = FindWindowA("Grim Dawn", nullptr);
   if (!w || !GetClientRect(w, &rc)) return false;

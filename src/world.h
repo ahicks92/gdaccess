@@ -55,9 +55,15 @@ std::string label_of(unsigned id);
 // from ObjectManager::CreateObjectID) and re-found in a fresh query on every step -- never by pointer --
 // so a despawned target simply drops out and the next step enters at the nearest. The landing also
 // parks the virtual cursor on the thing, so the game hovers / targets it natively.
-enum class ScanGroup { Enemies, Neutrals, Bystanders, Objects };
-struct ScanItem { unsigned id; std::string cls, label, record; Vec3 pos; float dist; };
+enum class ScanGroup { Enemies, Neutrals, Bystanders, Objects, Exits };
+// note: an extra spoken list item ("blocked" for an exit whose opening the live mesh refuses), normally empty.
+struct ScanItem { unsigned id; std::string cls, label, record; Vec3 pos; float dist; std::string note; };
 std::vector<ScanItem> scan(ScanGroup group, float radius = 40.0f);  // nearest first
+// Point items (room exits) are not entities: ids from kPointIdBase up, positions carried by the item. The
+// provider (src/rooms.cpp) returns the current room's exits; the scanner locks/pings/projects the point.
+constexpr unsigned kPointIdBase = 0x40000000u;
+inline bool is_point_id(unsigned id) { return id >= kPointIdBase; }
+void set_exit_provider(std::vector<ScanItem> (*provider)());
 // Step the review cursor through a group (dir +1 / -1); returns the landing's spoken line, or the
 // group's "nothing" text. Also locks the virtual cursor on it.
 std::string cycle_review(ScanGroup group, int dir);

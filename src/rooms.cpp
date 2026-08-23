@@ -39,9 +39,6 @@ std::map<std::string, std::unique_ptr<Region>> g_regions;
 Region* g_current = nullptr;
 std::string g_announced_region, g_announced_subregion;
 core::rooms::Hysteresis g_hyst;
-core::rooms::Cycle g_cycle;
-std::vector<int> g_cycle_exits;          // exit indices of the room the cycle was built for, nearest first
-int g_cycle_room = -1;
 bool g_say_untitled = true;
 std::string g_last_line;
 constexpr int kLookupRing = 8;           // cells (2 units) of ring search around the player's cell
@@ -170,9 +167,10 @@ Region* region_for_player() {
 }
 }  // namespace
 
-void init() { open_db(); }
+std::vector<world::ScanItem> exit_items();   // below
+void init() { open_db(); world::set_exit_provider(exit_items); }
 void shutdown() { g_regions.clear(); g_current = nullptr; g_db.reset(); }
-void reset() { g_hyst.reset(); g_cycle.reset(); g_cycle_room = -1; g_announced_region.clear(); g_announced_subregion.clear(); g_current = nullptr; }
+void reset() { g_hyst.reset(); g_announced_region.clear(); g_announced_subregion.clear(); g_current = nullptr; }
 void set_dwell_ms(int ms) { g_hyst.dwell_ms = ms; }
 void set_settle_ms(int ms) { g_hyst.settle_ms = ms; }
 void set_say_untitled(bool on) { g_say_untitled = on; }
@@ -186,12 +184,12 @@ void tick() {
   world::Vec3 p;
   if (!world::player_position(p)) return;
   Region* r = region_for_player();
-  if (r != g_current) { g_current = r; g_hyst.reset(); g_cycle.reset(); g_cycle_room = -1; }
+  if (r != g_current) { g_current = r; g_hyst.reset(); }
   if (!r) return;
   // The runtime mesh is up to ~1.5 units wider than the bake at edges (measured 2026-08-22 north of the
   // spawn: ours from x 62.45, the game from 61.0), so search 8 cells = 2 units around the player.
   int label = r->grid.label_at(p.x, p.z, kLookupRing);
-  if (g_hyst.update(label, now_ms())) { g_cycle.reset(); g_cycle_room = -1; announce(false); }
+  if (g_hyst.update(label, now_ms())) announce(false);
 }
 
 void speak_description() {
@@ -213,33 +211,23 @@ bool exit_blocked(const world::Vec3& at) {
   return true;
 }
 
-void cycle_exits(int dir) {
-  if (!g_current || g_hyst.current < 0) { speech::speak(strings::kNoRoom, true); return; }
+// The scanner's exit group: the current room's exits as point items. id = kPointIdBase + the region's exit
+// index (stable, so the cycle continues from the reviewed exit); label = the destination's title or "room N".
+std::vector<world::ScanItem> exit_items() {
+  std::vector<world::ScanItem> out;
   world::Vec3 p;
-  if (!world::player_position(p)) { speech::speak(strings::kNotInWorld, true); return; }
+  if (!g_current || g_hyst.current < 0 || !world::player_position(p)) return out;
   int room = g_hyst.current;
-  if (g_cycle_room != room) {
-    g_cycle_exits.clear();
-    for (int i = 0; i < (int)g_current->exits.size(); ++i)
-      if (g_current->exits[i].a == room || g_current->exits[i].b == room) g_cycle_exits.push_back(i);
-    std::sort(g_cycle_exits.begin(), g_cycle_exits.end(), [&](int i, int j) {
-      const Exit &a = g_current->exits[i], &b = g_current->exits[j];
-      return std::hypot(a.x - p.x, a.z - p.z) < std::hypot(b.x - p.x, b.z - p.z);
-    });
-    g_cycle.reset(); g_cycle_room = room;
+  for (int i = 0; i < (int)g_current->exits.size(); ++i) {
+    const Exit& e = g_current->exits[i];
+    if (e.a != room && e.b != room) continue;
+    int other = e.a == room ? e.b : e.a;
+    world::Vec3 at{e.x, p.y, e.z};
+    std::string dest = room_label(*g_current, other);
+    if (dest.empty()) dest = other >= 0 && other < (int)g_current->rooms.size() ? g_current->rooms[other].cls : std::string(strings::kRoom);
+    out.push_back({world::kPointIdBase + (unsigned)i, "exit", dest, {}, at, 0.0f, exit_blocked(at) ? std::string(strings::kBlocked) : std::string()});
   }
-  if (g_cycle_exits.empty()) { speech::speak(strings::kNoExits, true); return; }
-  int k = g_cycle.next((int)g_cycle_exits.size(), dir);
-  const Exit& e = g_current->exits[g_cycle_exits[k]];
-  int other = e.a == room ? e.b : e.a;
-  world::Vec3 at{e.x, p.y, e.z};
-  bool blocked = exit_blocked(at);
-  std::string dest = room_label(*g_current, other);
-  if (dest.empty()) dest = other >= 0 && other < (int)g_current->rooms.size() ? g_current->rooms[other].cls : std::string(strings::kRoom);
-  world::lock_point(at);
-  MessageBuilder m;
-  strings::push_room_exit(m, dest, blocked, std::hypot(e.x - p.x, e.z - p.z), world::clock_hour(at), k + 1, (int)g_cycle_exits.size());
-  speech::speak(m.build(), true);
+  return out;
 }
 
 std::string status() {

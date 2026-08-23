@@ -57,7 +57,7 @@ gd::core::MessageBuilder& push_where(gd::core::MessageBuilder& m, float x, float
 
 // ---- in-game ----
 // "Hangman Jarvis, 5 away, 2 o'clock, 1 of 3" -- a review-cursor landing (game label verbatim).
-gd::core::MessageBuilder& push_scan_item(gd::core::MessageBuilder& m, std::string_view label, float distance, int clock_hour, int index1, int count, bool distant);
+gd::core::MessageBuilder& push_scan_item(gd::core::MessageBuilder& m, std::string_view label, float distance, int clock_hour, int index1, int count, bool distant, std::string_view note = {});
 // "no enemies nearby"
 gd::core::MessageBuilder& push_nothing_nearby(gd::core::MessageBuilder& m, std::string_view group_plural);
 // "<speaker>: <speech>" -- a conversation node (speaker may be empty).
@@ -78,13 +78,11 @@ inline constexpr std::string_view kNotInWorld = "not in the world";
 // rooms (docs/rooms.md): the place announcement, the X description, the V exit cycle
 inline constexpr std::string_view kNoRoom = "no room data here";
 inline constexpr std::string_view kNoDescription = "no description yet";
-inline constexpr std::string_view kNoExits = "no exits";
-inline constexpr std::string_view kBlocked = "blocked";
+inline constexpr std::string_view kExits = "exits";               // the review group's plural ("no exits nearby")
+inline constexpr std::string_view kBlocked = "blocked";            // the exit item's note (push_scan_item)
 inline constexpr std::string_view kRoom = "room";                  // untitled room: "room 12"
 // "Devil's Crossing, the prison, cell block corridor" -- only the parts that changed, in that order
 gd::core::MessageBuilder& push_place(gd::core::MessageBuilder& m, std::string_view region, std::string_view subregion, std::string_view room);
-// "cell block corridor, blocked, 8 away, 10 o'clock, 2 of 3" (an exit of the current room; destination title)
-gd::core::MessageBuilder& push_room_exit(gd::core::MessageBuilder& m, std::string_view destination, bool blocked, float distance, int clock_hour, int index1, int count);
 inline constexpr std::string_view kOptions = "options";       // the main menu's unlabeled icon buttons
 inline constexpr std::string_view kExitGame = "exit game";
 inline constexpr std::string_view kYes = "yes";               // the game's message-box answers (answered through its DialogManager)

@@ -24,8 +24,9 @@ MessageBuilder& push_where(MessageBuilder& m, float x, float z, std::string_view
   if (!region.empty()) m.list_item().fragment(std::format("region {}", region));
   return m;
 }
-MessageBuilder& push_scan_item(MessageBuilder& m, std::string_view label, float distance, int clock_hour, int index1, int count, bool distant) {
+MessageBuilder& push_scan_item(MessageBuilder& m, std::string_view label, float distance, int clock_hour, int index1, int count, bool distant, std::string_view note) {
   m.list_item().fragment(label);         // the first list item gets no comma; the label must BE an item for "label, N away"
+  if (!note.empty()) m.list_item().fragment(note);
   if (distant) m.list_item().fragment(kDistant);
   m.list_item().fragment(std::format("{:.0f} away", distance));
   m.list_item().fragment(std::format("{} o'clock", clock_hour));
@@ -37,15 +38,6 @@ MessageBuilder& push_place(MessageBuilder& m, std::string_view region, std::stri
   if (!region.empty()) m.list_item().fragment(region);
   if (!subregion.empty()) m.list_item().fragment(subregion);
   if (!room.empty()) m.list_item().fragment(room);
-  return m;
-}
-MessageBuilder& push_room_exit(MessageBuilder& m, std::string_view destination, bool blocked, float distance, int clock_hour, int index1, int count) {
-  m.list_item().fragment(destination);   // as a list item so the distance is comma-separated from it
-  if (blocked) m.list_item().fragment(kBlocked);
-  m.list_item().fragment(std::format("{:.0f} away", distance));
-  m.list_item().fragment(std::format("{} o'clock", clock_hour));
-  m.list_item();
-  push_position(m, index1, count);
   return m;
 }
 MessageBuilder& push_nothing_nearby(MessageBuilder& m, std::string_view group_plural) {
