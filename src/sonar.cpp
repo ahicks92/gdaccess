@@ -17,6 +17,7 @@ float g_radius = 25.0f;   // world units
 float g_vol = 0.4f;       // the cue's own level (the mixer's master applies on top)
 float g_ref = 4.0f;       // units: volume = ref / (ref + dist), floor 0.08 (wotr VolumeFor)
 bool g_enabled = true;
+bool g_force = false;      // dev: ignore the foreground gate (the dev loop never focuses the game)
 core::SonarSweep g_sweep;
 enum Kind { kEnemy = 0, kLoot = 1, kTransition = 2 };
 constexpr const char* kCue[3] = {"units-enemy.wav", "unknown.wav", "transition.wav"};
@@ -29,6 +30,7 @@ float volume_for(float dist) {
   return std::clamp(v, 0.08f, 1.0f) * g_vol;
 }
 bool audible() {
+  if (g_force) return true;
   HWND fg = GetForegroundWindow();
   return fg && fg == FindWindowA("Grim Dawn", nullptr);
 }
@@ -79,6 +81,7 @@ void set_knob(const std::string& name, float v) {
   else if (name == "gap_min" && v > 0) p.gap_min_s = v;
   else if (name == "gap_max" && v > 0) p.gap_max_s = v;
   else if (name == "rest" && v >= 0) p.rest_s = v;
+  else if (name == "force") g_force = v != 0;
 }
 std::string status() {
   const core::SweepParams& p = g_sweep.params();
