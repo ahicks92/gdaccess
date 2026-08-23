@@ -314,8 +314,9 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   (Opus agents over `tools/shots.py` screenshots + `tools/author.py facts`; `docs/rooms-description-rules.md`; a
   mechanical `author.py check`, a sampled reviewer, then a per-sub-region consistency pass -- the per-room
   writers never see their neighbours, so confusable titles and fixtures named from the next room are fixed there;
-  ~13M Opus tokens for the region). `devilscrossing:-70:-183` stays unseen (its anchor is bake-only; the live
-  mesh refuses it). The dev character dies while posing for screenshots (level 2 among monsters): the shots run
+  ~13M Opus tokens for the region). `devilscrossing:-70:-183` is orphan (its anchor is bake-only; the live
+  mesh refuses it). **Hargate's Isle** (chunk 0W021, boat-only via the Row Boat DungeonEntrance) was restored by
+  the by-record chunk fix and authored as its own sub-region (14 rooms; 216 total). The dev character dies while posing for screenshots (level 2 among monsters): the shots run
   toggles Lua `ToggleInvincible`, and a shot whose outline is <30 % visible is the tell of a respawn. Next:
   road helpers, the next regions, region names from `tagWorldMap*`.
 - Riftgate travel screen (2026-08-22, verified live through the loop incl. a real trip Lower Crossing -> Devil's
