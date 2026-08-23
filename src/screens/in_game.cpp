@@ -6,6 +6,7 @@
 #include "audio.h"
 #include "combat.h"
 #include "rooms.h"
+#include "sonar.h"
 #include "core/graph_builder.h"
 #include "core/message_builder.h"
 #include "core/strings.h"
@@ -156,6 +157,7 @@ class InGameScreen : public Screen {
     world::tick();
     combat::tick();
     rooms::tick();
+    sonar::tick();
     walltones::tick();
     // The mouse buttons as keys, with real hold semantics: J (or Enter) = left, I = right, for as long as the
     // key is down and no modifier is held (Ctrl+J/I are lifted game keys).
@@ -166,7 +168,7 @@ class InGameScreen : public Screen {
     world::mouse_key(2, !mods && ks.held(kI));
   }
   void on_unfocus() override { walltones::silence(); world::mouse_key(1, false); world::mouse_key(2, false); }
-  void on_pop() override { walltones::silence(); world::mouse_key(1, false); world::mouse_key(2, false); rooms::reset(); }
+  void on_pop() override { walltones::silence(); world::mouse_key(1, false); world::mouse_key(2, false); rooms::reset(); sonar::reset(); }
 };
 
 std::unique_ptr<Screen> make_in_game() { return std::make_unique<InGameScreen>(); }

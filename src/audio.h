@@ -23,12 +23,13 @@ void set_loop_volume(int id, float volume);
 void set_loop_gain(int id, float gain);   // static trim multiplied with the volume (not clamped; loudness matching)
 void unload_loop(int id);
 // A one-shot sample (WAV decoded once and cached) at volume 0..1 and pan -1..1: the review pings, cues.
-void play_sample(const std::string& wav_path, float volume, float pan);
+// rear_shelf_db < 0 darkens the voice with an RBJ high shelf at 3 kHz (wotr: a source behind the listener).
+void play_sample(const std::string& wav_path, float volume, float pan, float rear_shelf_db = 0.0f);
 // Raw PCM one-shots (rendered speech): mono f32 at the mixer rate, shared so a cache may drop its copy while
 // the shot still plays. group > 0 tags the shot; replace_group fades out (5 ms) the group's playing shots
 // first -- "the new health line replaces the old one". Returns the shot id (0 = not played).
 using Pcm = std::shared_ptr<const std::vector<float>>;
-uint32_t play_pcm(Pcm samples, float volume, float pan, int group = 0, bool replace_group = false, bool apply_master = true);
+uint32_t play_pcm(Pcm samples, float volume, float pan, int group = 0, bool replace_group = false, bool apply_master = true, float rear_shelf_db = 0.0f);
 void stop_group(int group);        // fade out every playing shot of the group
 int group_count(int group);        // shots of the group still playing
 // Decode a WAV held in memory to mono f32 at the mixer rate (parse + downmix + resample in one step).

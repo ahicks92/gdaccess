@@ -1157,6 +1157,10 @@ bool in_group(const void* e, const void* ci, const std::string& cls, ScanGroup g
     case ScanGroup::Neutrals: return cls == "Npc" && npc_has_conversation(e);     // people you can talk to
     case ScanGroup::Bystanders: return cls == "Npc" && !npc_has_conversation(e);  // flavour NPCs
     case ScanGroup::Objects: return is_of_interest(e, ci);
+    // The sonar sweep's groups: loot = an Item on the ground or a container the Interact key would open;
+    // transitions = dungeon entrances/exits (locked or not: the way out of a cave is still the way out).
+    case ScanGroup::Loot: return is_of_interest(e, ci) && ((g_api.Item_StaticClassInfo && is_kind_of(ci, g_api.Item_StaticClassInfo())) || cls == "FixedItemContainer");
+    case ScanGroup::Transitions: return cls == "DungeonEntrance";
   }
   return false;
 }
@@ -1226,6 +1230,8 @@ static std::string_view group_label(ScanGroup g) {
     case ScanGroup::Neutrals: return gd::strings::kNeutrals;
     case ScanGroup::Bystanders: return gd::strings::kBystanders;
     case ScanGroup::Exits: return gd::strings::kExits;
+    case ScanGroup::Loot: return gd::strings::kLoot;
+    case ScanGroup::Transitions: return gd::strings::kTransitions;
     default: return gd::strings::kObjects;
   }
 }
@@ -1253,18 +1259,22 @@ unsigned reviewed_id() { return g_reviewed_id; }
 
 // The one pan/gain rule for positioned sounds and voices (wotr's sonar): pan by the ear-frame bearing of the
 // point from the player, gain ref/(ref+dist) with ref = 10 ft in units, never below 0.15.
-void ear_frame(const Vec3& p, float& pan, float& gain) {
+void ear_frame(const Vec3& p, float& pan, float& gain, float* ahead) {
   Vec3 me; pan = 0.0f; gain = 1.0f;
+  if (ahead) *ahead = 1.0f;
   if (!player_position(me)) return;
   float fx, fz, rx, rz; screen_axes(fx, fz, rx, rz);
   float dx = p.x - me.x, dz = p.z - me.z;
   float dist = std::sqrt(dx * dx + dz * dz);
   float right = dx * rx + dz * rz;
+  float fwd = dx * fx + dz * fz;
   pan = dist > 0.01f ? right / dist : 0.0f;
+  if (ahead) *ahead = dist > 0.01f ? std::clamp(fwd / dist, -1.0f, 1.0f) : 1.0f;
   constexpr float kRef = 10.0f * 0.3048f / 0.67f;  // 10 ft in units (~0.67 m per unit)
   gain = kRef / (kRef + dist);
   if (gain < 0.15f) gain = 0.15f;
 }
+float rear_shelf_db(float ahead) { return ahead < 0.0f ? 10.0f * ahead : 0.0f; }   // -10 dB * how far behind
 static float g_voice_near = 9.0f, g_voice_far = 32.0f, g_voice_floor = 0.4f;
 float voice_gain(float dist) {
   if (dist <= g_voice_near) return 1.0f;
@@ -1313,8 +1323,8 @@ std::string ping_reviewed() {
       if (!on_navmesh(Vec3{me.x + dx / dist * d, me.y, me.z + dz / dist * d})) { straight = false; break; }
     kind = straight ? "straight" : "path";
   }
-  float pan, vol; ear_frame(target, pan, vol);
-  gd::audio::play_sample(gd::audio::module_dir() + "assets\\audio\\review_" + kind + ".wav", vol, pan);
+  float pan, vol, ahead; ear_frame(target, pan, vol, &ahead);
+  gd::audio::play_sample(gd::audio::module_dir() + "assets\\audio\\review_" + kind + ".wav", vol, pan, rear_shelf_db(ahead));
   return kind;
 }
 

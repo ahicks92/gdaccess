@@ -56,7 +56,7 @@ std::string label_of(unsigned id);
 // from ObjectManager::CreateObjectID) and re-found in a fresh query on every step -- never by pointer --
 // so a despawned target simply drops out and the next step enters at the nearest. The landing also
 // parks the virtual cursor on the thing, so the game hovers / targets it natively.
-enum class ScanGroup { Enemies, Neutrals, Bystanders, Objects, Exits };
+enum class ScanGroup { Enemies, Neutrals, Bystanders, Objects, Exits, Loot, Transitions };   // Loot/Transitions: the sonar sweep only
 // note: an extra spoken list item ("blocked" for an exit whose opening the live mesh refuses), normally empty.
 struct ScanItem { unsigned id; std::string cls, label, record; Vec3 pos; float dist; std::string note; };
 std::vector<ScanItem> scan(ScanGroup group, float radius = 40.0f);  // nearest first
@@ -82,7 +82,9 @@ void pin_camera();
 int clock_hour(const Vec3& p);
 // Pan (-1..1, by ear-frame bearing) and gain (ref/(ref+dist), >= 0.15) of a world point from the player: the
 // one rule for positioned sounds and voices.
-void ear_frame(const Vec3& p, float& pan, float& gain);
+void ear_frame(const Vec3& p, float& pan, float& gain, float* ahead = nullptr);   // ahead: +1 straight up the screen .. -1 behind
+// The rear shelf for a point: 0 dB across the front, -10 dB dead behind (wotr Spatializer), from ear_frame's ahead.
+float rear_shelf_db(float ahead);
 // The voices' own rolloff (the pings keep the sonar curve above): full level out to `near`, falling linearly
 // to `floor` at `far`, flat beyond. Defaults from the game's range table (gameengine.dbr): near = moderateRange
 // 9, far = bossRange 32 (the farthest a pet's hit can be), floor 0.4. Live-tunable: /voice?near=&far=&floor=.

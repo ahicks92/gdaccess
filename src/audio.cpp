@@ -55,7 +55,27 @@ struct Shot {
   uint32_t id = 0;
   int fade_out = -1;  // samples of linear fade left; -1 = none
   bool mastered = true;  // false: carries its own level (rendered speech), like the loops
+  // Rear shelf (wotr Spatializer): an RBJ high shelf, S = 1, applied to the mono source before panning. Not a
+  // lowpass on purpose -- the cues are bright and narrowband, a lowpass erases them; a shelf only quietens them.
+  bool shelf = false;
+  float b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0, z1 = 0, z2 = 0;
 };
+constexpr float kRearCornerHz = 3000.0f;
+static void high_shelf(Shot& sh, float db_gain, float corner_hz, float rate) {
+  double A = std::pow(10.0, db_gain / 40.0);
+  double w0 = 2.0 * 3.14159265358979 * corner_hz / rate;
+  double cosw = std::cos(w0);
+  double alpha = std::sin(w0) / 2.0 * std::sqrt(2.0);
+  double k = 2.0 * std::sqrt(A) * alpha;
+  double b0 = A * ((A + 1) + (A - 1) * cosw + k);
+  double b1 = -2.0 * A * ((A - 1) + (A + 1) * cosw);
+  double b2 = A * ((A + 1) + (A - 1) * cosw - k);
+  double a0 = (A + 1) - (A - 1) * cosw + k;
+  double a1 = 2.0 * ((A - 1) - (A + 1) * cosw);
+  double a2 = (A + 1) - (A - 1) * cosw - k;
+  sh.b0 = (float)(b0 / a0); sh.b1 = (float)(b1 / a0); sh.b2 = (float)(b2 / a0); sh.a1 = (float)(a1 / a0); sh.a2 = (float)(a2 / a0);
+  sh.z1 = sh.z2 = 0; sh.shelf = true;
+}
 
 std::mutex g_mu;
 std::vector<Tone> g_tones;
@@ -109,7 +129,9 @@ void data_callback(ma_device*, void* out, const void*, ma_uint32 frames) {
   for (Shot& sh : g_shots) {
     const std::vector<float>& s = *sh.buf;
     for (ma_uint32 i = 0; i < frames && sh.pos < s.size(); ++i, ++sh.pos) {
-      float v = s[sh.pos] * (sh.mastered ? master : 1.0f);
+      float x = s[sh.pos];
+      if (sh.shelf) { float y = sh.b0 * x + sh.z1; sh.z1 = sh.b1 * x - sh.a1 * y + sh.z2; sh.z2 = sh.b2 * x - sh.a2 * y; x = y; }  // transposed DF-II
+      float v = x * (sh.mastered ? master : 1.0f);
       if (sh.fade_out >= 0) {
         if (sh.fade_out == 0) { sh.pos = s.size(); break; }
         v *= (float)sh.fade_out / (float)kFadeSamples;
@@ -209,7 +231,7 @@ void unload_loop(int id) {
   std::erase_if(g_loops, [id](const Loop& l) { return l.id == id; });
 }
 
-void play_sample(const std::string& wav_path, float volume, float pan) {
+void play_sample(const std::string& wav_path, float volume, float pan, float rear_shelf_db) {
   Pcm buf;
   {
     std::lock_guard lk(g_mu);
@@ -233,10 +255,10 @@ void play_sample(const std::string& wav_path, float volume, float pan) {
     std::lock_guard lk(g_mu);
     buf = g_sample_cache[wav_path] = std::make_shared<const std::vector<float>>(std::move(samples));
   }
-  play_pcm(buf, volume, pan, 0, false);
+  play_pcm(buf, volume, pan, 0, false, true, rear_shelf_db);
 }
 
-uint32_t play_pcm(Pcm samples, float volume, float pan, int group, bool replace_group, bool apply_master) {
+uint32_t play_pcm(Pcm samples, float volume, float pan, int group, bool replace_group, bool apply_master, float rear_shelf_db) {
   if (!samples || samples->empty()) return 0;
   float l, r; pan_gains(pan, l, r);
   volume = volume < 0 ? 0 : volume > 1 ? 1 : volume;
@@ -245,6 +267,7 @@ uint32_t play_pcm(Pcm samples, float volume, float pan, int group, bool replace_
   if (replace_group && group)
     for (Shot& sh : g_shots) if (sh.group == group && sh.fade_out < 0) sh.fade_out = kFadeSamples;
   Shot sh; sh.buf = std::move(samples); sh.gl = volume * l; sh.gr = volume * r; sh.group = group; sh.id = g_next_shot_id++; sh.mastered = apply_master;
+  if (rear_shelf_db < -0.05f) high_shelf(sh, rear_shelf_db, kRearCornerHz, (float)kRate);
   g_shots.push_back(std::move(sh));
   return g_shots.back().id;
 }
