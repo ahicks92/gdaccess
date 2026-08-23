@@ -322,7 +322,10 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   Crossing): `screens/riftgate.cpp` over the world map in riftgate mode (`exe_ui::riftgate_*`, layout in
   docs/exe-ui-layout.md "Riftgate travel"). Review groups: N = people + non-loot objects of interest, M = loot.
   Sonar sweep (`src/sonar.cpp`, wotr's SonarSystem: enemies / loot / dungeon entrances pinged left to right,
-  rear high shelf on every spatial cue; `/sonar`). Labels: every Actor through the virtual GetGameDescription.
+  rear high shelf on every spatial cue; `/sonar`). **One distance curve for every positioned cue**
+  (`world::ear_frame`: ref/(ref+dist), ref 10 units, floor 0.2; `/sonar?ref=&floor=` tunes it for the review
+  pings too) with only a channel volume per system (sonar `vol=`, 1.0) -- wotr's 10 ft reference and 40 %
+  sonar channel were its corridor tuning and were far too quiet here. Labels: every Actor through the virtual GetGameDescription.
   Corpses are not enemies (`Character::IsAlive`). Main-menu character selection is a middle Tab stop of the
   main menu (the exe's CharacterPicker, docs/exe-ui-layout.md). **The virtual cursor parks at the entity's
   bounding-box CENTRE** (`Entity::GetRegionBoundingBox` = {centre, half-extents}, region frame): the fixed +1.0

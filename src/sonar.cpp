@@ -14,8 +14,7 @@ namespace {
 // wotr's defaults: 40 ft of reach, a 10 ft reference distance, 40 % volume. Grim Dawn's unit is about a
 // metre and its outdoors are wide, so the reach is larger here; all live-tunable (/sonar).
 float g_radius = 25.0f;   // world units
-float g_vol = 0.4f;       // the cue's own level (the mixer's master applies on top)
-float g_ref = 4.0f;       // units: volume = ref / (ref + dist), floor 0.08 (wotr VolumeFor)
+float g_vol = 1.0f;       // the channel volume on top of world::ear_frame's curve (the mixer's master applies after)
 bool g_enabled = true;
 bool g_force = false;      // dev: ignore the foreground gate (the dev loop never focuses the game)
 core::SonarSweep g_sweep;
@@ -25,10 +24,7 @@ struct Cached { unsigned id; world::Vec3 pos; };
 std::vector<Cached> g_positions;   // the sweep's entries' positions at sweep start (id -> pos)
 int g_fired = 0;
 
-float volume_for(float dist) {
-  float v = g_ref / (g_ref + dist);
-  return std::clamp(v, 0.08f, 1.0f) * g_vol;
-}
+
 bool audible() {
   if (g_force) return true;
   HWND fg = GetForegroundWindow();
@@ -61,12 +57,9 @@ void tick() {
   bool have = false;
   for (const Cached& c : g_positions) if (c.id == e->id) { pos = c.pos; have = true; break; }
   if (!have) return;
-  world::Vec3 me;
-  if (!world::player_position(me)) return;
-  float dist = std::sqrt((pos.x - me.x) * (pos.x - me.x) + (pos.z - me.z) * (pos.z - me.z));
-  float pan, gain, ahead; world::ear_frame(pos, pan, gain, &ahead);
+  float pan, gain, ahead; world::ear_frame(pos, pan, gain, &ahead);   // the shared curve (world::set_ping_rolloff) times this channel's volume
   if (!audible()) return;
-  audio::play_sample(audio::module_dir() + "assets\\audio\\interactables\\" + kCue[e->kind], volume_for(dist), pan, world::rear_shelf_db(ahead));
+  audio::play_sample(audio::module_dir() + "assets\\audio\\interactables\\" + kCue[e->kind], gain * g_vol, pan, world::rear_shelf_db(ahead));
   ++g_fired;
 }
 
@@ -77,7 +70,8 @@ void set_knob(const std::string& name, float v) {
   core::SweepParams& p = g_sweep.params();
   if (name == "radius" && v > 1) g_radius = v;
   else if (name == "vol") g_vol = std::clamp(v, 0.0f, 1.0f);
-  else if (name == "ref" && v > 0.1f) g_ref = v;
+  else if (name == "ref") world::set_ping_rolloff(v, -1.0f);
+  else if (name == "floor") world::set_ping_rolloff(-1.0f, v);
   else if (name == "gap_min" && v > 0) p.gap_min_s = v;
   else if (name == "gap_max" && v > 0) p.gap_max_s = v;
   else if (name == "rest" && v >= 0) p.rest_s = v;
@@ -85,12 +79,12 @@ void set_knob(const std::string& name, float v) {
 }
 std::string status() {
   const core::SweepParams& p = g_sweep.params();
-  std::string s = std::format("enabled={} radius={:.1f} vol={:.2f} ref={:.1f} gap_min={:.2f} gap_max={:.2f} rest={:.2f} fired={} in_sweep={}\n",
-                              g_enabled, g_radius, g_vol, g_ref, p.gap_min_s, p.gap_max_s, p.rest_s, g_fired, g_sweep.remaining());
+  std::string s = std::format("enabled={} radius={:.1f} vol={:.2f} rolloff {} (shared with the review pings) gap_min={:.2f} gap_max={:.2f} rest={:.2f} fired={} in_sweep={}\n",
+                              g_enabled, g_radius, g_vol, world::ping_rolloff(), p.gap_min_s, p.gap_max_s, p.rest_s, g_fired, g_sweep.remaining());
   for (auto [group, name] : {std::pair{world::ScanGroup::Enemies, "enemy"}, std::pair{world::ScanGroup::Loot, "loot"}, std::pair{world::ScanGroup::Transitions, "transition"}})
     for (const world::ScanItem& it : world::scan(group, g_radius)) {
       float pan, gain, ahead; world::ear_frame(it.pos, pan, gain, &ahead);
-      s += std::format("  {:<10} {:5.1f} pan {:+.2f} ahead {:+.2f} shelf {:+.1f} dB vol {:.2f}  {} '{}'\n", name, it.dist, pan, ahead, world::rear_shelf_db(ahead), volume_for(it.dist), it.cls, it.label);
+      s += std::format("  {:<10} {:5.1f} pan {:+.2f} ahead {:+.2f} shelf {:+.1f} dB vol {:.2f}  {} '{}'\n", name, it.dist, pan, ahead, world::rear_shelf_db(ahead), gain * g_vol, it.cls, it.label);
     }
   return s;
 }

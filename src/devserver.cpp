@@ -217,7 +217,7 @@ static std::string handle(const std::string& path, const std::map<std::string, s
   }
   if (path == "/sonar") {   // the sonar sweep: ?on=0|1 &radius= &vol= &ref= &gap_min= &gap_max= &rest= (seconds)
     if (q.count("on")) sonar::set_enabled(truthy(q.at("on")));
-    for (const char* k : {"radius", "vol", "ref", "gap_min", "gap_max", "rest", "force"}) if (q.count(k)) sonar::set_knob(k, (float)atof(q.at(k).c_str()));
+    for (const char* k : {"radius", "vol", "ref", "floor", "gap_min", "gap_max", "rest", "force"}) if (q.count(k)) sonar::set_knob(k, (float)atof(q.at(k).c_str()));
     return sonar::status();
   }
   if (path == "/where") { screens::speak_where(); return "ok\n"; }

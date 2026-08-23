@@ -1282,6 +1282,7 @@ unsigned reviewed_id() { return g_reviewed_id; }
 
 // The one pan/gain rule for positioned sounds and voices (wotr's sonar): pan by the ear-frame bearing of the
 // point from the player, gain ref/(ref+dist) with ref = 10 ft in units, never below 0.15.
+static float g_ping_ref = 10.0f, g_ping_floor = 0.2f;   // a cue 10 units away plays at half; nothing in reach drops under a fifth
 void ear_frame(const Vec3& p, float& pan, float& gain, float* ahead) {
   Vec3 me; pan = 0.0f; gain = 1.0f;
   if (ahead) *ahead = 1.0f;
@@ -1293,10 +1294,13 @@ void ear_frame(const Vec3& p, float& pan, float& gain, float* ahead) {
   float fwd = dx * fx + dz * fz;
   pan = dist > 0.01f ? right / dist : 0.0f;
   if (ahead) *ahead = dist > 0.01f ? std::clamp(fwd / dist, -1.0f, 1.0f) : 1.0f;
-  constexpr float kRef = 10.0f * 0.3048f / 0.67f;  // 10 ft in units (~0.67 m per unit)
-  gain = kRef / (kRef + dist);
-  if (gain < 0.15f) gain = 0.15f;
+  // One curve for every positioned cue. wotr's 10 ft reference (4.5 units) and its 40 % sonar channel were
+  // tuned for its corridors; at Grim Dawn's scale they were "way too quiet" (the user, 2026-08-22).
+  gain = g_ping_ref / (g_ping_ref + dist);
+  if (gain < g_ping_floor) gain = g_ping_floor;
 }
+void set_ping_rolloff(float ref, float floor) { if (ref > 0.1f) g_ping_ref = ref; if (floor >= 0.0f && floor <= 1.0f) g_ping_floor = floor; }
+std::string ping_rolloff() { return std::format("ref={:.1f} floor={:.2f}", g_ping_ref, g_ping_floor); }
 float rear_shelf_db(float ahead) { return ahead < 0.0f ? 10.0f * ahead : 0.0f; }   // -10 dB * how far behind
 static float g_voice_near = 9.0f, g_voice_far = 32.0f, g_voice_floor = 0.4f;
 float voice_gain(float dist) {
