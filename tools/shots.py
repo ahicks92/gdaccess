@@ -41,6 +41,35 @@ def player_xz() -> tuple[float, float]:
     return (float(m.group(1)), float(m.group(2))) if m else (0.0, 0.0)
 
 
+WAYPOINTS: list = []   # (x, z) of every room anchor of the region being shot; teleport() hops via them when the straight line fails
+
+
+def anchor_path(start, goal, hop: float) -> list:
+    """BFS over the region's anchors (edges <= hop units) from the anchor nearest `start` to the one nearest `goal`."""
+    import collections
+    if not WAYPOINTS:
+        return []
+    def d2(a, b): return (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2
+    s_i = min(range(len(WAYPOINTS)), key=lambda i: d2(WAYPOINTS[i], start))
+    g_i = min(range(len(WAYPOINTS)), key=lambda i: d2(WAYPOINTS[i], goal))
+    prev = {s_i: None}
+    q = collections.deque([s_i])
+    while q:
+        i = q.popleft()
+        if i == g_i:
+            break
+        for j in range(len(WAYPOINTS)):
+            if j not in prev and d2(WAYPOINTS[i], WAYPOINTS[j]) <= hop * hop:
+                prev[j] = i; q.append(j)
+    if g_i not in prev:
+        return []
+    out = []
+    i = g_i
+    while i is not None:
+        out.append(WAYPOINTS[i]); i = prev[i]
+    return out[::-1]
+
+
 def teleport(x: float, z: float, hop: float = 60.0, wait_s: float = 25.0) -> str:
     """Far targets crash the game if their chunk is not streamed in: hop toward them and wait for the load."""
     px, pz = player_xz()
@@ -66,6 +95,21 @@ def teleport(x: float, z: float, hop: float = 60.0, wait_s: float = 25.0) -> str
                 moved = True
                 break
             time.sleep(1.0)
+        if not moved:
+            # the straight line is off the mesh (water, cliffs): walk a path of room anchors instead. Anchors are
+            # proven landings (every shot room's), so the only constraint is chunk streaming: edges <= hop units.
+            path = anchor_path((px, pz), (x, z), hop)
+            for wx, wz in path:
+                t0 = time.time()
+                while "loaded=true" not in get("/teleport", x=f"{wx:.2f}", z=f"{wz:.2f}", check=1):
+                    if time.time() - t0 > wait_s:
+                        return f"waypoint chunk for ({wx:.1f}, {wz:.1f}) never loaded"
+                    time.sleep(1.0)
+                r = get("/teleport", x=f"{wx:.2f}", z=f"{wz:.2f}")
+                moved = r.startswith("teleported")
+                if not moved:
+                    break
+                time.sleep(2.0)
         if not moved:
             return f"cannot hop toward ({x:.1f}, {z:.1f}) from ({px:.1f}, {pz:.1f})"
         time.sleep(2.0)
@@ -205,6 +249,11 @@ def shoot_room(db: RoomsDb, region_key: str, room: dict, grid, samples: int, fog
             "terrain": terrain_facts(region_key, room, grid)}
     for i, (sx, sz) in enumerate(pts):
         tele = teleport(sx, sz)
+        if not tele.startswith("teleported") and "no navmesh floor" in tele and i == 0:
+            # the sample sits on the bake but the live mesh refuses it (bake wider than runtime, an obstacle):
+            # the anchor is the room's clearance maximum, the safest point in it
+            sx, sz = room["anchor_x"], room["anchor_z"]
+            tele = teleport(sx, sz)
         if not tele.startswith("teleported"):
             print(f"  {room['key']} sample {i}: {tele}; skipped")
             continue
@@ -258,6 +307,8 @@ def main():
     else:
         region_key = args.region
         rooms = [r for r in db.rooms(region_key) if r["status"] == args.status]
+    WAYPOINTS[:] = [(r["anchor_x"], r["anchor_z"]) for r in db.rooms(region_key)]
+    if args.cmd == "region":
         print("game", get("/pause", set=0).strip(), "(a hot reload in the world leaves the game paused; unpause before the tour)")
         # a nearest-neighbour tour from the character's position keeps every hop short (chunk streaming)
         px, pz = player_xz()
