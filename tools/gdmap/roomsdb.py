@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import struct
 from dataclasses import asdict
 
 import numpy as np
@@ -49,7 +50,7 @@ def rle_encode(labels: np.ndarray) -> bytes:
         v = int(flat[s]); n = int(e - s)
         while n > 0:
             k = min(n, 65535)
-            out.append(np.array([v, k], dtype="<i2").tobytes()[:2] + np.array([k], dtype="<u2").tobytes())
+            out.append(struct.pack("<hH", v, k))
             n -= k
     return b"".join(out)
 

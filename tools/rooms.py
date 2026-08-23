@@ -160,8 +160,8 @@ def cmd_segment(wm, args):
 
 def cmd_area(wm, args):
     os.makedirs(OUT, exist_ok=True)
-    key = args.location
-    regs = [r for r in wm.by_location(key) if not r.underground or args.underground]
+    key = args.key or args.location
+    regs = [r for r in wm.by_location(args.location) if not r.underground or args.underground]
     names = [r.name for r in regs]
     if args.only:
         only = args.only.split(",")
@@ -221,6 +221,7 @@ def main():
     s = sub.add_parser("segment"); s.add_argument("regions", nargs="+"); add_params(s); s.set_defaults(fn=cmd_segment)
     s = sub.add_parser("area"); s.add_argument("location"); s.add_argument("--underground", action="store_true")
     s.add_argument("--only", default=None, help="comma-separated chunk names to restrict the area to")
+    s.add_argument("--key", default=None, help="db region key (default: the location); use with --only to store a dungeon separately")
     s.add_argument("--write", action="store_true"); s.add_argument("--name", default=None)
     s.add_argument("--set", default=None, help="store params: persist=1.0,max_walk=80")
     add_params(s); s.set_defaults(fn=cmd_area)
