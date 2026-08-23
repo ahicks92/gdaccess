@@ -67,7 +67,7 @@ inline bool is_point_id(unsigned id) { return id >= kPointIdBase; }
 void set_exit_provider(std::vector<ScanItem> (*provider)());
 // Step the review cursor through a group (dir +1 / -1); returns the landing's spoken line, or the
 // group's "nothing" text. Also locks the virtual cursor on it.
-std::string cycle_review(ScanGroup group, int dir);
+std::string cycle_review(ScanGroup group, int dir, bool nearest = false);   // nearest: enter at the closest regardless of the current target (Alt+key)
 unsigned reviewed_id();
 // The mouse buttons as keys (J left, I right; hold = hold): the button goes down at the virtual cursor --
 // the reviewed thing when one is locked, else the real cursor -- and the game decides what that means

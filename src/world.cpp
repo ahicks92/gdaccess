@@ -1241,14 +1241,14 @@ static std::string_view group_label(ScanGroup g) {
   }
 }
 
-std::string cycle_review(ScanGroup group, int dir) {
+std::string cycle_review(ScanGroup group, int dir, bool nearest) {
   std::vector<ScanItem> items = scan(group);
   gd::core::MessageBuilder m;
   if (items.empty()) { unlock_target(); g_reviewed_id = 0; gd::strings::push_nothing_nearby(m, group_label(group)); return m.build(); }
   // Continue from the current target when it is in this group; otherwise enter at the nearest (or,
   // cycling backward into a fresh group, the farthest). Distances are live, so the order self-heals.
   int idx = -1;
-  for (size_t i = 0; i < items.size(); ++i) if (items[i].id == g_reviewed_id) { idx = (int)i; break; }
+  if (!nearest) for (size_t i = 0; i < items.size(); ++i) if (items[i].id == g_reviewed_id) { idx = (int)i; break; }
   int count = (int)items.size();
   idx = idx < 0 ? (dir >= 0 ? 0 : count - 1) : ((idx + dir) % count + count) % count;
   const ScanItem& it = items[(size_t)idx];

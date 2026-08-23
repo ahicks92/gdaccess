@@ -24,6 +24,7 @@
 #include "screens/codex.h"
 #include "screens/factions.h"
 #include "screens/riftgate.h"
+#include "sonar.h"
 #include "screens/inventory.h"
 #include "screens/skills.h"
 #include "screens/quickbar.h"
@@ -124,7 +125,18 @@ static void register_actions() {
   for (const Cycle& c : cycles) {
     world::ScanGroup g = c.group; int dir = c.dir;
     m.register_action(c.id, c.label, InputCategory::InGame, [g, dir] { speech::speak(world::cycle_review(g, dir), true); }).bind(c.key, false, c.shift, false);
+    // Alt + the key: the NEAREST of the group, whatever is reviewed now (the thing that just ran up to you).
+    if (!c.shift) {
+      std::string id = std::string(c.id).substr(0, std::string(c.id).size() - 4) + "Nearest";   // scan.enemyNext -> scan.enemyNearest
+      std::string label = std::string("Nearest ") + (c.label + 5);                                 // "Next enemy" -> "Nearest enemy"
+      m.register_action(id, label, InputCategory::InGame, [g] { speech::speak(world::cycle_review(g, 1, true), true); }).bind(c.key, false, false, true);
+    }
   }
+  // Backslash: the sonar sweep on / off (the game's Toggle Party Display is lifted to Ctrl+Backslash).
+  m.register_action("sonar.toggle", "Sonar on or off", InputCategory::InGame, [] {
+    sonar::set_enabled(!sonar::enabled());
+    speech::speak(sonar::enabled() ? strings::kSonarOn : strings::kSonarOff, true);
+  }).bind(keys::Backslash);
   m.register_action("scan.ping", "Ping the reviewed thing", InputCategory::InGame,
                     [] { if (world::ping_reviewed().empty()) speech::speak(strings::kNoTarget, true); }).bind(0x27);  // Semicolon
   // Rooms (docs/rooms.md): X = the current room's title and description; its exits are the scanner's Exits
