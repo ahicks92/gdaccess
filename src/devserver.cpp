@@ -206,6 +206,26 @@ static std::string handle(const std::string& path, const std::map<std::string, s
   }
   if (path == "/regions") return world::regions_dump(parse_int(q.count("max") ? q.at("max") : "40", 40));   // engine Regions (chunks): name, offset, loaded, portals; ?max=
   if (path == "/portals") return world::portals_dump();   // the player's chunk's portals
+  if (path == "/teleport") {  // /teleport?x=&z= -- the player, floored (authoring; docs/rooms.md M4)
+    if (!q.count("x") || !q.count("z")) { status = 400; return "need x and z\n"; }
+    return world::teleport((float)atof(q.at("x").c_str()), (float)atof(q.at("z").c_str()));
+  }
+  if (path == "/project" && q.count("pts")) {  // /project?pts=x,z;x,z;... -- ground points to screen (or POST the list)
+    std::vector<world::Vec3> pts;
+    std::string s = q.at("pts");
+    size_t i = 0;
+    while (i < s.size()) {
+      size_t e = s.find(';', i); if (e == std::string::npos) e = s.size();
+      std::string pair = s.substr(i, e - i); size_t c = pair.find(',');
+      if (c != std::string::npos) pts.push_back({(float)atof(pair.substr(0, c).c_str()), 0.f, (float)atof(pair.substr(c + 1).c_str())});
+      i = e + 1;
+    }
+    return world::project_points(pts);
+  }
+  if (path == "/fog") {       // /fog?x=&z=&radius=N -- reveal around a point (the dev character's map)
+    if (!q.count("x") || !q.count("z")) { status = 400; return "need x and z\n"; }
+    return world::fog_reveal((float)atof(q.at("x").c_str()), (float)atof(q.at("z").c_str()), parse_int(q.count("radius") ? q.at("radius") : "20", 20));
+  }
   if (path == "/navprobe") {  // /navprobe?x0=&z0=&x1=&z1=&step=0.5 -- IsPointOnPathMesh over a grid, '#' walkable, rows = z ascending
     auto f = [&](const char* k, float d) { return q.count(k) ? (float)atof(q.at(k).c_str()) : d; };
     return world::navprobe(f("x0", 0), f("z0", 0), f("x1", 0), f("z1", 0), f("step", 0.5f));

@@ -317,6 +317,11 @@ void load_api() {
   LOAD(Portal_GetConnectedRegion, Portal_GetConnectedRegion);
   LOAD(Portal_GetChokePoint, Portal_GetChokePoint);
   LOAD(Portal_GetIsOpen, Portal_GetIsOpen);
+  LOAD(World_GetRegionContainingXZ, World_GetRegionContainingXZ);
+  LOAD(Entity_SetCoords, Entity_SetCoords);
+  LOAD(Region_GetFogOfWar, Region_GetFogOfWar);
+  LOAD(FogOfWar_AddVisibility, FogOfWar_AddVisibility);
+  LOAD(FogOfWar_IsInFog, FogOfWar_IsInFog);
 #undef LOAD
 }
 
@@ -558,6 +563,74 @@ std::string portals_dump() {
   }
   return out;
 }
+// ---- authoring dev routes (docs/rooms.md M4): teleport, batch projection, fog reveal ----
+namespace { bool project_point(const Vec3& world_point, float& x, float& y); }   // defined with the cursor lock below
+std::string teleport(float x, float z) {
+  load_api();
+  void* p = player();
+  Buf base; void* region = nullptr;
+  if (!p || !g_api.Entity_SetCoords || !g_api.Entity_GetCoords || !player_world_vec(base, &region)) return "no player or exports\n";
+  // Target chunk: the one containing (x, z), reached from the player's chunk; the chunk's frame is world minus
+  // its offset (verified 2026-08-22), so region-relative = world - GetOffsetFromWorld().
+  void* target = g_api.World_GetRegionContainingXZ && g_world ? g_api.World_GetRegionContainingXZ(g_world, region, x, z) : nullptr;
+  if (!target) target = region;
+  const int* off = g_api.Region_GetOffsetFromWorld ? g_api.Region_GetOffsetFromWorld(target) : nullptr;
+  Vec3 wb = world_pos_of(base);
+  Vec3 rel{x - (off ? (float)off[0] : 0.f), wb.y - (off ? (float)off[1] : 0.f), z - (off ? (float)off[2] : 0.f)};
+  Buf wv{};
+  g_api.WorldVec3_ctor(&wv, target, &rel);
+  if (g_api.WorldVec3_PutOnFloor) g_api.WorldVec3_PutOnFloor(&wv);
+  Vec3 floored; memcpy(&floored, wv.b + 8, sizeof floored);
+  Buf wc{};
+  g_api.Entity_GetCoords(p, &wc);                       // keep the axes, replace region + origin
+  memcpy(wc.b, &target, sizeof target);
+  memcpy(wc.b + kWorldCoordsOriginOffset, &floored, sizeof floored);
+  g_api.Entity_SetCoords(p, &wc);
+  Vec3 now; player_position(now);
+  return std::format("teleported to ({:.1f}, {:.1f}, {:.1f}) in {}; on_navmesh={}\n", now.x, now.y, now.z, region_label(target), on_navmesh(now));
+}
+std::string project_points(const std::vector<Vec3>& pts) {
+  load_api();
+  std::string out;
+  RECT rc{};
+  HWND w = FindWindowA("Grim Dawn", nullptr);
+  if (!w || !GetClientRect(w, &rc)) return "no window\n";
+  for (Vec3 p : pts) {
+    // ground points: put on the floor through the player's region first (project_point lifts by 1.0)
+    Buf base; void* region = nullptr;
+    float y = p.y;
+    if (player_world_vec(base, &region)) {
+      Vec3 wb = world_pos_of(base);
+      const Vec3* rb = g_api.WorldVec3_GetRegionPosition(&base);
+      Vec3 rel{p.x - wb.x + rb->x, wb.y - wb.y + rb->y, p.z - wb.z + rb->z};
+      Buf wv{};
+      g_api.WorldVec3_ctor(&wv, region, &rel);
+      if (g_api.WorldVec3_PutOnFloor && g_api.WorldVec3_PutOnFloor(&wv)) { Vec3 f; memcpy(&f, wv.b + 8, sizeof f); y = f.y - rb->y + wb.y; }
+    }
+    float sx, sy;
+    bool ok = project_point(Vec3{p.x, y, p.z}, sx, sy);
+    bool visible = ok && sx >= 0 && sy >= 0 && sx < (float)rc.right && sy < (float)rc.bottom;
+    out += std::format("{:.2f},{:.2f} -> {:.1f},{:.1f} {}\n", p.x, p.z, sx, sy, visible ? "visible" : "off");
+  }
+  return out;
+}
+std::string fog_reveal(float x, float z, int radius) {
+  load_api();
+  void* p = player();
+  void* region = p && g_api.Entity_GetRegion ? g_api.Entity_GetRegion(p) : nullptr;
+  if (!region || !g_api.Region_GetFogOfWar || !g_api.FogOfWar_AddVisibility) return "no region or exports\n";
+  void* target = g_api.World_GetRegionContainingXZ && g_world ? g_api.World_GetRegionContainingXZ(g_world, region, x, z) : region;
+  if (!target) target = region;
+  void* fow = g_api.Region_GetFogOfWar(target, false);
+  if (!fow) return "no fog of war object\n";
+  const int* off = g_api.Region_GetOffsetFromWorld ? g_api.Region_GetOffsetFromWorld(target) : nullptr;
+  Vec3 rel{x - (off ? (float)off[0] : 0.f), 0.f, z - (off ? (float)off[2] : 0.f)};
+  bool before = g_api.FogOfWar_IsInFog ? g_api.FogOfWar_IsInFog(fow, &rel) : false;
+  g_api.FogOfWar_AddVisibility(fow, &rel, radius);
+  bool after = g_api.FogOfWar_IsInFog ? g_api.FogOfWar_IsInFog(fow, &rel) : false;
+  return std::format("fog at ({:.1f}, {:.1f}) in {}: in_fog before={} after={} (radius {})\n", x, z, region_label(target), before, after, radius);
+}
+
 std::string navprobe(float x0, float z0, float x1, float z1, float step) {
   load_api();
   Vec3 p;

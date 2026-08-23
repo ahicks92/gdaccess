@@ -121,6 +121,21 @@ inline constexpr const char* Portal_GetChokePoint = "?GetChokePoint@Portal@GAME@
 // public: bool __cdecl GAME::Portal::GetIsOpen(void)const __ptr64
 inline constexpr const char* Portal_GetIsOpen_DLL = "Engine.dll";
 inline constexpr const char* Portal_GetIsOpen = "?GetIsOpen@Portal@GAME@@QEBA_NXZ";
+// public: class GAME::Region * __ptr64 __cdecl GAME::World::GetRegionContainingXZ(class GAME::Region * __ptr64,float,float)const __ptr64
+inline constexpr const char* World_GetRegionContainingXZ_DLL = "Engine.dll";
+inline constexpr const char* World_GetRegionContainingXZ = "?GetRegionContainingXZ@World@GAME@@QEBAPEAVRegion@2@PEAV32@MM@Z";
+// protected: void __cdecl GAME::Entity::SetCoords(class GAME::WorldCoords const & __ptr64) __ptr64
+inline constexpr const char* Entity_SetCoords_DLL = "Engine.dll";
+inline constexpr const char* Entity_SetCoords = "?SetCoords@Entity@GAME@@IEAAXAEBVWorldCoords@2@@Z";
+// public: class GAME::FogOfWar * __ptr64 __cdecl GAME::Region::GetFogOfWar(bool) __ptr64
+inline constexpr const char* Region_GetFogOfWar_DLL = "Engine.dll";
+inline constexpr const char* Region_GetFogOfWar = "?GetFogOfWar@Region@GAME@@QEAAPEAVFogOfWar@2@_N@Z";
+// public: void __cdecl GAME::FogOfWar::AddVisibility(class GAME::Vec3 const & __ptr64,int) __ptr64
+inline constexpr const char* FogOfWar_AddVisibility_DLL = "Engine.dll";
+inline constexpr const char* FogOfWar_AddVisibility = "?AddVisibility@FogOfWar@GAME@@QEAAXAEBVVec3@2@H@Z";
+// public: bool __cdecl GAME::FogOfWar::IsInFog(class GAME::Vec3 const & __ptr64)const __ptr64
+inline constexpr const char* FogOfWar_IsInFog_DLL = "Engine.dll";
+inline constexpr const char* FogOfWar_IsInFog = "?IsInFog@FogOfWar@GAME@@QEBA_NAEBVVec3@2@@Z";
 // public: static class GAME::NavManager * __ptr64 __cdecl GAME::Singleton<class GAME::NavManager>::Get(void)
 inline constexpr const char* NavManager_Get_DLL = "Engine.dll";
 inline constexpr const char* NavManager_Get = "?Get@?$Singleton@VNavManager@GAME@@@GAME@@SAPEAVNavManager@2@XZ";
