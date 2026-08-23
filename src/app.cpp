@@ -115,9 +115,9 @@ static void register_actions() {
   struct Cycle { const char* id; const char* label; int key; world::ScanGroup group; int dir; bool shift; };
   const Cycle cycles[] = {
     {"scan.enemyNext", "Next enemy", 0x34, world::ScanGroup::Enemies, 1, false}, {"scan.enemyPrev", "Previous enemy", 0x34, world::ScanGroup::Enemies, -1, true},
-    {"scan.neutralNext", "Next person", 0x31, world::ScanGroup::Neutrals, 1, false}, {"scan.neutralPrev", "Previous person", 0x31, world::ScanGroup::Neutrals, -1, true},
+    {"scan.neutralNext", "Next person or object", 0x31, world::ScanGroup::Neutrals, 1, false}, {"scan.neutralPrev", "Previous person or object", 0x31, world::ScanGroup::Neutrals, -1, true},
     {"scan.bystanderNext", "Next bystander", 0x30, world::ScanGroup::Bystanders, 1, false}, {"scan.bystanderPrev", "Previous bystander", 0x30, world::ScanGroup::Bystanders, -1, true},
-    {"scan.objectNext", "Next object", 0x32, world::ScanGroup::Objects, 1, false}, {"scan.objectPrev", "Previous object", 0x32, world::ScanGroup::Objects, -1, true},
+    {"scan.objectNext", "Next loot", 0x32, world::ScanGroup::Objects, 1, false}, {"scan.objectPrev", "Previous loot", 0x32, world::ScanGroup::Objects, -1, true},
     {"scan.exitNext", "Next exit", 0x2f, world::ScanGroup::Exits, 1, false}, {"scan.exitPrev", "Previous exit", 0x2f, world::ScanGroup::Exits, -1, true},   // V: the current room's exits (docs/rooms.md)
   };
   for (const Cycle& c : cycles) {

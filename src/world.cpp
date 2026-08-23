@@ -1150,16 +1150,21 @@ bool is_of_interest(const void* e, const void* ci) {
   if (g_api.Item_StaticClassInfo && is_kind_of(ci, g_api.Item_StaticClassInfo())) return item_slot >= 0 && call_bool_slot(e, item_slot, &v) && v;
   return false;
 }
+bool is_loot(const void* ci, const std::string& cls) {
+  return (g_api.Item_StaticClassInfo && is_kind_of(ci, g_api.Item_StaticClassInfo())) || cls == "FixedItemContainer";
+}
 bool npc_has_conversation(const void* e) { bool v = false; return g_api.Npc_HasConversation && call_bool_fn(e, g_api.Npc_HasConversation, &v) && v; }
 bool in_group(const void* e, const void* ci, const std::string& cls, ScanGroup g) {
   switch (g) {
     case ScanGroup::Enemies: return cls == "Monster";
-    case ScanGroup::Neutrals: return cls == "Npc" && npc_has_conversation(e);     // people you can talk to
+    // N = the important non-loot things (decided 2026-08-22: one key for the one-offs -- people you can talk to,
+    // rifts, shrines, doors, levers), M = loot only (items on the ground, containers), B = flavour NPCs.
+    case ScanGroup::Neutrals: return (cls == "Npc" && npc_has_conversation(e)) || (is_of_interest(e, ci) && !is_loot(ci, cls));
     case ScanGroup::Bystanders: return cls == "Npc" && !npc_has_conversation(e);  // flavour NPCs
-    case ScanGroup::Objects: return is_of_interest(e, ci);
-    // The sonar sweep's groups: loot = an Item on the ground or a container the Interact key would open;
-    // transitions = dungeon entrances/exits (locked or not: the way out of a cave is still the way out).
-    case ScanGroup::Loot: return is_of_interest(e, ci) && ((g_api.Item_StaticClassInfo && is_kind_of(ci, g_api.Item_StaticClassInfo())) || cls == "FixedItemContainer");
+    case ScanGroup::Objects:
+    // Loot (the sonar sweep's group too): an Item on the ground or a container the Interact key would open.
+    case ScanGroup::Loot: return is_of_interest(e, ci) && is_loot(ci, cls);
+    // Transitions = dungeon entrances/exits (locked or not: the way out of a cave is still the way out).
     case ScanGroup::Transitions: return cls == "DungeonEntrance";
   }
   return false;
@@ -1232,7 +1237,7 @@ static std::string_view group_label(ScanGroup g) {
     case ScanGroup::Exits: return gd::strings::kExits;
     case ScanGroup::Loot: return gd::strings::kLoot;
     case ScanGroup::Transitions: return gd::strings::kTransitions;
-    default: return gd::strings::kObjects;
+    default: return gd::strings::kLoot;
   }
 }
 

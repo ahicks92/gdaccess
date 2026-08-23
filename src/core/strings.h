@@ -63,9 +63,8 @@ gd::core::MessageBuilder& push_nothing_nearby(gd::core::MessageBuilder& m, std::
 // "<speaker>: <speech>" -- a conversation node (speaker may be empty).
 gd::core::MessageBuilder& push_speech(gd::core::MessageBuilder& m, std::string_view speaker, std::string_view speech);
 inline constexpr std::string_view kEnemies = "enemies";
-inline constexpr std::string_view kNeutrals = "people";
+inline constexpr std::string_view kNeutrals = "people and objects";
 inline constexpr std::string_view kBystanders = "bystanders";
-inline constexpr std::string_view kObjects = "objects";
 inline constexpr std::string_view kLoot = "loot";
 inline constexpr std::string_view kTransitions = "dungeon entrances";
 inline constexpr std::string_view kNoTarget = "no target";
