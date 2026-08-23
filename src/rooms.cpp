@@ -25,7 +25,10 @@ using gd::core::MessageBuilder;
 namespace strings = gd::strings;
 
 struct Room { std::string key, title, body, subregion; std::string cls; float ax = 0, az = 0; bool island = false; };
-struct Exit { int a = -1, b = -1; float x = 0, z = 0, width = 0; bool cut = false; };
+struct Exit {
+  int a = -1, b = -1; float x = 0, z = 0, width = 0; bool cut = false;
+  std::string foreign;   // set when the far side is another region's room ("lowercrossing:43:-262"): b = -1
+};
 struct Region {
   std::string key, name;
   core::rooms::LabelGrid grid;
@@ -130,7 +133,11 @@ Region* load_region(const std::string& key) {
     st.bind(1, key);
     while (st.step()) {
       auto a = by_key.find(st.text(0)), b = by_key.find(st.text(1));
-      if (a == by_key.end() || b == by_key.end()) continue;
+      if (a == by_key.end()) continue;   // room_a is always this region's room (the seam pass writes one row per side)
+      if (b == by_key.end()) {           // a cross-region exit: keep the far room's key, resolve on use
+        r->exits.push_back({a->second, -1, (float)st.real(2), (float)st.real(3), (float)st.real(4), st.int64(5) != 0, st.text(1)});
+        continue;
+      }
       r->exits.push_back({a->second, b->second, (float)st.real(2), (float)st.real(3), (float)st.real(4), st.int64(5) != 0});
     }
   }
@@ -251,6 +258,20 @@ bool exit_blocked(const world::Vec3& at) {
   return true;
 }
 
+// The far side of a cross-region exit: "<region name>, <room title>" (the far region loads, cached, on
+// first use; the region name alone when its room is untitled) -- the player hears where the opening LEADS.
+std::string foreign_label(const std::string& key) {
+  size_t colon = key.find(':');
+  if (colon == std::string::npos) return {};
+  Region* fr = load_region(key.substr(0, colon));
+  if (!fr) return {};
+  MessageBuilder m;
+  m.list_item().fragment(fr->name.empty() ? fr->key : fr->name);
+  for (const Room& rm : fr->rooms)
+    if (rm.key == key) { if (!rm.title.empty()) m.list_item().fragment(rm.title); break; }
+  return m.build();
+}
+
 // The scanner's exit group: the current room's exits as point items. id = kPointIdBase + the region's exit
 // index (stable, so the cycle continues from the reviewed exit); label = the destination's title or "room N".
 std::vector<world::ScanItem> exit_items() {
@@ -263,7 +284,7 @@ std::vector<world::ScanItem> exit_items() {
     if (e.a != room && e.b != room) continue;
     int other = e.a == room ? e.b : e.a;
     world::Vec3 at{e.x, p.y, e.z};
-    std::string dest = room_label(*g_current, other);
+    std::string dest = other < 0 && !e.foreign.empty() ? foreign_label(e.foreign) : room_label(*g_current, other);
     if (dest.empty()) dest = other >= 0 && other < (int)g_current->rooms.size() ? g_current->rooms[other].cls : std::string(strings::kRoom);
     out.push_back({world::kPointIdBase + (unsigned)i, "exit", dest, {}, at, 0.0f, exit_blocked(at) ? std::string(strings::kBlocked) : std::string()});
   }
@@ -288,7 +309,7 @@ std::string status() {
       if (e.a == g_hyst.current || e.b == g_hyst.current) {
         int other = e.a == g_hyst.current ? e.b : e.a;
         world::Vec3 at{e.x, p.y, e.z};
-        s += std::format("  exit -> {} at ({:.1f}, {:.1f}) width {:.1f} cut {} dist {:.1f} hour {} walkable {}\n", other, e.x, e.z, e.width, e.cut, std::hypot(e.x - p.x, e.z - p.z), world::clock_hour(at), world::on_navmesh(at));
+        s += std::format("  exit -> {} at ({:.1f}, {:.1f}) width {:.1f} cut {} dist {:.1f} hour {} walkable {}\n", other < 0 && !e.foreign.empty() ? e.foreign : std::to_string(other), e.x, e.z, e.width, e.cut, std::hypot(e.x - p.x, e.z - p.z), world::clock_hour(at), world::on_navmesh(at));
       }
   }
   return s;

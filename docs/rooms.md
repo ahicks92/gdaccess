@@ -51,6 +51,15 @@ hold in the head -- a north-south or east-west line, never a geodesic contour) -
 (connected runs of boundary cells between two rooms; `cut` marks cap cuts). Rooms are ordered by anchor
 (z, x). Devil's Crossing: 8 chunks, 45,000 m², 202 rooms, 297 exits, 4 s.
 
+**Cross-region exits** (`rooms.py seams [--write]`, 2026-08-23): the per-region watershed sees its grid
+edge as a wall, so an opening at a REGION boundary (the Devil's Crossing -> Lower Crossing road at z=-256,
+found on the user's real save) never becomes an exit. The seams pass scans every region pair in the db for
+adjacent walkable cells across the seam (heights within 1 unit when known), clusters them into openings
+(>= 0.75 units wide) and writes exit rows into BOTH regions with the far side's full room key as `room_b`.
+The mod keeps an exit whose `room_b` is not local as a foreign exit and speaks its destination as
+"<region name>, <room title>" ("Lower Crossing, stump clearing"). **Re-run `seams --write` after any
+`area --write`** -- re-segmenting a region deletes all its exit rows, the cross-region ones included.
+
 Defaults (`Params`): persist 0.7, min_area 12, cut_floor 0.45, furniture_max 12, max_walk 60,
 min_split_area 40, island_min 50. Sensitivity on Devil's Crossing: persist 0.5 -> 164 rooms, 0.7 -> 144,
 1.0 -> 129, 1.5 -> 114 (five-chunk cluster); the cap made 9 cuts at 60 and 1 at 80 there, 20 over the

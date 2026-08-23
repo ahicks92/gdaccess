@@ -191,6 +191,85 @@ def cmd_area(wm, args):
         print(f"  written to {DB}: {counts}")
 
 
+def cmd_seams(wm, args):
+    """Cross-region exits. A per-region watershed sees its grid edge as a wall, so an opening at a region
+    boundary (the Devil's Crossing -> Lower Crossing road at z=-256, found live 2026-08-23) never becomes an
+    exit. This pass scans every region pair for adjacent walkable cells across the seam (heights within 1
+    unit when known), clusters them into openings and writes exit rows into BOTH regions with the far side's
+    room key. Idempotent; re-run after ANY `area --write` (which deletes its region's exit rows)."""
+    import collections
+    db = RoomsDb(DB)
+    regions = {}
+    for rk, x0, z0, w, h, lab, hts, keys in db.c.execute(
+            "SELECT region_key, x0, z0, w, h, labels, heights, label_keys FROM grids"):
+        from gdmap.roomsdb import rle_decode
+        labels = rle_decode(lab, h, w)
+        heights = rle_decode(hts, h, w) if hts else None
+        regions[rk] = (x0, z0, labels, heights, json.loads(keys))
+    total = 0
+    for a, b in [(a, b) for i, a in enumerate(sorted(regions)) for b in sorted(regions)[i + 1:]]:
+        ax0, az0, alab, ah, akeys = regions[a]
+        bx0, bz0, blab, bh, bkeys = regions[b]
+        awalk, bwalk = alab >= 0, blab >= 0
+        pairs = []   # (labelA, labelB, seam_x, seam_z)
+        # integer cell offset of B's frame relative to A's (grids are chunk-aligned, cell 0.25)
+        dc0 = int(round((bx0 - ax0) / 0.25)); dr0 = int(round((bz0 - az0) / 0.25))
+        for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            ars, acs = np.nonzero(awalk)
+            nr, nc = ars + dr, acs + dc
+            inside_a = (nr >= 0) & (nr < awalk.shape[0]) & (nc >= 0) & (nc < awalk.shape[1])
+            open_in_a = np.zeros(len(ars), dtype=bool)
+            open_in_a[inside_a] = awalk[nr[inside_a], nc[inside_a]]
+            br, bc = nr - dr0, nc - dc0
+            in_b = (br >= 0) & (br < bwalk.shape[0]) & (bc >= 0) & (bc < bwalk.shape[1])
+            hit = ~open_in_a & in_b
+            hit[hit] &= bwalk[br[hit], bc[hit]]
+            if ah is not None and bh is not None:
+                ok = np.abs(ah[ars[hit], acs[hit]].astype(np.int32) - bh[br[hit], bc[hit]].astype(np.int32)) <= 10
+                idx = np.nonzero(hit)[0]
+                hit[idx[~ok]] = False
+            for k in np.nonzero(hit)[0]:
+                la = int(alab[ars[k], acs[k]]); lb = int(blab[br[k], bc[k]])
+                sx = ax0 + (acs[k] + 0.5 + dc * 0.5) * 0.25
+                sz = az0 + (ars[k] + 0.5 + dr * 0.5) * 0.25
+                pairs.append((la, lb, sx, sz))
+        # cluster per (room pair) by proximity along the seam
+        by_rooms = collections.defaultdict(list)
+        for la, lb, sx, sz in pairs:
+            by_rooms[(la, lb)].append((sx, sz))
+        rows = []
+        for (la, lb), pts in by_rooms.items():
+            pts.sort()
+            clusters = []
+            for p in pts:
+                if clusters and min(abs(p[0] - q[0]) + abs(p[1] - q[1]) for q in clusters[-1][-6:]) <= 0.55:
+                    clusters[-1].append(p)
+                else:
+                    clusters.append([p])
+            for cl in clusters:
+                if len(cl) < 3:   # under 0.75 units of opening: bake noise, not a passage
+                    continue
+                xs = [p[0] for p in cl]; zs = [p[1] for p in cl]
+                width = max(max(xs) - min(xs), max(zs) - min(zs)) + 0.25
+                rows.append((sum(xs) / len(xs), sum(zs) / len(zs), width, akeys[la], bkeys[lb]))
+        if rows:
+            print(f"{a} <-> {b}: {len(rows)} cross-region exits")
+            for x, z, width, ka, kb in rows:
+                print(f"   ({x:7.1f}, {z:7.1f}) width {width:4.1f}  {ka} <-> {kb}")
+        total += len(rows)
+        if args.write:
+            for rk, other in ((a, b), (b, a)):
+                db.c.execute("DELETE FROM exits WHERE region_key=? AND room_b LIKE ?", (rk, other + ":%"))
+            for x, z, width, ka, kb in rows:
+                db.c.execute("INSERT INTO exits(region_key, room_a, room_b, x, z, width, cut) VALUES(?,?,?,?,?,?,0)",
+                             (a, ka, kb, x, z, width))
+                db.c.execute("INSERT INTO exits(region_key, room_a, room_b, x, z, width, cut) VALUES(?,?,?,?,?,?,0)",
+                             (b, kb, ka, x, z, width))
+    if args.write:
+        db.c.commit()
+        print(f"written: {total} seams into both sides' exit rows")
+
+
 def cmd_status(wm, args):
     db = RoomsDb(DB)
     for row in db.status():
@@ -230,6 +309,8 @@ def main():
     s.add_argument("--write", action="store_true"); s.add_argument("--name", default=None)
     s.add_argument("--set", default=None, help="store params: persist=1.0,max_walk=80")
     add_params(s); s.set_defaults(fn=cmd_area)
+    s = sub.add_parser("seams", help="cross-region exits over all region pairs; re-run after any area --write")
+    s.add_argument("--write", action="store_true"); s.set_defaults(fn=cmd_seams)
     s = sub.add_parser("status"); s.set_defaults(fn=cmd_status)
     s = sub.add_parser("plan"); s.add_argument("location"); s.add_argument("--scale", type=int, default=1)
     s.add_argument("--out", default=None); s.set_defaults(fn=cmd_plan)
