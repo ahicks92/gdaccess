@@ -44,33 +44,42 @@ def cmd_speech(a):
             return
         time.sleep(0.3)
 
-def cmd_shot(a):
+_shot_hwnd = []   # cached game window handle for capture(); re-found when stale
+
+
+def find_game_window():
     import ctypes, ctypes.wintypes as wt
-    from PIL import Image
-    u32, g32 = ctypes.windll.user32, ctypes.windll.gdi32
-    u32.FindWindowW.restype = ctypes.c_void_p
-    hwnd = None
-    # find the game's top-level window by process name
-    import ctypes
-    EnumWindows = u32.EnumWindows
+    u32 = ctypes.windll.user32
     WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
-    pid_target = None
-    out = subprocess.run(["tasklist", "/FI", "IMAGENAME eq Grim Dawn.exe", "/FO", "CSV", "/NH"], capture_output=True, text=True).stdout
-    for line in out.splitlines():
-        if line.startswith('"Grim Dawn.exe"'):
-            pid_target = int(line.split('","')[1]); break
-    if not pid_target: sys.exit("game not running")
+    pids = set(game_pids())
+    if not pids: sys.exit("game not running")
     found = []
     def cb(h, _):
         pid = wt.DWORD(); u32.GetWindowThreadProcessId(ctypes.c_void_p(h), ctypes.byref(pid))
-        if pid.value == pid_target and u32.IsWindowVisible(ctypes.c_void_p(h)):
+        if pid.value in pids and u32.IsWindowVisible(ctypes.c_void_p(h)):
             buf = ctypes.create_unicode_buffer(256); u32.GetWindowTextW(ctypes.c_void_p(h), buf, 256)
             if buf.value: found.append(h)
         return True
-    EnumWindows(WNDENUMPROC(cb), 0)
+    u32.EnumWindows(WNDENUMPROC(cb), 0)
     if not found: sys.exit("no visible game window")
-    hwnd = ctypes.c_void_p(found[0])
-    r = wt.RECT(); u32.GetClientRect(hwnd, ctypes.byref(r)); w, h = r.right - r.left, r.bottom - r.top
+    return found[0]
+
+
+def capture(out=None, width=1600):
+    """Screenshot of the game's client area (works unfocused). Importable: tools/shots.py calls this
+    in-process (a subprocess per sample was ~2 s of python+tasklist startup, 2026-08-23)."""
+    import ctypes, ctypes.wintypes as wt
+    from PIL import Image
+    u32, g32 = ctypes.windll.user32, ctypes.windll.gdi32
+    if not _shot_hwnd:
+        _shot_hwnd.append(find_game_window())
+    hwnd = ctypes.c_void_p(_shot_hwnd[0])
+    r = wt.RECT()
+    if not u32.GetClientRect(hwnd, ctypes.byref(r)):   # stale handle (game restarted): re-find once
+        _shot_hwnd[0] = find_game_window()
+        hwnd = ctypes.c_void_p(_shot_hwnd[0])
+        u32.GetClientRect(hwnd, ctypes.byref(r))
+    w, h = r.right - r.left, r.bottom - r.top
     hdc = u32.GetDC(hwnd); mdc = g32.CreateCompatibleDC(hdc); bmp = g32.CreateCompatibleBitmap(hdc, w, h); g32.SelectObject(mdc, bmp)
     PW_CLIENTONLY, PW_RENDERFULLCONTENT = 1, 2
     if not u32.PrintWindow(hwnd, mdc, PW_CLIENTONLY | PW_RENDERFULLCONTENT): sys.exit("PrintWindow failed")
@@ -81,9 +90,14 @@ def cmd_shot(a):
     g32.GetDIBits(mdc, bmp, 0, h, data, ctypes.byref(bi), 0)
     img = Image.frombuffer("RGB", (w, h), data, "raw", "BGRX", 0, 1)
     g32.DeleteObject(bmp); g32.DeleteDC(mdc); u32.ReleaseDC(hwnd, hdc)
-    if a.width and w > a.width: img = img.resize((a.width, int(h * a.width / w)))
-    path = a.out or os.path.join(os.environ.get("LOCALAPPDATA", "."), "gdaccess", "shot.png")
-    img.save(path); print(path)
+    if width and w > width: img = img.resize((width, int(h * width / w)))
+    path = out or os.path.join(os.environ.get("LOCALAPPDATA", "."), "gdaccess", "shot.png")
+    img.save(path)
+    return path
+
+
+def cmd_shot(a):
+    print(capture(a.out, a.width))
 
 def game_pids():
     """Pids of processes whose image is exactly Grim Dawn.exe (never anything else)."""

@@ -42,6 +42,7 @@ ENTRIES = [
     ("Region_GetOffsetFromWorld", "Engine", r"GAME::Region::GetOffsetFromWorld\(void\)"),
     ("Region_IsUnderground", "Engine", r"GAME::Region::IsUnderground\(void\)"),
     ("Region_IsLevelLoaded", "Engine", r"GAME::Region::IsLevelLoaded\(void\)"),
+    ("Region_BackgroundLoadLevel", "Engine", r"GAME::Region::BackgroundLoadLevel\(bool\)"),
     ("IsGameTimePaused", "Engine", r"GAME::IsGameTimePaused\(void\)"),
     ("PauseGameTime", "Engine", r"GAME::PauseGameTime\(void\)"),
     ("UnpauseGameTime", "Engine", r"GAME::UnpauseGameTime\(void\)"),

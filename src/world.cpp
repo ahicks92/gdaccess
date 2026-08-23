@@ -229,6 +229,7 @@ struct Api {
   const int* (*Region_GetOffsetFromWorld)(const void*) = nullptr;   // const IntVec3&
   bool (*Region_IsUnderground)(const void*) = nullptr;
   bool (*Region_IsLevelLoaded)(const void*) = nullptr;
+  void (*Region_BackgroundLoadLevel)(void*, bool) = nullptr;   // request the level stream (guarded/idempotent); off-map dungeons never load by proximity
   bool (*IsGameTimePaused)() = nullptr;
   void (*PauseGameTime)() = nullptr;
   void (*UnpauseGameTime)() = nullptr;
@@ -328,6 +329,7 @@ void load_api() {
   LOAD(Region_GetOffsetFromWorld, Region_GetOffsetFromWorld);
   LOAD(Region_IsUnderground, Region_IsUnderground);
   LOAD(Region_IsLevelLoaded, Region_IsLevelLoaded);
+  LOAD(Region_BackgroundLoadLevel, Region_BackgroundLoadLevel);
   LOAD(IsGameTimePaused, IsGameTimePaused);
   LOAD(PauseGameTime, PauseGameTime);
   LOAD(UnpauseGameTime, UnpauseGameTime);
@@ -634,6 +636,9 @@ std::string teleport(float x, float z, bool check_only) {
   // Into an unloaded chunk SetCoords crashes the game (2026-08-22, the first far room of a region run):
   // the caller hops closer and waits until the chunk's level is streamed in.
   bool loaded = g_api.Region_IsLevelLoaded ? g_api.Region_IsLevelLoaded(target) : false;
+  // An off-map dungeon (Burial Cave at world x 1184+) is outside every proximity stream: request the load
+  // and let the caller poll check=1 until loaded (Region::BackgroundLoadLevel is guarded, repeat calls ok).
+  if (!loaded && g_api.Region_BackgroundLoadLevel) g_api.Region_BackgroundLoadLevel(target, false);
   if (check_only || !loaded) return std::format("target chunk {} loaded={}{}\n", region_label(target), loaded, loaded ? "" : " (refused)");
   const int* off = g_api.Region_GetOffsetFromWorld ? g_api.Region_GetOffsetFromWorld(target) : nullptr;
   Vec3 wb = world_pos_of(base);

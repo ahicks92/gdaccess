@@ -103,6 +103,9 @@ inline constexpr const char* Region_IsUnderground = "?IsUnderground@Region@GAME@
 // public: bool __cdecl GAME::Region::IsLevelLoaded(void)const __ptr64
 inline constexpr const char* Region_IsLevelLoaded_DLL = "Engine.dll";
 inline constexpr const char* Region_IsLevelLoaded = "?IsLevelLoaded@Region@GAME@@QEBA_NXZ";
+// public: void __cdecl GAME::Region::BackgroundLoadLevel(bool) __ptr64
+inline constexpr const char* Region_BackgroundLoadLevel_DLL = "Engine.dll";
+inline constexpr const char* Region_BackgroundLoadLevel = "?BackgroundLoadLevel@Region@GAME@@QEAAX_N@Z";
 // bool __cdecl GAME::IsGameTimePaused(void)
 inline constexpr const char* IsGameTimePaused_DLL = "Engine.dll";
 inline constexpr const char* IsGameTimePaused = "?IsGameTimePaused@GAME@@YA_NXZ";

@@ -36,8 +36,11 @@ const SUB_SCHEMA = {
 }
 const DESC_SCHEMA = {
   type: 'object',
-  properties: { key: { type: 'string' }, title: { type: 'string' }, body: { type: 'string' }, passed: { type: 'boolean' }, problem: { type: 'string' } },
-  required: ['key', 'title', 'body', 'passed'],
+  properties: {
+    key: { type: 'string' }, title: { type: 'string' }, body: { type: 'string' }, passed: { type: 'boolean' }, problem: { type: 'string' },
+    shots_suspect: { type: 'boolean' }, shots_problem: { type: 'string' },
+  },
+  required: ['key', 'title', 'body', 'passed', 'shots_suspect'],
 }
 const REVIEW_SCHEMA = {
   type: 'object',
@@ -57,6 +60,9 @@ rooms: terrain fractions and landmark labels). Look at the floor plan PNG named 
 room's anchor; north up) with the Read tool; crop it with a short Python script (uv run python -c ...) if
 the ids are too small. Group by connectivity and geography: rooms inside one walled structure, one road
 stretch between junctions, one field. Islands (island=1) join the nearest group.
+The game's own area names are the best sub-region names where they fit: the minimap label in the TOP-RIGHT
+corner of a shot names the game's area at that spot (open "${ROOT}/build/shots/${region}/<key with : as
+_>/00_overlay.png" for one room per cluster you are unsure of). Prefer those names over invented ones.
 Write results: "${CLI} subregion ${region} <key> --name \\"<Name>\\" --summary \\"<one sentence>\\"" per
 sub-region (key = lowercase slug), then "${CLI} assign <room_key> <subregion_key>" for every room (batch
 them in one Bash call). Finish with "${CLI} status ${region}" and report the sub-regions with room counts
@@ -79,7 +85,11 @@ Task: write the TITLE and BODY for room ${key}, then make the mechanical check p
    "A plank bridge on trestles over cattail mud." "A rubble lane between canvas tents with a campfire."
 4. Save: "${CLI} describe ${key} --title \\"...\\" --body \\"...\\"" (no inner double quotes), then run
    "${CLI} check ${key}". If it prints FAIL, fix exactly what it lists and save + check again (up to 3
-   rounds). Return key, title, body, passed (true only if the last check printed ok), problem otherwise.`
+   rounds). Return key, title, body, passed (true only if the last check printed ok), problem otherwise.
+Set shots_suspect=true (with shots_problem saying why) when the images themselves look wrong for the job:
+a black or near-black frame, a game window or menu drawn over the room, the outline mostly off-screen, a
+death/respawn screen, or a scene that contradicts the terrain facts. Still write the best title/body you
+can from what is usable; the suspect rooms get re-shot and re-described.`
 }
 
 function reviewPrompt(key, title, body) {
@@ -152,9 +162,10 @@ const results = await pipeline(
   },
 )
 const done = results.filter(Boolean)
-log(`${done.filter(r => r.passed).length}/${rooms.length} rooms passed the check`)
+log(`${done.filter(r => r.passed).length}/${rooms.length} rooms passed the check; ${done.filter(r => r.shots_suspect).length} flagged suspect shots`)
 return {
   passed: done.filter(r => r.passed).map(r => `${r.key}: ${r.title} -- ${r.body}`),
   failed: done.filter(r => !r.passed).map(r => `${r.key}: ${r.problem || ''}`),
+  suspect_shots: done.filter(r => r.shots_suspect).map(r => `${r.key}: ${r.shots_problem || ''}`),
   reviews: done.filter(r => r.review).map(r => ({ key: r.key, ok: r.review.ok, reasons: r.review.reasons })),
 }
