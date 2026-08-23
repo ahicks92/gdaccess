@@ -97,9 +97,16 @@ what the mod will use. Floor plans: `build/rooms/*.png`, north (-z) up, exits as
   `tools/shots.py` hops 60 units at a time so chunks stream in), `/project?pts=`, `/fog?x=&z=&radius=`,
   `/pause?set=0` (a hot reload in the world can leave the game paused).
 
+## Authoring (done for Devil's Crossing 2026-08-22)
+`uv run tools/shots.py region <region> --status unseen` photographs every room (the game's own teleport, fog
+reveal, outline + exits drawn from `/project`, terrain and entity facts in `meta.json`); then the Workflow
+`tools/workflows/rooms_author.js` (every agent Opus): sub-regions once (`subregions: true`), one describer per
+room (`rooms: [keys]`, self-checked with `author.py check`, every 10th room reviewed), then the consistency pass
+(`consistency: true, subregion_keys: [...]`, optional `notes`) that reads each sub-region as a whole. Rules:
+`docs/rooms-description-rules.md`. Copy `assets/rooms.db` next to the DLL (a build does it) and `/room?reload=1`.
+
 ## Open
-- Titles, descriptions and sub-regions: the authoring workflow (plan M4/M5) -- screenshots per room via
-  `/teleport`, `/project`, `/fog?reveal=`; wotr's `docs/design/description-rules.md` as the starting rules.
+- One room of Devil's Crossing (`-70:-183`) is unseen: its anchor is bake-only ground the live mesh refuses.
 - The region display name is authored (`--name`); the game's own source is the riftgate master table's
   `tagWorldMap*` tags (`records/ui/riftgatemap/riftgate_mastertable.dbr`), not yet mapped.
 - Exits across region boundaries, road helpers (skeleton graph), the procedural DLC (segment live from the

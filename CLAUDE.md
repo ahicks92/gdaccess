@@ -306,8 +306,15 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   controller ticks/s after same-chunk, cross-chunk and hop-tour teleports). The Lua `Game.TeleportPlayer` is
   the riftgate fade activity (integer coords, async), not a dev teleport. The game pauses single player when it
   believes the window lost focus (a hot reload in the world can leave it paused: `/pause[?set=0|1]`,
-  `GAME::Pause/UnpauseGameTime`; `/player` shows `paused=`); `in_world()` no longer needs a live controller. Next: the
-  authoring workflow (titles, descriptions, sub-regions; Opus agents, see the plan) and road helpers.
+  `GAME::Pause/UnpauseGameTime`; `/player` shows `paused=`); `in_world()` no longer needs a live controller. **Devil's Crossing is
+  authored** (2026-08-22): 15 sub-regions, 201 of 202 rooms titled + described by `tools/workflows/rooms_author.js`
+  (Opus agents over `tools/shots.py` screenshots + `tools/author.py facts`; `docs/rooms-description-rules.md`; a
+  mechanical `author.py check`, a sampled reviewer, then a per-sub-region consistency pass -- the per-room
+  writers never see their neighbours, so confusable titles and fixtures named from the next room are fixed there;
+  ~13M Opus tokens for the region). `devilscrossing:-70:-183` stays unseen (its anchor is bake-only; the live
+  mesh refuses it). The dev character dies while posing for screenshots (level 2 among monsters): the shots run
+  toggles Lua `ToggleInvincible`, and a shot whose outline is <30 % visible is the tell of a respawn. Next:
+  road helpers, the next regions, region names from `tagWorldMap*`.
 - Next (needs the user's hands): player-facing targeting keys (nearest enemy / cycle / announce name,
   distance, direction -- the hover name arrives as `box_font` HUD text), an attack key that clicks the locked
   target, wall-tone tuning by ear, hover sounds, the Delete-character screen, the main menu icon buttons.
