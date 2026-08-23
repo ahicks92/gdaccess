@@ -102,10 +102,12 @@ ENTRIES = [
     ("Character_GetConversation", "Game", r"GAME::Character::GetConversation\(void\)"),
     # ---- review cursor classification (src/world.cpp): the Interact key's own filter ----
     ("FixedActor_GetStaticClassInfo", "Game", r"GAME::FixedActor::GetStaticClassInfo\(void\)"),
+    ("Actor_GetStaticClassInfo", "Engine", r"GAME::Actor::GetStaticClassInfo\(void\)"),
     ("Item_GetStaticClassInfo", "Game", r"GAME::Item::GetStaticClassInfo\(void\)"),
     ("FixedActor_IsOfInterest", "Game", r"GAME::FixedActor::IsOfInterest\(void\)"),
     ("Item_IsOfInterest", "Game", r"GAME::Item::IsOfInterest\(void\)"),
     ("FixedActor_vftable", "Game", r"GAME::FixedActor::`vftable'\{for `GAME::Object'\}"),
+    ("Monster_vftable", "Game", r"GAME::Monster::`vftable'\{for `GAME::Object'\}"),
     ("Item_vftable", "Game", r"GAME::Item::`vftable'\{for `GAME::Object'\}"),
     ("Npc_HasConversation", "Game", r"GAME::Npc::HasConversation\(void\)"),
     # ---- camera zoom presets (src/world.cpp) ----

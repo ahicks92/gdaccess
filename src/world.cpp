@@ -206,10 +206,12 @@ struct Api {
   // Review classification = the Interact key's own filter (docs: re_interact_key.md): FixedActor/Item that
   // say IsOfInterest() (virtual; slot found in each class's vftable), Npc with a conversation.
   const void* (*FixedActor_StaticClassInfo)() = nullptr;
+  const void* (*Actor_StaticClassInfo)() = nullptr;   // Actor declares the virtual GetGameDescription every label comes from
   const void* (*Item_StaticClassInfo)() = nullptr;
   bool (*FixedActor_IsOfInterest)(const void*) = nullptr;
   bool (*Item_IsOfInterest)(const void*) = nullptr;
   void** FixedActor_vftable = nullptr;
+  void** Monster_vftable = nullptr;       // to find the GetGameDescription slot (same slot for every Actor)
   void** Item_vftable = nullptr;
   bool (*Npc_HasConversation)(const void*) = nullptr;
   void* (*Project)(const void*, void*, const void*, const void*) = nullptr;  // WorldCamera::Project: hidden Vec2 return
@@ -300,10 +302,12 @@ void load_api() {
   LOAD(FaceTarget, ControllerPlayer_FaceTarget);
   LOAD(Object_vftable, Object_vftable);
   LOAD(FixedActor_StaticClassInfo, FixedActor_GetStaticClassInfo);
+  LOAD(Actor_StaticClassInfo, Actor_GetStaticClassInfo);
   LOAD(Item_StaticClassInfo, Item_GetStaticClassInfo);
   LOAD(FixedActor_IsOfInterest, FixedActor_IsOfInterest);
   LOAD(Item_IsOfInterest, Item_IsOfInterest);
   LOAD(FixedActor_vftable, FixedActor_vftable);
+  LOAD(Monster_vftable, Monster_vftable);
   LOAD(Item_vftable, Item_vftable);
   LOAD(Npc_HasConversation, Npc_HasConversation);
   LOAD(Project, WorldCamera_Project);
@@ -758,8 +762,8 @@ std::string debug_dump() {
 }
 
 // ---- targeting ----
-namespace { std::string entity_label(void* e, const std::string& cls); }
-namespace { bool is_of_interest(const void* e, const void* ci); bool is_kind_of(const void* ci, const void* base); }
+namespace { std::string entity_label(void* e, const void* ci, const std::string& cls); }
+namespace { bool is_of_interest(const void* e, const void* ci); bool is_kind_of(const void* ci, const void* base); int vt_slot(void** vt, const void* fn); }
 std::string entities_dump(float max_dist) {
   load_api();
   Vec3 me; if (!player_position(me)) return "no player\n";
@@ -805,7 +809,7 @@ std::string entities_dump(float max_dist) {
     else if (g_api.Item_StaticClassInfo && is_kind_of(r.ci, g_api.Item_StaticClassInfo())) kind = " [Item";
     if (!kind.empty()) kind += is_of_interest(e, r.ci) ? " interest]" : " no-interest]";
     if (cls == "Monster" && g_api.Character_IsAlive && !g_api.Character_IsAlive(e)) kind += " [dead]";   // a corpse: not an enemy
-    rows.push_back({d, std::format("{:6.1f}  id={:<8} {:<12} label='{}' at ({:.1f}, {:.1f}, {:.1f}) {} '{}'{}", d, r.id, cls, entity_label(e, cls),
+    rows.push_back({d, std::format("{:6.1f}  id={:<8} {:<12} label='{}' at ({:.1f}, {:.1f}, {:.1f}) {} '{}'{}", d, r.id, cls, entity_label(e, r.ci, cls),
                                    r.pos.x, r.pos.y, r.pos.z, e, r.name, kind)});
   }
   if (faulted) log::writef("entities: {} objects faulted while being read (skipped)", faulted);
@@ -1052,16 +1056,32 @@ std::string blocks_dump() {
 namespace {
 // The u16 result lands in a 32-byte SSO string the callee constructs; heap storage (capacity > 7) is the
 // game's CRT allocation (same MSVC CRT) and is freed here.
-bool read_label(void* e, const std::string& cls, char16_t* out, size_t cap) {
+// GetGameDescription(bool, bool) is declared virtual on Actor (Engine.dll), so one vtable slot -- found where
+// Monster's exported implementation sits in Monster's vftable -- labels every Actor the way the game's hover
+// does: chests ("Rotting Corpse"), doors, shrines, barrels ("Crate"), items, monsters. Npc/Player keep their
+// rollover text (the name); anything not an Actor has no label (2026-08-22; containers were "fixed item container").
+int game_description_slot() {
+  static int slot = -2;
+  if (slot == -2) {
+    slot = vt_slot(g_api.Monster_vftable, (const void*)g_api.Monster_GetGameDescription);
+    log::writef("world: GetGameDescription slot: {}", slot);
+  }
+  return slot;
+}
+bool read_label(void* e, const void* ci, const std::string& cls, char16_t* out, size_t cap) {
   __try {
     alignas(16) unsigned char sb[64] = {};
     MsvcStringW* s = (MsvcStringW*)sb;
     s->capacity = 7;
     MsvcStringW* r = nullptr;
-    if (cls == "Monster" && g_api.Monster_GetGameDescription) r = g_api.Monster_GetGameDescription(e, s, false, false);
-    else if (cls == "Npc" && g_api.Npc_GetRolloverDescription) r = g_api.Npc_GetRolloverDescription(e, s);
+    if (cls == "Npc" && g_api.Npc_GetRolloverDescription) r = g_api.Npc_GetRolloverDescription(e, s);
     else if (cls == "Player" && g_api.Player_GetRolloverDescription) r = g_api.Player_GetRolloverDescription(e, s);
+    else if (cls == "Monster" && g_api.Monster_GetGameDescription) r = g_api.Monster_GetGameDescription(e, s, false, false);
     else if (cls == "Item" && g_api.Item_GetGameDescription) r = g_api.Item_GetGameDescription(e, s, false, false);
+    else if (ci && g_api.Actor_StaticClassInfo && is_kind_of(ci, g_api.Actor_StaticClassInfo()) && game_description_slot() >= 0) {
+      void** vt; memcpy(&vt, e, sizeof vt);
+      r = ((MsvcStringW* (*)(const void*, MsvcStringW*, bool, bool))vt[game_description_slot()])(e, s, false, false);
+    }
     if (!r) return false;
     std::u16string_view v = s->view();
     size_t n = v.size() < cap - 1 ? v.size() : cap - 1;
@@ -1070,9 +1090,9 @@ bool read_label(void* e, const std::string& cls, char16_t* out, size_t cap) {
     return true;
   } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
 }
-std::string entity_label(void* e, const std::string& cls) {
+std::string entity_label(void* e, const void* ci, const std::string& cls) {
   char16_t buf[512];
-  if (!read_label(e, cls, buf, 512)) return {};
+  if (!read_label(e, ci, cls, buf, 512)) return {};
   return textcap::speakable(std::u16string_view(buf));
 }
 }  // namespace
@@ -1082,7 +1102,7 @@ std::string label_of(unsigned id) {
   if (!e) return {};
   EntityRaw r{};
   if (!read_entity(e, r)) return {};
-  return entity_label(e, rtti_name(r.ci));
+  return entity_label(e, r.ci, rtti_name(r.ci));
 }
 
 // ---- the review cursor ----
@@ -1193,7 +1213,7 @@ std::vector<ScanItem> scan(ScanGroup group, float radius) {
       // Corpses stay Monsters (and foes) until the game reaps them: only the living are enemies (2026-08-22).
       if (g_api.Character_IsAlive && !g_api.Character_IsAlive(e)) continue;
     }
-    std::string label = entity_label(e, cls);  // an unlabelled object is read by its class name (cycle_review)
+    std::string label = entity_label(e, r.ci, cls);  // an unlabelled object is read by its class name (cycle_review)
     out.push_back({r.id, cls, label, record, r.pos, d});
   }
   std::sort(out.begin(), out.end(), [](const ScanItem& a, const ScanItem& b) { return a.dist < b.dist; });

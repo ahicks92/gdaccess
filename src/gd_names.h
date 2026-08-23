@@ -271,6 +271,9 @@ inline constexpr const char* Character_GetConversation = "?GetConversation@Chara
 // public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::FixedActor::GetStaticClassInfo(void)
 inline constexpr const char* FixedActor_GetStaticClassInfo_DLL = "Game.dll";
 inline constexpr const char* FixedActor_GetStaticClassInfo = "?GetStaticClassInfo@FixedActor@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
+// public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::Actor::GetStaticClassInfo(void)
+inline constexpr const char* Actor_GetStaticClassInfo_DLL = "Engine.dll";
+inline constexpr const char* Actor_GetStaticClassInfo = "?GetStaticClassInfo@Actor@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
 // public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::Item::GetStaticClassInfo(void)
 inline constexpr const char* Item_GetStaticClassInfo_DLL = "Game.dll";
 inline constexpr const char* Item_GetStaticClassInfo = "?GetStaticClassInfo@Item@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
@@ -283,6 +286,9 @@ inline constexpr const char* Item_IsOfInterest = "?IsOfInterest@Item@GAME@@UEBA_
 // const GAME::FixedActor::`vftable'{for `GAME::Object'}
 inline constexpr const char* FixedActor_vftable_DLL = "Game.dll";
 inline constexpr const char* FixedActor_vftable = "??_7FixedActor@GAME@@6BObject@1@@";
+// const GAME::Monster::`vftable'{for `GAME::Object'}
+inline constexpr const char* Monster_vftable_DLL = "Game.dll";
+inline constexpr const char* Monster_vftable = "??_7Monster@GAME@@6BObject@1@@";
 // const GAME::Item::`vftable'{for `GAME::Object'}
 inline constexpr const char* Item_vftable_DLL = "Game.dll";
 inline constexpr const char* Item_vftable = "??_7Item@GAME@@6BObject@1@@";
