@@ -1225,8 +1225,10 @@ bool in_group(const void* e, const void* ci, const std::string& cls, ScanGroup g
     case ScanGroup::Enemies: return is_a(ci, g_api.Monster_StaticClassInfo);   // the scan filters IsFoe + alive after
     // N = the important non-loot things (decided 2026-08-22: one key for the one-offs -- people you can talk to,
     // rifts, shrines, doors, levers), M = loot only (items on the ground, containers), B = flavour NPCs.
-    case ScanGroup::Neutrals: return (is_a(ci, g_api.Npc_StaticClassInfo) && npc_has_conversation(e)) || (is_of_interest(e, ci) && !is_loot(ci, cls));
-    case ScanGroup::Bystanders: return is_a(ci, g_api.Npc_StaticClassInfo) && !npc_has_conversation(e);  // flavour NPCs
+    // A subclassed Npc (NpcMerchant Kerrick -- HasConversation is FALSE for merchants, the vendor window is
+    // not a conversation) is specialized BECAUSE it does something important: N regardless.
+    case ScanGroup::Neutrals: return (is_a(ci, g_api.Npc_StaticClassInfo) && (npc_has_conversation(e) || cls != "Npc")) || (is_of_interest(e, ci) && !is_loot(ci, cls));
+    case ScanGroup::Bystanders: return is_a(ci, g_api.Npc_StaticClassInfo) && cls == "Npc" && !npc_has_conversation(e);  // flavour NPCs
     case ScanGroup::Objects:
     // Loot (the sonar sweep's group too): an Item on the ground or a container the Interact key would open.
     case ScanGroup::Loot: return is_of_interest(e, ci) && is_loot(ci, cls);
