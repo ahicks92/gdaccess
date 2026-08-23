@@ -90,6 +90,54 @@ glance that matches what is inside the outline, with no exits/neighbours/adjecti
 the title a usable place name? If not, say exactly what is wrong. Do not edit anything. Return ok and reasons.`
 }
 
+// Consistency pass (added 2026-08-22 after the per-room reviewer rejected 8 of 19 sampled rooms for one class of
+// problem: a describer never sees its neighbours, so adjacent rooms came out as "fern grass slope" / "open grass
+// slope", "cobbled wagon track" / "rutted cart track", bodies naming the next room's shack, the same well described
+// twice with different materials). One Opus agent per sub-region reads every title and body in it plus the rooms
+// across its exits, and rewrites the confusable ones. args: { consistency: true, subregions_keys: [...], notes: [...] }
+const CONS_SCHEMA = {
+  type: 'object',
+  properties: {
+    subregion: { type: 'string' },
+    rewritten: { type: 'array', items: { type: 'object', properties: { key: { type: 'string' }, title: { type: 'string' }, body: { type: 'string' } }, required: ['key', 'title', 'body'] } },
+    notes: { type: 'string' },
+  },
+  required: ['subregion', 'rewritten'],
+}
+if (args.consistency) {
+  phase('Consistency')
+  const subs = args.subregion_keys || []
+  const notes = (args.notes || []).join('\n')
+  const cons = await parallel(subs.map(sub => () => agent(`${COMMON}
+Task: make the titles and bodies of sub-region "${sub}" CONSISTENT AND DISTINGUISHABLE when heard in sequence by
+a blind player walking through it. Every room already has a title and body that pass the mechanical check; your
+job is the editorial layer the per-room writers could not do because they never saw their neighbours.
+Inputs: run "${CLI} export ${region}" and read the JSON it writes: rooms (key, subregion_key, title, body, area,
+cls, bbox, terrain fractions, landmarks) and exits (room_a, room_b). Your rooms are those with subregion_key
+"${sub}"; also read the rooms in OTHER sub-regions that share an exit with one of yours (boundary pairs).
+Find and fix, in this order:
+1. Confusable titles: two rooms that share an exit, or are in the same sub-region, whose titles differ by one
+   word or are synonyms ("fern grass slope" / "open grass slope" / "fern slope"; "cobbled wagon track" /
+   "rutted cart track"; "cattail mud pocket" / "cattail mud lane"). Rename so each title names what is distinct
+   about THAT room (a fixture, a structure, a position: "the gap between the outcrops", "store back room"). Keep
+   the sub-region's naming convention (e.g. "<thing> floor" for house interiors) and the rules' 2-4 lowercase words.
+2. Bodies that name a fixture belonging to a neighbour (the next room's shack, the well that is the identifying
+   feature of the room next door) or that duplicate the neighbour's body. Replace with something inside the room.
+   When unsure what is inside, run "${CLI} facts <key>" and look at ONE shot with the Read tool (only what is
+   inside the yellow outline counts) -- do this only for rooms you are changing.
+3. The same structure seen from two rooms must be named the same way in both (one well, one name, one material).
+4. Reviewer notes on specific rooms (act on the ones in your sub-region, ignore the rest):
+${notes}
+Do NOT rewrite rooms that are fine; most rooms should be untouched. Keep bodies one sentence, two at most, under
+40 words, plain nouns, no exits, no neighbours, no adjective soup. Save every change with
+"${CLI} describe <key> --title \\"...\\" --body \\"...\\"" (no inner double quotes) and then run "${CLI} check <key>"
+and fix until it prints ok. Return subregion, the list of rooms you rewrote (key, title, body) and short notes.`,
+    { model: 'opus', label: `consistency:${sub}`, phase: 'Consistency', schema: CONS_SCHEMA })))
+  const changed = cons.filter(Boolean).flatMap(c => c.rewritten.map(r => `${c.subregion} ${r.key}: ${r.title} -- ${r.body}`))
+  log(`consistency: ${changed.length} rooms rewritten across ${cons.filter(Boolean).length} sub-regions`)
+  if (!rooms.length) return { rewritten: changed, notes: cons.filter(Boolean).map(c => `${c.subregion}: ${c.notes || ''}`) }
+}
+
 phase('Describe')
 const results = await pipeline(
   rooms,
