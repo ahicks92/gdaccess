@@ -17,3 +17,6 @@ third_party/prism/
 .vscode/
 *.swp
 Thumbs.db
+
+# uv project environment
+.venv/

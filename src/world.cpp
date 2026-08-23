@@ -216,6 +216,25 @@ struct Api {
   void (*ResetZoom)(void*) = nullptr;
   void (*SetCameraYaw)(void*, float) = nullptr;          // GameCamera::SetCameraYaw (radians)
   void* (*Viewport_ctor)(void*, int, int, int, int) = nullptr;
+  // world structure (chunks and portals; dev dumps for docs/rooms.md)
+  int (*World_GetNumRegions)(const void*) = nullptr;
+  void* (*World_GetRegion)(void*, int) = nullptr;
+  const int* (*Region_GetOffsetFromWorld)(const void*) = nullptr;   // const IntVec3&
+  bool (*Region_IsUnderground)(const void*) = nullptr;
+  bool (*Region_IsLevelLoaded)(const void*) = nullptr;
+  int (*Region_GetNumPortals)(const void*) = nullptr;
+  void* (*Region_GetPortal)(const void*, int) = nullptr;
+  int (*Region_GetWorldIndex)(const void*) = nullptr;
+  const float* (*Region_GetBoundingBox)(const void*) = nullptr;      // const ABBox&: min Vec3, max Vec3
+  void* (*Portal_GetConnectedRegion)(const void*) = nullptr;
+  void* (*Portal_GetChokePoint)(const void*, void*) = nullptr;       // WorldCoords by value: hidden pointer
+  bool (*Portal_GetIsOpen)(const void*) = nullptr;
+  // authoring dev routes
+  void* (*World_GetRegionContainingXZ)(const void*, void*, float, float) = nullptr;
+  void (*Entity_SetCoords)(void*, const void*) = nullptr;                 // protected, exported
+  void* (*Region_GetFogOfWar)(void*, bool) = nullptr;
+  void (*FogOfWar_AddVisibility)(void*, const Vec3*, int) = nullptr;
+  bool (*FogOfWar_IsInFog)(const void*, const Vec3*) = nullptr;
   bool loaded = false;
 } g_api;
 
@@ -286,6 +305,18 @@ void load_api() {
   LOAD(ResetZoom, GameCamera_ResetZoom);
   LOAD(SetCameraYaw, GameCamera_SetCameraYaw);
   LOAD(Viewport_ctor, Viewport_ctor);
+  LOAD(World_GetNumRegions, World_GetNumRegions);
+  LOAD(World_GetRegion, World_GetRegion);
+  LOAD(Region_GetOffsetFromWorld, Region_GetOffsetFromWorld);
+  LOAD(Region_IsUnderground, Region_IsUnderground);
+  LOAD(Region_IsLevelLoaded, Region_IsLevelLoaded);
+  LOAD(Region_GetNumPortals, Region_GetNumPortals);
+  LOAD(Region_GetPortal, Region_GetPortal);
+  LOAD(Region_GetWorldIndex, Region_GetWorldIndex);
+  LOAD(Region_GetBoundingBox, Region_GetBoundingBox);
+  LOAD(Portal_GetConnectedRegion, Portal_GetConnectedRegion);
+  LOAD(Portal_GetChokePoint, Portal_GetChokePoint);
+  LOAD(Portal_GetIsOpen, Portal_GetIsOpen);
 #undef LOAD
 }
 
@@ -451,6 +482,95 @@ bool on_navmesh(const Vec3& world_point) {
   g_api.WorldVec3_ctor(&wv, region, &rel);
   if (g_api.WorldVec3_PutOnFloor) g_api.WorldVec3_PutOnFloor(&wv);
   return g_api.IsPointOnPathMesh(nav, &wv);
+}
+
+// ---- dev dumps of the world structure (chunks = engine Regions; tools/gdmap reads the same data offline) ----
+std::string region_label(const void* r) {
+  if (!r) return "null";
+  const MsvcString<char>* s = g_api.Region_GetName ? g_api.Region_GetName(r) : nullptr;
+  return s ? std::string(s->view()) : std::format("{}", r);
+}
+// POD-only SEH helpers (MSVC C2712: no __try in functions with C++ objects).
+struct RegionInfo { void* region; int index; int offset[3]; bool underground, loaded; int portals; float bbox[6]; };
+static bool read_region_info(void* world, int i, RegionInfo* out) {
+  __try {
+    void* r = g_api.World_GetRegion(world, i);
+    if (!r) return false;
+    out->region = r;
+    out->index = g_api.Region_GetWorldIndex ? g_api.Region_GetWorldIndex(r) : -1;
+    const int* off = g_api.Region_GetOffsetFromWorld ? g_api.Region_GetOffsetFromWorld(r) : nullptr;
+    for (int k = 0; k < 3; ++k) out->offset[k] = off ? off[k] : 0;
+    // NOT Region::IsUnderground: it calls Region::LoadLevel (disassembled 2026-08-22) -- over all chunks
+    // that loads the whole world. GetBoundingBox is unverified, so it is only read for loaded chunks.
+    out->underground = false;
+    out->loaded = g_api.Region_IsLevelLoaded ? g_api.Region_IsLevelLoaded(r) : false;
+    out->portals = g_api.Region_GetNumPortals ? g_api.Region_GetNumPortals(r) : -1;
+    const float* bb = out->loaded && g_api.Region_GetBoundingBox ? g_api.Region_GetBoundingBox(r) : nullptr;
+    for (int k = 0; k < 6; ++k) out->bbox[k] = bb ? bb[k] : 0.f;
+    return true;
+  } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+struct PortalInfo { void* portal; void* other; bool open; void* choke_region; Vec3 choke; };
+static bool read_portal_info(void* region, int i, PortalInfo* out) {
+  __try {
+    void* portal = g_api.Region_GetPortal(region, i);
+    if (!portal) return false;
+    out->portal = portal;
+    out->other = g_api.Portal_GetConnectedRegion ? g_api.Portal_GetConnectedRegion(portal) : nullptr;
+    out->open = g_api.Portal_GetIsOpen ? g_api.Portal_GetIsOpen(portal) : false;
+    Buf wc{};
+    if (g_api.Portal_GetChokePoint) g_api.Portal_GetChokePoint(portal, &wc);
+    memcpy(&out->choke_region, wc.b, sizeof out->choke_region);
+    memcpy(&out->choke, wc.b + kWorldCoordsOriginOffset, sizeof out->choke);
+    return true;
+  } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+std::string regions_dump(int max) {
+  load_api();
+  if (!g_world || !g_api.World_GetNumRegions || !g_api.World_GetRegion) return "no world\n";
+  std::string out;
+  int n = g_api.World_GetNumRegions(g_world);
+  out += std::format("{} regions (world={}), showing up to {}\n", n, g_world, max);
+  for (int i = 0; i < n && i < max; ++i) {
+    RegionInfo ri{};
+    log::writef("regions_dump: reading region {}", i);
+    if (!read_region_info(g_world, i, &ri)) { out += std::format("{}: null or faulted\n", i); continue; }
+    out += std::format("{:4d} {:28s} idx={} offset=({}, {}, {}) loaded={} portals={} bbox=({:.0f},{:.0f},{:.0f})..({:.0f},{:.0f},{:.0f})\n", i, region_label(ri.region),
+                       ri.index, ri.offset[0], ri.offset[1], ri.offset[2], ri.loaded, ri.portals, ri.bbox[0], ri.bbox[1], ri.bbox[2], ri.bbox[3], ri.bbox[4], ri.bbox[5]);
+  }
+  return out;
+}
+std::string portals_dump() {
+  load_api();
+  void* p = player();
+  void* region = p && g_api.Entity_GetRegion ? g_api.Entity_GetRegion(p) : nullptr;
+  if (!region || !g_api.Region_GetNumPortals || !g_api.Region_GetPortal) return "no region\n";
+  std::string out;
+  int n = g_api.Region_GetNumPortals(region);
+  out += std::format("region {} ({}): {} portals\n", region_label(region), region, n);
+  for (int i = 0; i < n && i < 256; ++i) {
+    PortalInfo pi{};
+    if (!read_portal_info(region, i, &pi)) { out += std::format("  {}: null or faulted\n", i); continue; }
+    std::string world;
+    if (pi.choke_region && g_api.WorldVec3_ctor) { Buf wv{}; g_api.WorldVec3_ctor(&wv, pi.choke_region, &pi.choke); world = wv_text(&wv); }
+    out += std::format("  {}: -> {} open={} choke region={} rel=({:.1f}, {:.1f}, {:.1f}) world={}\n", i, region_label(pi.other), pi.open, region_label(pi.choke_region),
+                       pi.choke.x, pi.choke.y, pi.choke.z, world);
+  }
+  return out;
+}
+std::string navprobe(float x0, float z0, float x1, float z1, float step) {
+  load_api();
+  Vec3 p;
+  if (!player_position(p) || step <= 0.05f) return "no player or bad step\n";
+  int cols = (int)((x1 - x0) / step) + 1, rows = (int)((z1 - z0) / step) + 1;
+  if (cols <= 0 || rows <= 0 || (long long)cols * rows > 400000) return "bad or too large range\n";
+  std::string out = std::format("navprobe x0={} z0={} x1={} z1={} step={} cols={} rows={} player=({:.1f},{:.1f},{:.1f}) region={}\n", x0, z0, x1, z1, step, cols, rows, p.x, p.y, p.z, region_name());
+  for (int r = 0; r < rows; ++r) {
+    std::string line; line.reserve(cols + 1);
+    for (int c = 0; c < cols; ++c) line += on_navmesh(Vec3{x0 + c * step, p.y, z0 + r * step}) ? '#' : '.';
+    out += line; out += '\n';
+  }
+  return out;
 }
 
 float free_distance(float dir_x, float dir_z, float max_dist, float step) {
@@ -631,18 +751,58 @@ bool project(void* entity, float& x, float& y) {
 }
 }  // namespace
 
+// A bare world point (a room exit) projected through the player's region like on_navmesh does.
+namespace {
+bool g_point_locked = false;
+Vec3 g_locked_point;
+bool project_point(const Vec3& world_point, float& x, float& y) {
+  void* cam = g_game_engine && g_api.GetCamera ? g_api.GetCamera(g_game_engine) : nullptr;
+  Buf base; void* region = nullptr;
+  if (!cam || !g_api.Project || !g_api.Viewport_ctor || !g_api.WorldVec3_ctor || !player_world_vec(base, &region)) return false;
+  Vec3 wb = world_pos_of(base);
+  const Vec3* rb = g_api.WorldVec3_GetRegionPosition(&base);
+  Vec3 rel{world_point.x - wb.x + rb->x, world_point.y - wb.y + rb->y + 1.0f, world_point.z - wb.z + rb->z};
+  Buf wv{};
+  g_api.WorldVec3_ctor(&wv, region, &rel);
+  RECT rc{};
+  HWND w = FindWindowA("Grim Dawn", nullptr);
+  if (!w || !GetClientRect(w, &rc)) return false;
+  Buf vp{};
+  g_api.Viewport_ctor(&vp, 0, 0, rc.right, rc.bottom);
+  alignas(16) float out[4] = {};
+  g_api.Project(cam, out, &wv, &vp);
+  x = out[0]; y = out[1];
+  return true;
+}
+}  // namespace
+
 bool lock_target(unsigned id) {
   void* e = find_entity(id);
   if (!e) return false;
+  g_point_locked = false;
   g_locked_id = id; g_locked_entity = e; g_lock_frames = 0;
   return true;
 }
-void unlock_target() {
-  if (g_locked_id) gd::hooks::set_cursor_override(false, 0, 0);
+bool lock_point(const Vec3& world_point) {
+  if (!in_world()) return false;
   g_locked_id = 0; g_locked_entity = nullptr;
+  g_point_locked = true; g_locked_point = world_point;
+  return true;
+}
+void unlock_target() {
+  if (g_locked_id || g_point_locked) gd::hooks::set_cursor_override(false, 0, 0);
+  g_locked_id = 0; g_locked_entity = nullptr; g_point_locked = false;
 }
 unsigned locked_target() { return g_locked_id; }
 void tick() {
+  if (g_point_locked) {
+    if (!in_world()) { unlock_target(); return; }
+    float x, y; RECT rc{};
+    HWND w = FindWindowA("Grim Dawn", nullptr);
+    bool visible = project_point(g_locked_point, x, y) && w && GetClientRect(w, &rc) && x >= 0 && y >= 0 && x < (float)rc.right && y < (float)rc.bottom;
+    gd::hooks::set_cursor_override(visible, x, y);
+    return;
+  }
   if (!g_locked_id) return;
   if (!in_world()) { unlock_target(); return; }
   // Re-find every 30 frames (the pointer may die); project every frame.

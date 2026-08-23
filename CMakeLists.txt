@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(gdaccess LANGUAGES CXX)
+project(gdaccess LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,6 +16,13 @@ add_library(detours STATIC
   ${DETOURS_SRC}/image.cpp ${DETOURS_SRC}/creatwth.cpp)
 target_include_directories(detours PUBLIC ${DETOURS_SRC})
 target_compile_options(detours PRIVATE /W0)
+
+# --- SQLite (vendored amalgamation, public domain; assets/rooms.db is read-only at runtime) ---
+add_library(sqlite3 STATIC third_party/sqlite/sqlite3.c)
+target_include_directories(sqlite3 PUBLIC third_party/sqlite)
+target_compile_definitions(sqlite3 PRIVATE SQLITE_THREADSAFE=1 SQLITE_OMIT_LOAD_EXTENSION SQLITE_DEFAULT_MEMSTATUS=0
+  SQLITE_OMIT_DEPRECATED SQLITE_DQS=0 SQLITE_OMIT_SHARED_CACHE)
+target_compile_options(sqlite3 PRIVATE /W0)
 
 # --- Prism (prebuilt SDK release) ---
 set(PRISM_SDK ${CMAKE_SOURCE_DIR}/third_party/prism-bin/prism-sdk-v0.18.1)
@@ -45,12 +52,12 @@ add_library(gdaccess SHARED
   src/screens/loading.cpp src/screens/tip.cpp src/screens/conversation.cpp src/exe_ui.cpp src/screens/delete_character.cpp src/screens/options.cpp
   src/voice.cpp src/tts_onecore.cpp src/combat.cpp src/gameapi.cpp src/gameapi_items.cpp src/gameapi_skills.cpp
   src/screens/codex.cpp src/screens/factions.cpp src/screens/inventory.cpp src/screens/skills.cpp src/screens/quickbar.cpp
-  src/screens/modals.cpp src/screens/vendor.cpp)
+  src/screens/modals.cpp src/screens/vendor.cpp src/db.cpp src/rooms.cpp)
 # C++/WinRT (OneCore speech in src/tts_onecore.cpp): the projection headers are heavy, and windowsapp.lib's
 # api-ms-win-* imports are delay-loaded so a machine without them loses combat speech, not the whole mod.
 set_source_files_properties(src/tts_onecore.cpp PROPERTIES COMPILE_OPTIONS "/bigobj")
 target_include_directories(gdaccess PRIVATE src ${PRISM_SDK}/include third_party/miniaudio)
-target_link_libraries(gdaccess PRIVATE gdcore detours ${PRISM_LIB} user32 ws2_32 ole32 delayimp windowsapp)
+target_link_libraries(gdaccess PRIVATE gdcore detours sqlite3 ${PRISM_LIB} user32 ws2_32 ole32 delayimp windowsapp)
 target_link_options(gdaccess PRIVATE /DELAYLOAD:${PRISM_DLL_NAME}
   /DELAYLOAD:api-ms-win-core-winrt-l1-1-0.dll /DELAYLOAD:api-ms-win-core-winrt-error-l1-1-1.dll /DELAYLOAD:api-ms-win-core-winrt-string-l1-1-0.dll)
 target_compile_definitions(gdaccess PRIVATE PRISM_DLL_NAME="${PRISM_DLL_NAME}")

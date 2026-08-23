@@ -10,7 +10,7 @@
 namespace gd::voice {
 enum class Which { Mark, Zira };
 enum class Policy { Overlap, Replace };  // Replace: cut the still-playing line of the same group
-constexpr int kGroupEnemy = 1, kGroupSelf = 2;
+constexpr int kGroupEnemy = 1, kGroupSelf = 2, kGroupInfo = 3;   // Info: place announcements (rooms)
 
 struct Say {
   Which voice = Which::Mark;

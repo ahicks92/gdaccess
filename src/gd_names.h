@@ -85,6 +85,42 @@ inline constexpr const char* Player_GetPlayerName = "?GetPlayerName@Player@GAME@
 // public: class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const & __ptr64 __cdecl GAME::Region::GetName(void)const __ptr64
 inline constexpr const char* Region_GetName_DLL = "Engine.dll";
 inline constexpr const char* Region_GetName = "?GetName@Region@GAME@@QEBAAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@XZ";
+// public: int __cdecl GAME::World::GetNumRegions(void)const __ptr64
+inline constexpr const char* World_GetNumRegions_DLL = "Engine.dll";
+inline constexpr const char* World_GetNumRegions = "?GetNumRegions@World@GAME@@QEBAHXZ";
+// public: class GAME::Region * __ptr64 __cdecl GAME::World::GetRegion(int) __ptr64
+inline constexpr const char* World_GetRegion_DLL = "Engine.dll";
+inline constexpr const char* World_GetRegion = "?GetRegion@World@GAME@@QEAAPEAVRegion@2@H@Z";
+// public: class GAME::IntVec3 const & __ptr64 __cdecl GAME::Region::GetOffsetFromWorld(void)const __ptr64
+inline constexpr const char* Region_GetOffsetFromWorld_DLL = "Engine.dll";
+inline constexpr const char* Region_GetOffsetFromWorld = "?GetOffsetFromWorld@Region@GAME@@QEBAAEBVIntVec3@2@XZ";
+// public: bool __cdecl GAME::Region::IsUnderground(void)const __ptr64
+inline constexpr const char* Region_IsUnderground_DLL = "Engine.dll";
+inline constexpr const char* Region_IsUnderground = "?IsUnderground@Region@GAME@@QEBA_NXZ";
+// public: bool __cdecl GAME::Region::IsLevelLoaded(void)const __ptr64
+inline constexpr const char* Region_IsLevelLoaded_DLL = "Engine.dll";
+inline constexpr const char* Region_IsLevelLoaded = "?IsLevelLoaded@Region@GAME@@QEBA_NXZ";
+// public: int __cdecl GAME::Region::GetNumPortals(void)const __ptr64
+inline constexpr const char* Region_GetNumPortals_DLL = "Engine.dll";
+inline constexpr const char* Region_GetNumPortals = "?GetNumPortals@Region@GAME@@QEBAHXZ";
+// public: class GAME::Portal * __ptr64 __cdecl GAME::Region::GetPortal(int)const __ptr64
+inline constexpr const char* Region_GetPortal_DLL = "Engine.dll";
+inline constexpr const char* Region_GetPortal = "?GetPortal@Region@GAME@@QEBAPEAVPortal@2@H@Z";
+// public: int __cdecl GAME::Region::GetWorldIndex(void)const __ptr64
+inline constexpr const char* Region_GetWorldIndex_DLL = "Engine.dll";
+inline constexpr const char* Region_GetWorldIndex = "?GetWorldIndex@Region@GAME@@QEBAHXZ";
+// public: class GAME::ABBox const & __ptr64 __cdecl GAME::Region::GetBoundingBox(void)const __ptr64
+inline constexpr const char* Region_GetBoundingBox_DLL = "Engine.dll";
+inline constexpr const char* Region_GetBoundingBox = "?GetBoundingBox@Region@GAME@@QEBAAEBVABBox@2@XZ";
+// public: class GAME::Region * __ptr64 __cdecl GAME::Portal::GetConnectedRegion(void)const __ptr64
+inline constexpr const char* Portal_GetConnectedRegion_DLL = "Engine.dll";
+inline constexpr const char* Portal_GetConnectedRegion = "?GetConnectedRegion@Portal@GAME@@QEBAPEAVRegion@2@XZ";
+// public: class GAME::WorldCoords __cdecl GAME::Portal::GetChokePoint(void)const __ptr64
+inline constexpr const char* Portal_GetChokePoint_DLL = "Engine.dll";
+inline constexpr const char* Portal_GetChokePoint = "?GetChokePoint@Portal@GAME@@QEBA?AVWorldCoords@2@XZ";
+// public: bool __cdecl GAME::Portal::GetIsOpen(void)const __ptr64
+inline constexpr const char* Portal_GetIsOpen_DLL = "Engine.dll";
+inline constexpr const char* Portal_GetIsOpen = "?GetIsOpen@Portal@GAME@@QEBA_NXZ";
 // public: static class GAME::NavManager * __ptr64 __cdecl GAME::Singleton<class GAME::NavManager>::Get(void)
 inline constexpr const char* NavManager_Get_DLL = "Engine.dll";
 inline constexpr const char* NavManager_Get = "?Get@?$Singleton@VNavManager@GAME@@@GAME@@SAPEAVNavManager@2@XZ";

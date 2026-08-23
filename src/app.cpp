@@ -7,6 +7,7 @@
 #include "core/navigator.h"
 #include "core/strings.h"
 #include "combat.h"
+#include "rooms.h"
 #include "hooks.h"
 #include "log.h"
 #include "screens/conversation.h"
@@ -124,6 +125,11 @@ static void register_actions() {
   }
   m.register_action("scan.ping", "Ping the reviewed thing", InputCategory::InGame,
                     [] { if (world::ping_reviewed().empty()) speech::speak(strings::kNoTarget, true); }).bind(0x27);  // Semicolon
+  // Rooms (docs/rooms.md): X = the current room's description, V / Shift+V = cycle its exits (each landing
+  // parks the review cursor on the opening). Place changes are announced automatically in the player's voice.
+  m.register_action("rooms.describe", "Describe the room", InputCategory::InGame, [] { rooms::speak_description(); }).bind(0x2d);   // X
+  m.register_action("rooms.exitNext", "Next exit", InputCategory::InGame, [] { rooms::cycle_exits(1); }).bind(0x2f);                // V
+  m.register_action("rooms.exitPrev", "Previous exit", InputCategory::InGame, [] { rooms::cycle_exits(-1); }).bind(0x2f, false, true, false);
   // The mouse buttons (J left, I right, Enter = left; hold to hold) are polled per frame by the in-game screen,
   // not dispatched as actions: a hold needs the key's held state, not a press.
   // The camera is locked (far zoom, north up) by the in-game screen; no zoom/rotate keys.

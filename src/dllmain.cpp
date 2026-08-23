@@ -3,6 +3,8 @@
 #include "audio.h"
 #include "audio_mute.h"
 #include "combat.h"
+#include "rooms.h"
+#include "db.h"
 #include "voice.h"
 #include "world.h"
 #include "exe_ui.h"
@@ -34,6 +36,7 @@ static DWORD WINAPI init_thread(LPVOID) {
   gd::audio::init();
   gd::voice::init();  // the positional voices (OneCore worker); falls back to the screen reader if it fails
   gd::app::init();
+  gd::rooms::init();  // assets/rooms.db (missing = the rooms feature stays silent)
   gd::dev::start(env_int(L"GDACCESS_PORT", 8791));
   gd::speech::speak(sp ? "G D Access loaded" : "G D Access loaded, no speech backend", true);
   // Always APPLY the state, both ways: Windows remembers a per-app session mute across launches, so a muted dev
@@ -50,6 +53,8 @@ extern "C" __declspec(dllexport) DWORD WINAPI gdaccess_unload(LPVOID) {
   gd::log::write("gdaccess: unloading");
   gd::dev::stop();
   gd::app::shutdown();
+  gd::rooms::shutdown();
+  gd::db::shutdown();
   gd::combat::remove();
   gd::voice::shutdown();  // joins the worker before the mixer it feeds goes away
   gd::audio::shutdown();

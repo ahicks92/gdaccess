@@ -9,6 +9,7 @@
 #include "audio.h"
 #include "audio_mute.h"
 #include "combat.h"
+#include "rooms.h"
 #include "voice.h"
 #include "screens/in_game.h"
 #include "screens/inventory.h"
@@ -20,6 +21,7 @@
 #include <windows.h>
 #include <atomic>
 #include <map>
+#include <memory>
 #include <string>
 #include <thread>
 
@@ -195,6 +197,19 @@ static std::string handle(const std::string& path, const std::map<std::string, s
   }
   if (path == "/where") { screens::speak_where(); return "ok\n"; }
   if (path == "/blocks") return world::blocks_dump();
+  if (path == "/room") {      // the rooms feature: current place + exits; ?dwell=ms ?untitled=0|1 ?say=1 (re-announce) ?reload=1
+    if (q.count("dwell")) rooms::set_dwell_ms(parse_int(q.at("dwell"), 400));
+    if (q.count("untitled")) rooms::set_say_untitled(truthy(q.at("untitled")));
+    if (q.count("reload")) rooms::reload();
+    if (q.count("say")) rooms::announce_now();
+    return rooms::status();
+  }
+  if (path == "/regions") return world::regions_dump(parse_int(q.count("max") ? q.at("max") : "40", 40));   // engine Regions (chunks): name, offset, loaded, portals; ?max=
+  if (path == "/portals") return world::portals_dump();   // the player's chunk's portals
+  if (path == "/navprobe") {  // /navprobe?x0=&z0=&x1=&z1=&step=0.5 -- IsPointOnPathMesh over a grid, '#' walkable, rows = z ascending
+    auto f = [&](const char* k, float d) { return q.count(k) ? (float)atof(q.at(k).c_str()) : d; };
+    return world::navprobe(f("x0", 0), f("z0", 0), f("x1", 0), f("z1", 0), f("step", 0.5f));
+  }
   if (path == "/conv") return world::conversation_dump();
   if (path == "/ui") return exe_ui::ui_dump();            // the exe's menu widget tree (framework A)
   if (path == "/ui/activate") {                           // /ui/activate?ptr=0x... presses a framework A button through its listeners
@@ -345,21 +360,26 @@ static void serve(SOCKET c) {
   size_t qm = target.find('?');
   std::string path = target.substr(0, qm);
   auto query = parse_query(qm == std::string::npos ? "" : target.substr(qm + 1));
-  int status = 500;
-  std::string out;
   // Routes poke at game objects with guessed layouts; a fault inside one must not take the game down.
   // The SEH frame lives in a function without C++ objects (run_job_seh); the report names the module.
-  JobCtx ctx{&path, &query, &body, &status, &out};
-  bool ran = hooks::run_on_game_thread([&] {
+  // The job owns everything it touches (shared with this frame): a route that outlives the 8 s timeout
+  // still runs to completion later on the game thread and must not write into a dead stack frame.
+  struct Owned { std::string path, body; std::map<std::string, std::string> query; int status = 500; std::string out; };
+  auto owned = std::make_shared<Owned>();
+  owned->path = path; owned->body = body; owned->query = query;
+  bool ran = hooks::run_on_game_thread([owned] {
+    JobCtx ctx{&owned->path, &owned->query, &owned->body, &owned->status, &owned->out};
     void* addr = nullptr;
     DWORD code = run_job_seh(&ctx, &addr);
     if (code) {
-      status = 500;
-      out = std::format("route faulted: exception {:#x} at {}\n", code, module_offset(addr));
-      log::write(out);
+      owned->status = 500;
+      owned->out = std::format("route faulted: exception {:#x} at {}\n", code, module_offset(addr));
+      log::write(owned->out);
     }
   }, 8000);
-  if (!ran) { status = 504; out = "game thread did not run the job (not ticking? unfocused with inactiveUpdateRate=0?)\n"; }
+  int status = 504;
+  std::string out = "game thread did not run the job within 8 s (still queued/running; not ticking? unfocused with inactiveUpdateRate=0?)\n";
+  if (ran) { status = owned->status; out = owned->out; }   // not touched otherwise: the job may still be writing it
   std::string resp = std::format("HTTP/1.1 {} {}\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
                                  status, status == 200 ? "OK" : "ERR", out.size()) + out;
   send(c, resp.data(), (int)resp.size(), 0);

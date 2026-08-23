@@ -1,0 +1,18 @@
+[project]
+name = "gdaccess-tools"
+version = "0.1.0"
+description = "Python tooling for GD Access: the dev-loop client, offline map/navmesh/terrain readers, room segmentation, RE helpers."
+requires-python = ">=3.12"
+dependencies = [
+    "lz4>=4",
+    "pefile>=2024",
+    "capstone>=5",
+    "numpy>=2",
+    "scipy>=1.14",
+    "pillow>=11",
+]
+
+[tool.uv]
+# Virtual project: nothing is installed as a package. Scripts live in tools/ and import the
+# tools/gdmap package through the script directory being on sys.path (`uv run tools/rooms.py`).
+package = false

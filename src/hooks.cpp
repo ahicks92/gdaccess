@@ -12,6 +12,7 @@
 #include <condition_variable>
 #include <cstring>
 #include <deque>
+#include <memory>
 #include <map>
 #include <mutex>
 #include <string>
@@ -109,14 +110,20 @@ static std::mutex g_jobs_mu;
 static std::deque<std::function<void()>> g_jobs;
 static uint64_t g_frame;
 uint64_t frame() { return g_frame; }
+// The job owns its state: a caller that times out returns while the job may still run later on the game
+// thread (a /regions dump that loaded the whole world did exactly that on 2026-08-22 and the stack-captured
+// state produced a bad_function_call crash). The caller's result buffer must then also outlive the call,
+// which devserver's routes guarantee by building their strings inside the job (the job holds the only ref).
 bool run_on_game_thread(std::function<void()> fn, unsigned timeout_ms) {
-  std::mutex m; std::condition_variable cv; bool done = false;
+  struct State { std::mutex m; std::condition_variable cv; bool done = false; std::function<void()> fn; };
+  auto st = std::make_shared<State>();
+  st->fn = std::move(fn);
   {
     std::lock_guard lk(g_jobs_mu);
-    g_jobs.push_back([&] { fn(); { std::lock_guard l2(m); done = true; } cv.notify_all(); });
+    g_jobs.push_back([st] { if (st->fn) st->fn(); { std::lock_guard l2(st->m); st->done = true; } st->cv.notify_all(); });
   }
-  std::unique_lock lk(m);
-  return cv.wait_for(lk, std::chrono::milliseconds(timeout_ms), [&] { return done; });
+  std::unique_lock lk(st->m);
+  return st->cv.wait_for(lk, std::chrono::milliseconds(timeout_ms), [&] { return st->done; });
 }
 static void drain_jobs() {
   for (;;) {

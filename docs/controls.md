@@ -86,6 +86,9 @@ stationary attack, Ctrl pet targeting) and typing into the game's chat field.
 | Q | The objective tracker: each tracked quest's open objectives ("Waking to Misery: Enter the Cave under Burial Hill, ...") |
 | Y | The quickbar: "quickbar 1, 1 Cadence, 2 empty, ..., left mouse Cadence, right mouse empty" (the bar the HUD shows; Ctrl+Y still switches bars) |
 | G | Pick up the nearest item on the ground (the game's own Pickup action: within 10 units, loot filter applied; auto-equips into an empty slot like the game does) |
+| (automatic) | Place changes, in Zira: the region when it changes, the sub-region when it changes, then the room's title ("Devil's Crossing, the prison, cell block corridor"; "room 193" while a room has no title yet). See docs/rooms.md |
+| X | Describe the current room (the authored description through the screen reader; "no description yet" until then) |
+| V / Shift+V | Next / previous exit of the current room, nearest first: destination, "blocked" if a gate is shut, distance, clock bearing, "i of n"; parks the review cursor on the opening |
 
 ## The in-world windows (2026-08-22, first pass)
 Each game window is a screen of the mod while the game shows it (Ctrl+C/I inventory, Ctrl+N skills, Ctrl+Q
@@ -110,6 +113,8 @@ always embodied here, perception and interaction are what the camera shows; the 
 step rebuilds the nearest-first list live and continues from that ID, or enters at the nearest if it is gone.
 
 ## Keys the mod must not take from the game in the world
+(Historical, 2026-08-21: since the Ctrl lifts every game function the mod does not pass through is
+reachable as Ctrl+key, and the plain letters are the mod's -- X and V are the rooms keys now.)
 WASD, 1-0, Q N C I M O K G H J V, E R L B U X Z Y P, Space, Enter, Tab (push-to-talk, harmless),
 Alt/Ctrl/Shift (modifiers the game reads while clicking), Backspace, \, ], `,` `.` (camera), F2-F7.
 Free on the keyboard: F1, F8, T, the bracket/semicolon/quote/slash keys, Insert/Delete/Home/End/PgUp/PgDn,

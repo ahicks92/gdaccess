@@ -38,6 +38,9 @@ std::string classinfo_dump();    // dev: the game's RTTI_ClassInfo layout (paren
 enum class BlockKind { Wall, Obstacle };
 BlockKind classify_block(const Vec3& stop_world, float dir_x, float dir_z);
 std::string blocks_dump();       // the four probe stops with their blockers (dev)
+std::string regions_dump(int max);  // engine Regions (chunks) 0..max-1: index, name, offset from world, loaded, portals (dev)
+std::string portals_dump();      // the player's chunk's portals: connected chunk, choke point, open (dev)
+std::string navprobe(float x0, float z0, float x1, float z1, float step);  // IsPointOnPathMesh over a grid (dev)
 
 // The game's own display label for an entity near the player (Monster::GetGameDescription /
 // Npc::GetRolloverDescription / Player::GetRolloverDescription / Item::GetGameDescription, by class), colour
@@ -106,6 +109,7 @@ std::string target_dump();       // combat enemy + Character::GetCurrentAttackTa
 // target of ours is expressed as the cursor parked over the entity on screen: the game then hovers, attacks
 // and interacts with it natively. lock_target keeps the cursor override on the entity each frame (tick).
 bool lock_target(unsigned id);
+bool lock_point(const Vec3& world_point);   // the same, for a bare world point (a room exit); unlock_target releases it too
 void unlock_target();
 unsigned locked_target();
 void tick();                                   // per frame while in the world

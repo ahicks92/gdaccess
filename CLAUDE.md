@@ -283,6 +283,17 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   readback via `Game.AddObjective` -> `/objectives`). Sandboxed (no io/os/ffi/debug/require) but `loadfile`
   reaches real paths. It is the quest/level scripting API (tokens, quest state, spawns, doors, teleports,
   banners, XP/items) -- nothing UI-side; everything it does our export calls can do too.
+- Rooms (2026-08-22, `docs/rooms.md`, verified through the loop): the game's baked navmesh (Detour tile-cache
+  layers inside `world001.map`, 0.25 units/cell, world coordinates; quest gates are runtime obstacles on
+  top) is segmented OFFLINE per region (wotr's watershed + an axis-aligned walk-time cap; roads are an
+  overlay only) and shipped in `assets/rooms.db` (vendored SQLite, `src/db.*`, read-only). `src/rooms.cpp`
+  looks the player up per frame (chunk -> region -> label grid, 8-cell ring, 400 ms dwell) and announces
+  place changes in Zira ("Devil's Crossing, room 193"); X = description, V/Shift+V = exits (parks the review
+  cursor on the opening via `world::lock_point`). Vocabulary: region = the game's named area, sub-region =
+  ours, room = a watershed piece, chunk = the engine's `Region`. Dev: `/room`, `/regions`, `/portals`,
+  `/navprobe`. Lessons: `Region::IsUnderground` calls `LoadLevel` (never sweep it); a dev route that outlives
+  the 8 s job timeout must own its state (`run_on_game_thread` and `serve()` fixed 2026-08-22). Next: the
+  authoring workflow (titles, descriptions, sub-regions; Opus agents, see the plan) and road helpers.
 - Next (needs the user's hands): player-facing targeting keys (nearest enemy / cycle / announce name,
   distance, direction -- the hover name arrives as `box_font` HUD text), an attack key that clicks the locked
   target, wall-tone tuning by ear, hover sounds, the Delete-character screen, the main menu icon buttons.
@@ -300,7 +311,10 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
 - Speech: prism (prebuilt SDK in `third_party/prism-bin`, delay-loaded from next to gdaccess.dll).
 - Hooking: Microsoft Detours, vendored source in `third_party/Detours`, built as a static lib.
 
-## Tools (Python via `uv run --with pefile ...`)
+## Tools (Python: `uv run tools/<script>.py` -- the repo root `pyproject.toml` declares lz4/pefile/capstone/numpy/scipy/pillow, no `--with` needed)
+- `tools/rooms.py` + `tools/gdmap/` (arc, map header, level bodies: navmesh tile layers + terrain layers,
+  segmentation, renderer, `roomsdb.py`) -- the rooms pipeline, `docs/rooms.md`. `rooms.py area
+  devilscrossing --write` regenerates `assets/rooms.db`; floor plans in `build/rooms/`.
 - `tools/gen_exports.py` — dumps `.def` files and undecorated export listings from the installed DLLs into
   `tools/exports/` (regenerate after a game patch).
 - `tools/gen_names.py` — resolves the exports we hook by regex over the undecorated listing and writes
