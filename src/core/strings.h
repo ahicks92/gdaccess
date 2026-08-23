@@ -58,6 +58,8 @@ gd::core::MessageBuilder& push_where(gd::core::MessageBuilder& m, float x, float
 // ---- in-game ----
 // "Hangman Jarvis, 5 away, 2 o'clock, 1 of 3" -- a review-cursor landing (game label verbatim).
 gd::core::MessageBuilder& push_scan_item(gd::core::MessageBuilder& m, std::string_view label, float distance, int clock_hour, int index1, int count, bool distant, std::string_view note = {});
+// "level 3 Arcanist, hardcore" -- a main-menu character row's value (class empty = no mastery yet).
+gd::core::MessageBuilder& push_character_summary(gd::core::MessageBuilder& m, unsigned level, std::string_view class_name, bool hardcore);
 // "5 away, 2 o'clock" -- the distance and bearing part alone (a riftgate row's value).
 gd::core::MessageBuilder& push_distance_bearing(gd::core::MessageBuilder& m, float distance, int clock_hour);
 // "no enemies nearby"
@@ -69,6 +71,7 @@ inline constexpr std::string_view kNeutrals = "people and objects";
 inline constexpr std::string_view kBystanders = "bystanders";
 inline constexpr std::string_view kLoot = "loot";
 inline constexpr std::string_view kSonarOn = "sonar on";
+inline constexpr std::string_view kHardcore = "hardcore";
 inline constexpr std::string_view kSonarOff = "sonar off";
 inline constexpr std::string_view kTransitions = "dungeon entrances";
 inline constexpr std::string_view kNoTarget = "no target";

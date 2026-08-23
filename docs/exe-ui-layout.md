@@ -183,3 +183,17 @@ exe+0x291520(unused, const int pos[3]) (the distance guard + `InitiatePlayerTele
 with integer world coordinates); the game closes the map itself. `exe_ui::riftgate_map_open/riftgates/
 riftgate_travel/riftgate_map_close`; dev `/riftgates`. Discovery is the player's per-difficulty teleport UID list
 (`Player::GetTeleportUIDs`, `AddTeleportUID` on binding).
+
+## Character picker (static RE 2026-08-22, verified live)
+The main menu's character list is a `CharacterPicker` at `main_menu+0x370` (class size 0x610, vtable exe+0x30af80,
+HandleMouseEvent exe+0x8a040, signature-checked), created from the "characterPicker" widget record but never pushed
+into the manager's child vector: the menu renders it and dispatches mouse to it by hand, so the tree walk never
+sees it. `+0xc0` selected index (-1 none), `+0xc4` first visible, `+0xc8/+0xd0` vector<Entry> stride 0x90,
+`+0x118` rows per page, `+0xf8/+0x100` the up/down arrow buttons (children of the picker; they move the
+selection). Entry: `+0x00` save path, `+0x20` u16 name, `+0x40` display name, `+0x60` class tag (std::string,
+empty = no mastery), `+0x80` level, `+0x84` hardcore, `+0x85` female, `+0x88` the preview Player's object id.
+The list comes from `CharacterList` (`app+0xa18`; Build exe+0x5e90 walks `Engine::GetSavePath()` for `_Name`
+folders and reads each `player.gdc` header). A left-up on a row writes `+0xc0` and nothing else; the next
+`MainMenu::Update` (exe+0xd95a0) commits it: swaps the preview entity, `GameInfo::SetPlayerInfo`, and stores
+`main_menu+0x378` = the preview id (what Start at exe+0xda700 and Delete read). So selecting = write `+0xc0`
+(and keep `+0xc4` in range): `MainMenu::characters/selected_character/select_character`.

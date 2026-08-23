@@ -72,8 +72,9 @@ const Signature kSignatures[] = {
   {0x21be20, "riftgate map open", "\x40\x53\x48\x83\xec\x20\x48\x8d\x99\x60\x22\x04\x00\x48\x8b\x03"},
   {0x291520, "WorldMapWindow travel", "\x48\x89\x5c\x24\x08\x48\x89\x74\x24\x10\x57\x48\x81\xec\xa0\x00"},
   {0x28ed20, "WorldMap Icon ctor", "\x48\x89\x5c\x24\x08\x48\x89\x6c\x24\x10\x48\x89\x74\x24\x18\x48"},
+  {0x8a040, "CharacterPicker::HandleMouseEvent", "\x40\x53\x56\x57\x48\x83\xec\x50\x0f\x29\x74\x24\x40\x48\x8b\xd9"},
 };
-const size_t kSignatureLens[] = {5, 16, 12, 12, 12, 12, 12, 12, 16, 16, 16, 16, 16};   // each <= kSignatureMax
+const size_t kSignatureLens[] = {5, 16, 12, 12, 12, 12, 12, 12, 16, 16, 16, 16, 16, 16};   // each <= kSignatureMax
 constexpr size_t kSignatureMax = 16;
 
 uintptr_t g_base = 0;
@@ -292,6 +293,54 @@ int app_state() { return rd_or<int>(app(), off::kApp_State, 0); }
 WidgetA root() { void* mm = rdp(main_obj(), off::kMainObj_UiRoot); return mm ? WidgetA{(char*)mm + off::kMI_Node} : WidgetA{}; }
 MainMenu main_menu() { return {menu_manager_obj()}; }
 WidgetA MainMenu::button(unsigned slot_off) const { return {rdp(p, slot_off)}; }
+// CharacterPicker (static RE 2026-08-22, class size 0x610, vtable exe+0x30af80, HandleMouseEvent exe+0x8a040):
+// +0xc0 selected index, +0xc4 first visible, +0xc8/+0xd0 vector<Entry> (stride 0x90), +0x118 rows per page.
+// Entry: +0x20 u16 name, +0x60 std::string class tag (empty = no mastery), +0x80 level, +0x84 hardcore,
+// +0x85 female, +0x88 the preview Player's object id. A left-up on a row writes +0xc0 and nothing else.
+namespace {
+constexpr size_t kPk_Selected = 0xc0, kPk_First = 0xc4, kPk_Begin = 0xc8, kPk_End = 0xd0, kPk_PerPage = 0x118;
+constexpr size_t kEntry_Size = 0x90, kEntry_Name = 0x20, kEntry_Class = 0x60, kEntry_Level = 0x80, kEntry_Hardcore = 0x84, kEntry_Female = 0x85, kEntry_Preview = 0x88;
+std::string read_ascii(const void* base, size_t off) {   // a std::string (char) field
+  MsvcString<char> s{};
+  if (!rd(base, off, s) || s.size > 4096) return {};
+  if (s.capacity < 16) return std::string(s.u.buf, s.size);
+  std::string buf(s.size, '\0');
+  if (!s.u.ptr || !read_mem(s.u.ptr, buf.data(), s.size)) return {};
+  return buf;
+}
+}  // namespace
+std::vector<MainMenu::Character> MainMenu::characters() const {
+  std::vector<Character> out;
+  void* pk = rdp(p, kPicker);
+  if (!pk) return out;
+  char* b = (char*)rdp(pk, kPk_Begin); char* e = (char*)rdp(pk, kPk_End);
+  if (!b || !e || e < b || (size_t)(e - b) > 64 * kEntry_Size) return out;
+  for (char* it = b; it + kEntry_Size <= e; it += kEntry_Size) {
+    Character c;
+    c.name = read_u16(it, kEntry_Name);
+    c.class_tag = read_ascii(it, kEntry_Class);
+    c.level = rd_or<uint32_t>(it, kEntry_Level, 0);
+    c.hardcore = rd_or<uint8_t>(it, kEntry_Hardcore, 0) != 0;
+    c.female = rd_or<uint8_t>(it, kEntry_Female, 0) != 0;
+    c.preview_id = rd_or<uint32_t>(it, kEntry_Preview, 0);
+    out.push_back(std::move(c));
+  }
+  return out;
+}
+int MainMenu::selected_character() const { void* pk = rdp(p, kPicker); return pk ? rd_or<int>(pk, kPk_Selected, -1) : -1; }
+bool MainMenu::select_character(int index) const {
+  void* pk = rdp(p, kPicker);
+  if (!pk) return false;
+  char* b = (char*)rdp(pk, kPk_Begin); char* e = (char*)rdp(pk, kPk_End);
+  int n = (b && e && e >= b) ? (int)((e - b) / kEntry_Size) : 0;
+  if (index < 0 || index >= n) return false;
+  int per = rd_or<int>(pk, kPk_PerPage, 1); if (per < 1) per = 1;
+  int first = rd_or<int>(pk, kPk_First, 0);
+  if (!write_int(pk, kPk_Selected, index)) return false;
+  if (index < first) write_int(pk, kPk_First, index);
+  else if (index >= first + per) write_int(pk, kPk_First, index - per + 1);
+  return true;
+}
 void* MainMenu::sub_window(unsigned slot_off) const { return rdp(p, slot_off); }
 void* MainMenu::current_sub_window() const { return rdp(p, off::kMenu_CurrentSub); }
 WidgetA window_node(void* window) { return {window}; }

@@ -3,6 +3,8 @@
 #include "core/strings.h"
 #include "exe_ui.h"
 #include "screens/controls.h"
+#include "core/message_builder.h"
+#include "gameapi.h"
 #include "speech.h"
 
 namespace gd::screens {
@@ -12,6 +14,8 @@ using exe_ui::MainMenu;
 // The main menu, read from the exe's menu-manager object: its buttons are named slots on the manager (the
 // captions are the game's own), and it is "showing" when the app is in a main-menu state with no sub-window
 // (Create Character, Difficulty ...) and no popup open -- those get their own screens on top.
+inline const ControlType kCharacterType{"character", {"label", "value", "selected", "position"}, [] { return std::vector<NodeAnnouncement>{}; }};
+
 class MainMenuScreen : public Screen {
  public:
   std::string_view key() const override { return "main_menu"; }
@@ -24,18 +28,39 @@ class MainMenuScreen : public Screen {
   }
   std::string screen_name() const override { return "Main menu"; }
   int layer() const override { return 0; }
+  // Three Tab stops (decided with the user 2026-08-22): the general buttons; the character list, only when
+  // there is more than one character (one character is simply the selected one); the character-specific
+  // buttons (Start, difficulty, game mode, Delete).
   void build(GraphBuilder& b) override {
     MainMenu mm = exe_ui::main_menu();
     if (!mm) return;
     struct Slot { const char* id; unsigned off; std::string_view label; };
     b.begin_stop("menu");
-    for (Slot s : {Slot{"Create", MainMenu::kBtnCreate, {}}, Slot{"Delete", MainMenu::kBtnDelete, {}}, Slot{"Multiplayer", MainMenu::kBtnMultiplayer, {}},
+    for (Slot s : {Slot{"Create", MainMenu::kBtnCreate, {}}, Slot{"Multiplayer", MainMenu::kBtnMultiplayer, {}},
                    Slot{"GameGuide", MainMenu::kBtnGameGuide, {}}, Slot{"Community", MainMenu::kBtnCommunity, {}}, Slot{"DLC", MainMenu::kBtnDLC, {}},
                    Slot{"Credits", MainMenu::kBtnCredits, {}}, Slot{"Options", MainMenu::kBtnOptions, strings::kOptions}, Slot{"Exit", MainMenu::kBtnExit, strings::kExitGame}})
       add(b, mm, s.id, s.off, s.label);
+    std::vector<MainMenu::Character> chars = mm.characters();
+    if (chars.size() > 1) {
+      int selected = mm.selected_character();
+      b.begin_stop("characters");
+      for (size_t i = 0; i < chars.size(); ++i) {
+        const MainMenu::Character& c = chars[i];
+        std::string cls = c.class_tag.empty() ? std::string() : gameapi::localize(c.class_tag);
+        std::string value; { MessageBuilder m; strings::push_character_summary(m, c.level, cls, c.hardcore); value = m.build(); }
+        bool sel = (int)i == selected;
+        auto v = std::make_shared<NodeVtable>();
+        v->control_type = &kCharacterType;
+        v->announcements = {NodeAnnouncement([name = c.name] { return name; }, false, announcement_kinds::kLabel),
+                            NodeAnnouncement([value] { return value; }, false, announcement_kinds::kValue),
+                            NodeAnnouncement([sel] { return sel ? std::string(strings::kSelected) : std::string(); }, true, announcement_kinds::kSelected)};
+        v->on_activate = [i] { MainMenu m = exe_ui::main_menu(); if (m) m.select_character((int)i); };
+        b.add_item(ControlId::structural("main_menu.character." + c.name), v);
+      }
+    }
     b.begin_stop("play");
     b.start_row("play");
-    for (Slot s : {Slot{"Difficulty", MainMenu::kBtnDifficulty, {}}, Slot{"GameMode", MainMenu::kBtnGameMode, {}}, Slot{"Start", MainMenu::kBtnStart, {}}})
+    for (Slot s : {Slot{"Start", MainMenu::kBtnStart, {}}, Slot{"Difficulty", MainMenu::kBtnDifficulty, {}}, Slot{"GameMode", MainMenu::kBtnGameMode, {}}, Slot{"Delete", MainMenu::kBtnDelete, {}}})
       add(b, mm, s.id, s.off, s.label);
     b.end_row();
   }

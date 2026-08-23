@@ -93,6 +93,14 @@ struct MainMenu {
                             kBtnGameMode = 0x348 /*"Main Campaign"*/, kBtnSlotA = 0x2a8;
   static constexpr unsigned kWinCreateCharacter = 0x2b8, kWinDeleteCharacter = 0x2c0, kWinDifficulty = 0x2d0,
                             kWin4th = 0x2d8, kWinHiding = 0x2e0;
+  // The character list on the left (docs/exe-ui-layout.md "Character picker"): the CharacterPicker at +0x370 (not
+  // in the widget tree; the menu renders and hit-tests it itself) and +0x378 = the preview Player's object id of
+  // the committed selection (0 = none; the Start/Delete buttons follow it).
+  struct Character { std::string name, class_tag; unsigned level = 0; bool female = false, hardcore = false; unsigned preview_id = 0; };
+  std::vector<Character> characters() const;   // the playable saves in the picker's order
+  int selected_character() const;              // the picker's selected index (-1 = none)
+  bool select_character(int index) const;      // write the index (and keep it on screen); the game commits it next frame
+  static constexpr unsigned kPicker = 0x370, kSelectedPreviewId = 0x378;
   // A sub-window object stays allocated while hidden behind the next dialog; these bytes say so.
   static constexpr unsigned kCreateCharacterHidden = 0x288, kDifficultyHidden = 0x350, k4thHidden = 0x29e;
 };

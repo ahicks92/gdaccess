@@ -92,6 +92,12 @@ stationary attack, Ctrl pet targeting) and typing into the game's chat field.
 | X | The current room: title, then the authored description ("no description yet" until then), through the screen reader |
 | V / Shift+V | Next / previous exit of the current room: one more review group like . N B M -- destination title (or "room N"), "blocked" if the live mesh refuses the opening, distance, clock bearing, "i of n"; the landing pings the route, ; re-pings, the cursor parks on the opening |
 
+## The main menu (2026-08-22)
+Three Tab stops: the general buttons (Create, Multiplayer, Game Guide, Community, DLC, Credits, options, exit
+game); the character list, present only when there is more than one character ("test1, level 3 Arcanist,
+selected, 4 of 4"; Enter selects, and the game swaps the preview); then the character-specific row (Start,
+difficulty, game mode, Delete). Tab into the list lands on the selected character.
+
 ## The in-world windows (2026-08-22, first pass)
 Each game window is a screen of the mod while the game shows it (Ctrl+C/I inventory, Ctrl+N skills, Ctrl+Q
 codex, Ctrl+J factions; NPC windows when an NPC opens them). Layout rule: a tab list across the top (Left/Right

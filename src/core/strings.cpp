@@ -33,6 +33,12 @@ MessageBuilder& push_scan_item(MessageBuilder& m, std::string_view label, float 
   push_position(m, index1, count);
   return m;
 }
+MessageBuilder& push_character_summary(MessageBuilder& m, unsigned level, std::string_view class_name, bool hardcore) {
+  m.list_item().fragment(std::format("level {}", level));
+  if (!class_name.empty()) m.fragment(class_name);
+  if (hardcore) m.list_item().fragment(kHardcore);
+  return m;
+}
 MessageBuilder& push_distance_bearing(MessageBuilder& m, float distance, int clock_hour) {
   m.list_item().fragment(std::format("{:.0f} away", distance));
   m.list_item().fragment(std::format("{} o'clock", clock_hour));
