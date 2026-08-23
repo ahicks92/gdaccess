@@ -18,6 +18,7 @@ bool player_position(Vec3& p);   // world-space position of the main player (fee
 std::string player_name();
 std::string region_name();
 std::string area_name();   // the minimap's area name (Engine::GetAreaNameTag localized), "Lower Crossing"; empty when unknown
+bool object_is_note(const void* obj);   // is-a ItemNote (any Object, bag items included)
 double life();                   // current life (0 when unknown)
 float life_max();
 float energy();                  // "mana" in the exports, "energy" in the UI

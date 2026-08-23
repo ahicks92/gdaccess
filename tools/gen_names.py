@@ -216,6 +216,7 @@ ENTRIES = [
     ("HotSlotOptionSkill_GetCooldownRemaining", "Game", r"GAME::HotSlotOptionSkill::GetCooldownRemaining\(void\)"),
     ("Player_GetLoreCodex", "Game", r"GAME::Player::GetLoreCodex\(void\)"),
     ("ItemNote_GetCodexTitleTag", "Game", r"GAME::ItemNote::GetCodexTitleTag\(void\)"),
+    ("Item_GetItemTextTag", "Game", r"GAME::Item::GetItemTextTag\(void\)"),
     ("ItemNote_GetCodexSubHeadingTag", "Game", r"GAME::ItemNote::GetCodexSubHeadingTag\(void\)"),
     # inventory / equipment / items
     ("ControllerPlayer_GetInventoryCtrl", "Game", r"GAME::ControllerPlayer::GetInventoryCtrl\(void\)const"),

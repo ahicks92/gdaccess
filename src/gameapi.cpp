@@ -78,6 +78,7 @@ struct Api {
   const MemVec* (*GetLoreCodex)(const void*) = nullptr;
   const MsvcStringA* (*Note_GetCodexTitleTag)(const void*) = nullptr;
   const MsvcStringA* (*Note_GetCodexSubHeadingTag)(const void*) = nullptr;
+  const MsvcStringA* (*Item_GetItemTextTag)(const void*) = nullptr;
   bool loaded = false;
 } g;
 int g_slot_display_name = -1, g_slot_rollover = -1, g_slot_skill_id = -1, g_slot_cooldown = -1;
@@ -177,6 +178,7 @@ void load() {
   GAPI_LOAD(g, GetLoreCodex, Player_GetLoreCodex);
   GAPI_LOAD(g, Note_GetCodexTitleTag, ItemNote_GetCodexTitleTag);
   GAPI_LOAD(g, Note_GetCodexSubHeadingTag, ItemNote_GetCodexSubHeadingTag);
+  GAPI_LOAD(g, Item_GetItemTextTag, Item_GetItemTextTag);
   g_slot_display_name = vslot(g.HotSlotOption_vftable, (const void*)g.Opt_GetDisplayName);
   g_slot_rollover = vslot(g.HotSlotOption_vftable, (const void*)g.Opt_GetRolloverText);
   // GetSkillId / GetCooldownRemaining / GetNumberAvailable / GetRolloverText share folded base bodies, so the
@@ -464,6 +466,24 @@ std::vector<Note> lore_notes() {
   return out;
 }
 std::vector<std::string> note_text(void* note) { return item_tooltip(note, false); }
+std::vector<std::string> note_full_text(void* note) {
+  std::vector<std::string> out;
+  if (!note || !g.Item_GetItemTextTag) return out;
+  std::string tag;
+  guarded("GetItemTextTag", [&] { tag = a_text(g.Item_GetItemTextTag(note)); });
+  if (tag.empty()) return out;
+  std::string text = localize(tag);
+  if (text.empty()) return out;
+  // The tag text uses the game's markup: {^n} / ^n are line breaks; other ^x codes are colors -- drop them.
+  std::string line;
+  for (size_t i = 0; i < text.size(); ++i) {
+    if (text[i] == '{' && i + 3 < text.size() && text[i + 1] == '^' && text[i + 3] == '}') { i += 3; if (tolower(text[i - 1]) == 'n') { if (!line.empty()) out.push_back(std::move(line)); line.clear(); } continue; }
+    if (text[i] == '^' && i + 1 < text.size()) { ++i; if (tolower(text[i]) == 'n') { if (!line.empty()) out.push_back(std::move(line)); line.clear(); } continue; }
+    line += text[i];
+  }
+  if (!line.empty()) out.push_back(std::move(line));
+  return out;
+}
 std::string dump_lore() {
   std::string out;
   for (const Note& n : lore_notes()) out += std::format("note id={} {} '{}' heading='{}'\n", n.id, n.p, n.title, n.heading);

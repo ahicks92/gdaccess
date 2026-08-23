@@ -53,6 +53,9 @@ bool activate_hotslot(unsigned index);
 // ---- the lore codex ----
 struct Note { unsigned id; void* p; std::string title, heading; };
 std::vector<Note> lore_notes();
+// The FULL localized note text (the record's itemText tag), split into paragraphs; empty when the object has
+// no text tag. The game's own tooltip truncates long notes; the reader uses this tag.
+std::vector<std::string> note_full_text(void* note);
 std::vector<std::string> note_text(void* note_item);   // ItemNote::GetUIDisplayText, one string per line
 
 // ---- bags and equipment ----

@@ -17,6 +17,7 @@
 #include "hooks.h"
 #include "screens/controls.h"
 #include "speech.h"
+#include "world.h"
 
 namespace gd::screens {
 
@@ -57,6 +58,12 @@ inline std::function<void()> item_tip(unsigned id, bool details) {
   return [id, details] {
     void* p = gd::gameapi::object_by_id(id);
     if (!p) { speech::speak(gd::strings::kNoTooltip, true); return; }
+    // A lore note's tooltip is the note itself: the FULL text (the game's tooltip truncates it) and how to
+    // file it (decided with the user 2026-08-23).
+    if (gd::world::object_is_note(p)) {
+      std::vector<std::string> text = gd::gameapi::note_full_text(p);
+      if (!text.empty()) { text.push_back(std::string(gd::strings::kNoteUseHint)); speak_lines(text); return; }
+    }
     std::vector<std::string> lines = gd::gameapi::item_tooltip(p, false, details);
     if (!details && !lines.empty() && gd::gameapi::item_tooltip(p, false, true) != lines) lines.push_back(std::string(gd::strings::kDetailsHint));
     speak_lines(lines);

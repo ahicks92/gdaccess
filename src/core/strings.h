@@ -73,6 +73,7 @@ inline constexpr std::string_view kLoot = "loot";
 inline constexpr std::string_view kSonarOn = "sonar on";
 inline constexpr std::string_view kHardcore = "hardcore";
 inline constexpr std::string_view kNoted = "noted";
+inline constexpr std::string_view kNoteUseHint = "Enter reads it into the codex";
 inline constexpr std::string_view kNoteFailed = "could not write the note";
 inline constexpr std::string_view kSonarOff = "sonar off";
 inline constexpr std::string_view kTransitions = "dungeon entrances";

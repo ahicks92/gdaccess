@@ -601,6 +601,9 @@ inline constexpr const char* Player_GetLoreCodex = "?GetLoreCodex@Player@GAME@@Q
 // public: class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const & __ptr64 __cdecl GAME::ItemNote::GetCodexTitleTag(void)const __ptr64
 inline constexpr const char* ItemNote_GetCodexTitleTag_DLL = "Game.dll";
 inline constexpr const char* ItemNote_GetCodexTitleTag = "?GetCodexTitleTag@ItemNote@GAME@@QEBAAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@XZ";
+// public: class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const & __ptr64 __cdecl GAME::Item::GetItemTextTag(void)const __ptr64
+inline constexpr const char* Item_GetItemTextTag_DLL = "Game.dll";
+inline constexpr const char* Item_GetItemTextTag = "?GetItemTextTag@Item@GAME@@QEBAAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@XZ";
 // public: class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const & __ptr64 __cdecl GAME::ItemNote::GetCodexSubHeadingTag(void)const __ptr64
 inline constexpr const char* ItemNote_GetCodexSubHeadingTag_DLL = "Game.dll";
 inline constexpr const char* ItemNote_GetCodexSubHeadingTag = "?GetCodexSubHeadingTag@ItemNote@GAME@@QEBAAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@XZ";

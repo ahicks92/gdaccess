@@ -72,7 +72,11 @@ class CodexScreen : public WindowScreen {
       }
       std::string heading = n.heading;
       unsigned id = n.id;
-      auto read = [id] { void* p = gameapi::object_by_id(id); speak_lines(gameapi::note_text(p)); };
+      auto read = [id] {
+        void* p = gameapi::object_by_id(id);
+        std::vector<std::string> full = gameapi::note_full_text(p);   // the game's tooltip truncates long notes
+        speak_lines(full.empty() ? gameapi::note_text(p) : full);
+      };
       b.add_item(ControlId::structural(std::format("codex.n{}", n.id)), row_item(label, heading.empty() ? std::function<std::string()>{} : [heading] { return heading; }, read, read));
     }
   }

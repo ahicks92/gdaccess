@@ -494,6 +494,12 @@ static bool read_area_tag(const void* eng, char* out, size_t cap) {   // POD onl
     return true;
   } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
 }
+namespace { bool is_kind_of(const void* ci, const void* base); }
+bool object_is_note(const void* obj) {
+  if (!obj) return false;
+  load_api();
+  return g_api.ItemNote_StaticClassInfo && is_kind_of(rtti_of(obj), g_api.ItemNote_StaticClassInfo());
+}
 std::string area_name() {
   load_api();
   void* eng = gd::hooks::engine_object();
