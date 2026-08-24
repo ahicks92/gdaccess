@@ -31,6 +31,7 @@ struct Api {
   bool (*Skill_IsLocked)(const void*) = nullptr;
   bool (*Skill_IsSkillTheMasterySkill)(const void*) = nullptr;
   bool (*Skill_IsSkillModifier)(const void*) = nullptr;
+  bool (*Skill_IsItemSkillAuto)(void*) = nullptr;   // an auto-triggered item skill (proc); not assignable
   bool (*Skill_IsSkillEnabled)(const void*) = nullptr;                        // virtual
   MsvcStringW* (*Skill_CreateUISkillName)(const void*, MsvcStringW*, bool) = nullptr;   // virtual, u16 by value
   const MsvcStringA* (*Skill_GetDisplayNameTag)(const void*) = nullptr;
@@ -102,6 +103,7 @@ void load_skills() {
   GAPI_LOAD(g, Skill_IsLocked, Skill_IsLocked);
   GAPI_LOAD(g, Skill_IsSkillTheMasterySkill, Skill_IsSkillTheMasterySkill);
   GAPI_LOAD(g, Skill_IsSkillModifier, Skill_IsSkillModifier);
+  GAPI_LOAD(g, Skill_IsItemSkillAuto, Skill_IsItemSkillAuto);
   GAPI_LOAD(g, Skill_IsSkillEnabled, Skill_IsSkillEnabled);
   GAPI_LOAD(g, Skill_CreateUISkillName, Skill_CreateUISkillName);
   GAPI_LOAD(g, Skill_GetDisplayNameTag, Skill_GetDisplayNameTag);
@@ -167,6 +169,7 @@ SkillInfo read_skill(void* s) {
     i.locked = g.Skill_IsLocked ? g.Skill_IsLocked(s) : false;
     i.is_mastery = g.Skill_IsSkillTheMasterySkill ? g.Skill_IsSkillTheMasterySkill(s) : false;
     i.modifier = g.Skill_IsSkillModifier ? g.Skill_IsSkillModifier(s) : false;
+    i.item_auto = g.Skill_IsItemSkillAuto ? g.Skill_IsItemSkillAuto(s) : false;
     if (auto f = (bool (*)(const void*))vfn(s, g_s_enabled)) i.enabled = f(s);
     if (auto f = (const void* (*)(const void*))vfn(s, g_s_profile)) { const void* prof = f(s); if (prof && g.Profile_GetSkillTier) i.tier = g.Profile_GetSkillTier(prof); }
   });
@@ -204,17 +207,14 @@ std::vector<SkillInfo> assignable_skills() {
   std::vector<SkillInfo> out;
   std::set<unsigned> seen;
   for (const SkillInfo& s : skills()) if (s.id && seen.insert(s.id).second) out.push_back(s);
-  // Item-granted skills from EQUIPPED items only. GetItemSkillList also returns skills from loose bag
-  // components (a Chilled Steel in the bag grants Ice Spike), which must NOT be assignable; so we ask each
-  // EQUIPPED item for its granted skill (FindItemSkillIdByItemId), which includes an attached component's.
-  const void* sm = skill_manager();
-  if (sm && g.FindItemSkillIdByItemId)
-    for (const EquipSlot& e : equipment())
-      if (e.item_id) {
-        unsigned sid = 0;
-        guarded("FindItemSkillIdByItemId", [&] { sid = g.FindItemSkillIdByItemId(sm, e.item_id); });
-        if (sid && seen.insert(sid).second) { if (void* s = object_by_id(sid)) out.push_back(read_skill(s)); }
-      }
+  // Item-granted skills (GetItemSkillList returns them all, including multi-skill items -- a Chilled Steel
+  // grants both Ice Spike and Chill Aura). read_skill fills item_auto (Skill::IsItemSkillAuto); the caller
+  // drops the auto ones -- Ice Spike is a chance-on-attack PROC (not player-assignable) while Chill Aura is a
+  // real toggle you can slot.
+  for (unsigned id : item_skill_ids()) {
+    if (!id || !seen.insert(id).second) continue;
+    if (void* s = object_by_id(id)) out.push_back(read_skill(s));
+  }
   return out;
 }
 // Skills granted by equipped items (SkillManager::GetItemSkillList -> mem::vector<Skill*>), as object ids.
@@ -253,16 +253,9 @@ const SkillInfo* mastery_skill(const std::vector<SkillInfo>& list, int enumerati
   return nullptr;
 }
 std::string dump_item_skills() {
-  std::string out = "GetItemSkillList (ALL item skills, incl. loose bag components):\n";
-  for (unsigned id : item_skill_ids()) { void* s = object_by_id(id); SkillInfo i = s ? read_skill(s) : SkillInfo{}; out += std::format("  id={} '{}' {}\n", id, i.name, i.record); }
-  out += "equipped items' granted skills (what the palette uses):\n";
-  const void* sm = skill_manager();
-  for (const EquipSlot& e : equipment())
-    if (e.item_id && sm && g.FindItemSkillIdByItemId) {
-      unsigned sid = 0; guarded("FindItemSkillIdByItemId", [&] { sid = g.FindItemSkillIdByItemId(sm, e.item_id); });
-      if (sid) { void* s = object_by_id(sid); SkillInfo i = s ? read_skill(s) : SkillInfo{}; out += std::format("  loc {} item {} -> skill {} '{}'\n", e.loc, e.item_id, sid, i.name); }
-    }
-  return out;
+  std::string out = "item skills (GetItemSkillList); auto=proc/chance -> excluded from the palette:\n";
+  for (unsigned id : item_skill_ids()) { void* s = object_by_id(id); SkillInfo i = s ? read_skill(s) : SkillInfo{}; out += std::format("  id={} '{}' auto={} {}\n", id, i.name, i.item_auto, i.record); }
+  return out.size() > 60 ? out : out + "  (none)\n";
 }
 std::vector<std::string> skill_tooltip(const void* skill) {
   load_skills();

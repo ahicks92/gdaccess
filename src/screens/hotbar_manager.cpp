@@ -1,5 +1,6 @@
 #include "screens/hotbar_manager.h"
 #include <format>
+#include <functional>
 #include <string>
 #include <vector>
 #include "core/graph_builder.h"
@@ -35,27 +36,23 @@ void weapon_swap_tick() {
   speech::speak(m.build(), true);
 }
 
-// Opens the skill picker for one hot-slot index: "clear" then every assignable skill (world::skill_aim filters
-// out passives / modifiers / masteries). id 0 clears the slot (assign_skill_to_slot with 0 empties it).
-static void open_slot_picker(unsigned index, const std::string& slot_label) {
+// A skill picker for one slot: `first_label` at id 0 (the slot's "clear" / "default"), then every assignable
+// skill. Filters (world::skill_aim, level, default utility, item_auto): only learned, user-activatable skills
+// -- passives / masteries / procs (Ice Spike) and the basic-attack/potion defaults are dropped. `assign` is
+// run with the picked id (0 for the first entry). Space reads the skill's text.
+static void open_skill_picker(std::string label, std::string_view first_label, std::function<void(unsigned)> assign) {
   std::vector<PickerItem> items;
-  items.push_back({0, std::string(strings::kClear), {}});
-  // Only learned/available skills (level > 0): an unlearned skill won't stay on a slot (the game clears it),
-  // and level-0 skills of masteries the player hasn't invested in are just noise. skill_aim != None drops
-  // passives / modifiers / the mastery bar. Default utility skills (records/skills/default/* -- the basic
-  // weapon attack, move-to, evade, the health/energy potions) are excluded: they have their own keys (mouse,
-  // R/E) and only cluttered the list (they were the "Weapon Attack twice" and the potions the user saw).
+  items.push_back({0, std::string(first_label), {}});
   for (const gameapi::SkillInfo& s : gameapi::assignable_skills()) {
-    if (!s.id || s.level == 0) continue;
+    if (!s.id || s.level == 0 || s.item_auto) continue;
     if (s.record.rfind("records/skills/default/", 0) == 0) continue;
     if (world::skill_aim(gameapi::object_by_id(s.id)) == world::SkillAim::None) continue;
     items.push_back({s.id, s.name, {}});
   }
-  open_picker(slot_label, std::move(items), [index](unsigned id) {
-    bool ok = gameapi::assign_skill_to_slot(index, id);
-    speech::speak(ok ? std::string(id ? strings::kAssigned : strings::kCleared) : std::string(strings::kCannot), true);
-  }, [](unsigned id, bool) { if (void* s = gameapi::object_by_id(id)) speak_lines(gameapi::skill_tooltip(s)); });   // Space = the skill's text
+  open_picker(std::move(label), std::move(items), std::move(assign),
+              [](unsigned id, bool) { if (void* s = gameapi::object_by_id(id)) speak_lines(gameapi::skill_tooltip(s)); });
 }
+static void say_assigned(bool ok, bool cleared) { speech::speak(ok ? std::string(cleared ? strings::kCleared : strings::kAssigned) : std::string(strings::kCannot), true); }
 
 class HotbarManagerScreen : public Screen {
  public:
@@ -72,17 +69,35 @@ class HotbarManagerScreen : public Screen {
 
   void build(GraphBuilder& b) override {
     b.begin_stop("page");
-    // The current weapon set's two bars (indices 0-9 and 14-23). The mouse buttons, R/E potions and Y-swap are
-    // not listed -- they have their own keys and don't live on these pages (docs/controls.md).
+    auto content_of = [](const gameapi::HotSlot& s) { return s.empty ? std::string(strings::kEmptySlot) : s.name; };
+    // The current weapon set's two number bars (indices 0-9 and 14-23). Enter opens the skill picker; the
+    // first entry "clear" empties the slot (assign_skill_to_slot with 0).
     const std::vector<gameapi::HotSlot> all = gameapi::hotslots();
     for (int bar = 1; bar <= 2; ++bar)
       for (int k = 1; k <= 10; ++k) {
         unsigned idx = gameapi::quickbar_slot_index(bar - 1, k);
-        std::string content = (idx < all.size() && !all[idx].empty) ? all[idx].name : std::string(strings::kEmptySlot);
+        std::string content = (idx < all.size()) ? content_of(all[idx]) : std::string(strings::kEmptySlot);
         std::string label = std::format("{} {} {} {}", strings::kBar, bar, strings::kSlot, k % 10);
         b.add_item(ControlId::structural(std::format("hb.{}", idx)),
-                   row_item(label, [content] { return content; }, [idx, label] { open_slot_picker(idx, label); }));
+                   row_item(label, [content] { return content; }, [idx, label] {
+                     open_skill_picker(label, strings::kClear, [idx](unsigned id) { say_assigned(gameapi::assign_skill_to_slot(idx, id), id == 0); });
+                   }));
       }
+    // The two mouse buttons (they hold skills, but don't cycle with Y). Enter opens the same picker; the first
+    // entry "default" restores the game's basic attack (SkillManager::GetDefaultSkillId), so you always have a
+    // way back to a working left click.
+    b.add_item(ControlId::structural("hb.primary"),
+               row_item(std::string(strings::kLeftMouse), [c = content_of(gameapi::primary_slot())] { return c; }, [] {
+                 open_skill_picker(std::string(strings::kLeftMouse), strings::kDefault, [](unsigned id) { say_assigned(gameapi::set_primary_skill(id ? id : gameapi::default_skill_id(0)), false); });
+               }));
+    b.add_item(ControlId::structural("hb.secondary"),
+               row_item(std::string(strings::kRightMouse), [c = content_of(gameapi::secondary_slot())] { return c; }, [] {
+                 open_skill_picker(std::string(strings::kRightMouse), strings::kDefault, [](unsigned id) { say_assigned(gameapi::set_secondary_skill(id ? id : gameapi::default_skill_id(1)), false); });
+               }));
+    // The R / E potion slots, read-only: the game auto-manages which potion is here (no select API), so this is
+    // just so they're visible and their current potion can be read.
+    b.add_item(ControlId::structural("hb.health"), row_item(std::string(strings::kHealthPotion), [c = content_of(gameapi::health_potion_slot())] { return c; }));
+    b.add_item(ControlId::structural("hb.energy"), row_item(std::string(strings::kEnergyPotion), [c = content_of(gameapi::mana_potion_slot())] { return c; }));
   }
 };
 

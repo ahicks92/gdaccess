@@ -44,6 +44,8 @@ std::vector<HotSlot> hotslots();                 // every slot of the displayed 
 HotSlot hotslot(unsigned index);
 HotSlot primary_slot();                          // left mouse
 HotSlot secondary_slot();                        // right mouse
+HotSlot health_potion_slot();                    // the R / health potion slot (read-only; the game auto-manages it)
+HotSlot mana_potion_slot();                      // the E / energy potion slot (read-only)
 std::vector<std::string> hotslot_tooltip(unsigned index);
 bool assign_skill_to_slot(unsigned index, unsigned skill_id);   // a HotSlotOptionSkill built here (the game copies it)
 bool set_primary_skill(unsigned skill_id);
@@ -99,6 +101,7 @@ unsigned quickbar_slot_index(int bar, int k);    // bar 0..3, k 1..10
 struct SkillInfo {
   void* p; unsigned id; std::string name, record; unsigned level, max_level, ultimate_level, mastery_id, mastery_req, tier;
   bool locked, is_mastery, enabled, modifier;
+  bool item_auto = false;   // Skill::IsItemSkillAuto: an auto-triggered item skill (a proc / chance-on-attack) -- not player-assignable
 };
 std::vector<SkillInfo> skills();                 // the UI skill list, in the game's order
 unsigned skill_points();

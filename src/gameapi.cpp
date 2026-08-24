@@ -54,6 +54,8 @@ struct Api {
   int (*HS_GetSlotStatus)(const void*, unsigned) = nullptr;
   void* (*HS_GetPrimarySlot)(const void*) = nullptr;
   void* (*HS_GetSecondarySlot)(const void*) = nullptr;
+  void* (*HS_GetHealthPotionSlot)(const void*) = nullptr;
+  void* (*HS_GetManaPotionSlot)(const void*) = nullptr;
   void (*HS_SetHotSlot)(void*, unsigned, const void*) = nullptr;
   void (*HS_SetPrimarySkillId)(void*, unsigned) = nullptr;
   void (*HS_SetSecondarySkillId)(void*, unsigned) = nullptr;
@@ -156,6 +158,8 @@ void load() {
   GAPI_LOAD(g, HS_GetSlotStatus, HotSlotCtrl_GetSlotStatus);
   GAPI_LOAD(g, HS_GetPrimarySlot, HotSlotCtrl_GetPrimarySlot);
   GAPI_LOAD(g, HS_GetSecondarySlot, HotSlotCtrl_GetSecondarySlot);
+  GAPI_LOAD(g, HS_GetHealthPotionSlot, HotSlotCtrl_GetHealthPotionSlot);
+  GAPI_LOAD(g, HS_GetManaPotionSlot, HotSlotCtrl_GetManaPotionSlot);
   GAPI_LOAD(g, HS_SetHotSlot, HotSlotCtrl_SetHotSlot);
   GAPI_LOAD(g, HS_SetPrimarySkillId, HotSlotCtrl_SetPrimarySkillId);
   GAPI_LOAD(g, HS_SetSecondarySkillId, HotSlotCtrl_SetSecondarySkillId);
@@ -373,6 +377,8 @@ std::vector<HotSlot> hotslots() {
 }
 HotSlot primary_slot() { void* c = hotslot_ctrl(); void* o = nullptr; if (c && g.HS_GetPrimarySlot) guarded("GetPrimarySlot", [&] { o = g.HS_GetPrimarySlot(c); }); return read_option(~0u, o, -1); }
 HotSlot secondary_slot() { void* c = hotslot_ctrl(); void* o = nullptr; if (c && g.HS_GetSecondarySlot) guarded("GetSecondarySlot", [&] { o = g.HS_GetSecondarySlot(c); }); return read_option(~1u, o, -1); }
+HotSlot health_potion_slot() { void* c = hotslot_ctrl(); void* o = nullptr; if (c && g.HS_GetHealthPotionSlot) guarded("GetHealthPotionSlot", [&] { o = g.HS_GetHealthPotionSlot(c); }); return read_option(~2u, o, -1); }
+HotSlot mana_potion_slot() { void* c = hotslot_ctrl(); void* o = nullptr; if (c && g.HS_GetManaPotionSlot) guarded("GetManaPotionSlot", [&] { o = g.HS_GetManaPotionSlot(c); }); return read_option(~3u, o, -1); }
 std::vector<std::string> hotslot_tooltip(unsigned index) {
   std::vector<std::string> out;
   void* c = hotslot_ctrl();

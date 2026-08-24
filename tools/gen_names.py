@@ -200,6 +200,8 @@ ENTRIES = [
     ("HotSlotCtrl_GetSlotStatus", "Game", r"GAME::PlayerHotSlotCtrl::GetSlotStatus\("),
     ("HotSlotCtrl_GetPrimarySlot", "Game", r"GAME::PlayerHotSlotCtrl::GetPrimarySlot\(void\)"),
     ("HotSlotCtrl_GetSecondarySlot", "Game", r"GAME::PlayerHotSlotCtrl::GetSecondarySlot\(void\)"),
+    ("HotSlotCtrl_GetHealthPotionSlot", "Game", r"GAME::PlayerHotSlotCtrl::GetHealthPotionSlot\(void\)"),
+    ("HotSlotCtrl_GetManaPotionSlot", "Game", r"GAME::PlayerHotSlotCtrl::GetManaPotionSlot\(void\)"),
     ("HotSlotCtrl_SetHotSlot", "Game", r"GAME::PlayerHotSlotCtrl::SetHotSlot\(unsigned int,class"),
     ("HotSlotCtrl_SetPrimarySkillId", "Game", r"GAME::PlayerHotSlotCtrl::SetPrimarySkillId\("),
     ("HotSlotCtrl_SetSecondarySkillId", "Game", r"GAME::PlayerHotSlotCtrl::SetSecondarySkillId\("),
@@ -303,6 +305,8 @@ ENTRIES = [
     # per-item granted skill: FindItemSkillIdByItemId(item id) -- used to source the palette from EQUIPPED items
     # only (GetItemSkillList also returns loose bag components' skills, e.g. a Chilled Steel granting Ice Spike).
     ("SkillManager_FindItemSkillIdByItemId", "Game", r"GAME::SkillManager::FindItemSkillIdByItemId\(unsigned int\)"),
+    # a proc / chance-on-attack item skill (Ice Spike from a component) is auto-triggered, not assignable
+    ("Skill_IsItemSkillAuto", "Game", r"GAME::Skill::IsItemSkillAuto\(void\)"),
     ("Character_GetSkillPoints", "Game", r"GAME::Character::GetSkillPoints\(void\)"),
     ("Character_SubtractSkillPoint", "Game", r"GAME::Character::SubtractSkillPoint\("),
     ("Character_AddSkillPoints", "Game", r"GAME::Character::AddSkillPoints\("),

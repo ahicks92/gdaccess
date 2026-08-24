@@ -553,6 +553,12 @@ inline constexpr const char* HotSlotCtrl_GetPrimarySlot = "?GetPrimarySlot@Playe
 // public: class GAME::HotSlotOption * __ptr64 __cdecl GAME::PlayerHotSlotCtrl::GetSecondarySlot(void)const __ptr64
 inline constexpr const char* HotSlotCtrl_GetSecondarySlot_DLL = "Game.dll";
 inline constexpr const char* HotSlotCtrl_GetSecondarySlot = "?GetSecondarySlot@PlayerHotSlotCtrl@GAME@@QEBAPEAVHotSlotOption@2@XZ";
+// public: class GAME::HotSlotOption * __ptr64 __cdecl GAME::PlayerHotSlotCtrl::GetHealthPotionSlot(void)const __ptr64
+inline constexpr const char* HotSlotCtrl_GetHealthPotionSlot_DLL = "Game.dll";
+inline constexpr const char* HotSlotCtrl_GetHealthPotionSlot = "?GetHealthPotionSlot@PlayerHotSlotCtrl@GAME@@QEBAPEAVHotSlotOption@2@XZ";
+// public: class GAME::HotSlotOption * __ptr64 __cdecl GAME::PlayerHotSlotCtrl::GetManaPotionSlot(void)const __ptr64
+inline constexpr const char* HotSlotCtrl_GetManaPotionSlot_DLL = "Game.dll";
+inline constexpr const char* HotSlotCtrl_GetManaPotionSlot = "?GetManaPotionSlot@PlayerHotSlotCtrl@GAME@@QEBAPEAVHotSlotOption@2@XZ";
 // public: void __cdecl GAME::PlayerHotSlotCtrl::SetHotSlot(unsigned int,class GAME::HotSlotOption const * __ptr64) __ptr64
 inline constexpr const char* HotSlotCtrl_SetHotSlot_DLL = "Game.dll";
 inline constexpr const char* HotSlotCtrl_SetHotSlot = "?SetHotSlot@PlayerHotSlotCtrl@GAME@@QEAAXIPEBVHotSlotOption@2@@Z";
@@ -823,6 +829,9 @@ inline constexpr const char* SkillManager_GetItemSkillList = "?GetItemSkillList@
 // public: unsigned int const __cdecl GAME::SkillManager::FindItemSkillIdByItemId(unsigned int)const __ptr64
 inline constexpr const char* SkillManager_FindItemSkillIdByItemId_DLL = "Game.dll";
 inline constexpr const char* SkillManager_FindItemSkillIdByItemId = "?FindItemSkillIdByItemId@SkillManager@GAME@@QEBA?BII@Z";
+// public: bool __cdecl GAME::Skill::IsItemSkillAuto(void) __ptr64
+inline constexpr const char* Skill_IsItemSkillAuto_DLL = "Game.dll";
+inline constexpr const char* Skill_IsItemSkillAuto = "?IsItemSkillAuto@Skill@GAME@@QEAA_NXZ";
 // public: unsigned int const __cdecl GAME::Character::GetSkillPoints(void)const __ptr64
 inline constexpr const char* Character_GetSkillPoints_DLL = "Game.dll";
 inline constexpr const char* Character_GetSkillPoints = "?GetSkillPoints@Character@GAME@@QEBA?BIXZ";
