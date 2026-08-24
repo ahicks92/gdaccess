@@ -6,6 +6,7 @@
 #include "audio.h"
 #include "combat.h"
 #include "rooms.h"
+#include "screens/quickbar.h"
 #include "sonar.h"
 #include "core/graph_builder.h"
 #include "core/message_builder.h"
@@ -141,7 +142,8 @@ class InGameScreen : public Screen {
   bool owns_keyboard() const override { return true; }
   bool passes_key(int code) const override {
     static const int direct[] = {0x11, 0x1e, 0x1f, 0x20,                                       // W A S D
-                                 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,   // 1..9 0 quickbar
+                                 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,   // 1..9 0 quickbar slots
+                                 0x15,                                                         // Y quickbar switch (the game's own; we announce the page in quickbar_tick)
                                  0x39, 0x12, 0x13, 0x16, 0x01,                                 // Space evade, E energy, R health, U interact, Escape menu
                                  0x38, 0x76,                                                   // Alt / Right Alt: show items (held)
                                  0x3c, 0x3d, 0x3e, 0x3f, 0x40, 0x41};                          // F2..F7 pets
@@ -157,6 +159,7 @@ class InGameScreen : public Screen {
     world::tick();
     combat::tick();
     rooms::tick();
+    quickbar_tick();
     sonar::tick();
     walltones::tick();
     // The mouse buttons as keys, with real hold semantics: J (or Enter) = left, I = right, for as long as the
@@ -168,7 +171,7 @@ class InGameScreen : public Screen {
     world::mouse_key(2, !mods && ks.held(kI));
   }
   void on_unfocus() override { walltones::silence(); world::mouse_key(1, false); world::mouse_key(2, false); }
-  void on_pop() override { walltones::silence(); world::mouse_key(1, false); world::mouse_key(2, false); rooms::reset(); sonar::reset(); }
+  void on_pop() override { walltones::silence(); world::mouse_key(1, false); world::mouse_key(2, false); rooms::reset(); sonar::reset(); quickbar_reset(); }
 };
 
 std::unique_ptr<Screen> make_in_game() { return std::make_unique<InGameScreen>(); }

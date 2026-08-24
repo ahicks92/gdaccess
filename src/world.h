@@ -53,6 +53,11 @@ std::string fog_reveal(float x, float z, int radius);                    // dev:
 // codes stripped; empty when the class has no label export. Game text, verbatim.
 std::string label_of(unsigned id);
 
+// How using a skill chooses where it lands, for the quickbar readout (docs/skills-targeting.md): the runtime
+// SkillTargetType plus the skill's class. None = not an activated skill (a passive or a modifier).
+enum class SkillAim { None, SelfCast, AroundYou, AtPoint, AtTarget, AtObject };
+SkillAim skill_aim(const void* skill_obj);   // skill_obj from gameapi::object_by_id(skill_id)
+
 // ---- the review cursor (wotr's scanner, adapted) ----
 // Groups cycle nearest-first from the player; the landing is remembered by OBJECT ID (session-unique,
 // from ObjectManager::CreateObjectID) and re-found in a fresh query on every step -- never by pointer --

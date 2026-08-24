@@ -273,7 +273,7 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   Stats with attribute "+"), `skills` (class selection via `SkillsWindow::SetPane` exe+0x27c580, tree per
   mastery, learn/refund = the window's own IncrementSkillLevel+SubtractSkillPoint sequence, Ctrl+1..0/J/I
   assignment), `codex` (quest tree + lore), `factions`, `vendor`, `stash`, `quest_reward`, `shrine`; in-world
-  keys Q objectives, Y quickbar, G pickup (`InGameUI::HandleKeyAction(0x37)` by RVA, signature-checked).
+  keys Q objectives, Y quickbar switch, Ctrl+1..0 read slot, G pickup (`InGameUI::HandleKeyAction(0x37)` by RVA, signature-checked).
   VERIFIED through the loop: inventory (equipment, bag read/unequip/re-equip via SmartAutoInsert, sheet,
   attribute point), skills (choose Soldier -> spend on mastery -> learn Cadence -> slot 1 and left mouse),
   codex, factions, Q/Y/G, `/cheat?xp=` (`GameEngine::CharacterExperienceOutbound`) to reach level 2. NOT yet
@@ -282,6 +282,17 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   prefix in this exe; `EquipmentCtrl::RemoveItem` only detaches (always AddItem to the bag first); the bag
   map's pair sits at +0x1c/+0x20 (4-byte value alignment), the market map's at +0x20/+0x28. Dev routes:
   `/quests /objectives /factions /hotbar /lore /inv /skills /sheet /obj /loc2 /cheat /ingame?action=`.
+- Quickbar + skill targeting (2026-08-23, `docs/skills-targeting.md`, built, NOT yet verified live): bare Y is
+  now the game's own Quickbar Switch (passed straight through; `screens::quickbar_tick` watches
+  `exe_ui::quickbar_page()` and announces the new bar "quickbar N"). Reading moved to Ctrl+1..0 = read slot
+  1..10 of the displayed bar, Ctrl+- / Ctrl+= = the left / right mouse skill; each says the skill and how it
+  aims. **Aim = `world::skill_aim`**: `SkillActivated::GetTargetType()` returns `*(int*)(this+0x5c0)` = the
+  DBR `targetingMode` enum {Default=0, Point=1, Object=2, Target=3} (never overridden, callable directly after
+  an is-a `SkillActivated` guard). Point->"at a spot", Target->"at a target", Object->"at an object"; Default
+  is overloaded (self-buff vs weapon attack), disambiguated by the concrete RTTI class name (Radius->"around
+  you", BuffSelf/Passive/Toggled/Shapeshift->"self", else->"at a target"). Passives/modifiers are Skill not
+  SkillActivated -> None. `/hotbar` prints `aim=` per slot. Open: confirm the +0x5c0 value live, and whether
+  the mouse buttons refuse self/around-you skills (believed yes, via HotSlotOption::Validate).
 - Lua (2026-08-22, `docs/lua.md`): LuaJIT 2.0.4 (`x64\lua51.dll`) behind the LUAGLUE binding layer; one
   state owned by `LuaManager` at `*(gEngine+0x68)`; `LuaManager::RunCode` is exported (dev route `/lua?code=`,
   readback via `Game.AddObjective` -> `/objectives`). Sandboxed (no io/os/ffi/debug/require) but `loadfile`

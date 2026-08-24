@@ -189,6 +189,8 @@ struct Api {
   const void* (*Monster_StaticClassInfo)() = nullptr;
   const void* (*Npc_StaticClassInfo)() = nullptr;
   const void* (*Player_StaticClassInfo)() = nullptr;
+  int (*SkillActivated_GetTargetType)(const void*) = nullptr;    // SkillTargetType {Default=0,Point=1,Object=2,Target=3}; reads this+0x5c0, never overridden
+  const void* (*SkillActivated_StaticClassInfo)() = nullptr;     // is-a guard: passives/modifiers are Skill but not SkillActivated
   void (*GetCurrentAttackTarget)(void*, unsigned*, void*, unsigned*) = nullptr;
   void* (*GetFactionManager)(void*) = nullptr;
   bool (*FactionManager_IsFoe)(void*, unsigned, unsigned, bool) = nullptr;  // by object ids
@@ -293,6 +295,8 @@ void load_api() {
   LOAD(Monster_StaticClassInfo, Monster_GetStaticClassInfo);
   LOAD(Npc_StaticClassInfo, Npc_GetStaticClassInfo);
   LOAD(Player_StaticClassInfo, Player_GetStaticClassInfo);
+  LOAD(SkillActivated_GetTargetType, SkillActivated_GetTargetType);
+  LOAD(SkillActivated_StaticClassInfo, SkillActivated_GetStaticClassInfo);
   LOAD(GetCurrentAttackTarget, Character_GetCurrentAttackTarget);
   LOAD(GetFactionManager, GameEngine_GetFactionManager);
   LOAD(FactionManager_IsFoe, FactionManager_IsFoe);
@@ -1187,6 +1191,9 @@ bool call_bool_slot(const void* obj, int slot, bool* out) {
 bool call_bool_fn(const void* obj, bool (*fn)(const void*), bool* out) {
   __try { *out = fn(obj); return true; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
 }
+bool call_int_fn(const void* obj, int (*fn)(const void*), int* out) {
+  __try { *out = fn(obj); return true; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
 // What the game's Interact key would consider: a FixedActor (door, chest, shrine, lever ...) or an Item
 // whose IsOfInterest() says so -- virtual, so dispatched through the object's vtable at the slot the class's
 // exported implementation occupies in that class's vftable.
@@ -1238,6 +1245,28 @@ bool in_group(const void* e, const void* ci, const std::string& cls, ScanGroup g
   return false;
 }
 }  // namespace
+
+// A skill's aiming, for the quickbar readout (docs/skills-targeting.md). The runtime SkillTargetType
+// (SkillActivated::GetTargetType, from the DBR targetingMode) names Point / Object / Target outright;
+// Default is overloaded (a self-buff and a basic weapon attack both leave it unset), so it is disambiguated
+// by the skill's concrete RTTI class name. Passives / modifiers are Skill but not SkillActivated -> None.
+SkillAim skill_aim(const void* skill_obj) {
+  if (!skill_obj || !g_api.SkillActivated_StaticClassInfo || !g_api.SkillActivated_GetTargetType) return SkillAim::None;
+  if (!is_kind_of(rtti_of(skill_obj), g_api.SkillActivated_StaticClassInfo())) return SkillAim::None;
+  int tt = 0;
+  if (!call_int_fn(skill_obj, g_api.SkillActivated_GetTargetType, &tt)) return SkillAim::None;
+  switch (tt) {
+    case 1: return SkillAim::AtPoint;    // Point: a ground spot at the cursor
+    case 2: return SkillAim::AtObject;   // Object: a world object
+    case 3: return SkillAim::AtTarget;   // Target: a specific entity under the cursor
+    default: break;                      // Default (0): resolve by the concrete class
+  }
+  std::string cls = class_name(skill_obj);
+  auto has = [&](const char* s) { return cls.find(s) != std::string::npos; };
+  if (has("Radius")) return SkillAim::AroundYou;                                                  // AttackRadius / BuffRadius: centred on you
+  if (has("BuffSelf") || has("Passive") || has("Toggled") || has("Shapeshift")) return SkillAim::SelfCast;
+  return SkillAim::AtTarget;                                                                      // weapon / spell / projectile: your current target
+}
 
 int clock_hour(const Vec3& p) {
   Vec3 me; if (!player_position(me)) return 12;

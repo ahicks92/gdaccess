@@ -86,7 +86,9 @@ stationary attack, Ctrl pet targeting) and typing into the game's chat field.
 | (automatic) | Hits you or your pets land: the number the game draws over the enemy ("17", "45 crit", "Miss", "Dodge", "Block"), spoken by Mark panned to where it happened, as many at once as there are hits. Needs the game's "Display damage numbers" option (`displayDamage`, default on). Health: "health N percent" in Zira each time it crosses a 10 % step, down or up |
 | Ctrl+<game key> | The game's own windows and functions (see above) |
 | Q | The objective tracker: each tracked quest's open objectives ("Waking to Misery: Enter the Cave under Burial Hill, ...") |
-| Y | The quickbar: "quickbar 1, 1 Cadence, 2 empty, ..., left mouse Cadence, right mouse empty" (the bar the HUD shows; Ctrl+Y still switches bars) |
+| Y | The game's own Quickbar Switch (cycles which of the four skill bars the HUD shows); the mod announces the new bar ("quickbar 2"). Passes straight through -- it is the game's key, we only add the readout |
+| Ctrl+1..0 | Read quickbar slot 1..10 of the displayed bar: the skill and how it aims -- "1 Cadence, at a target" / "3 War Cry, around you" / "5 Word of Pain, at a spot" / "4 Overguard, self" ("1 empty" for an empty slot). See docs/skills-targeting.md |
+| Ctrl+- , Ctrl+= | Read the left / right mouse skill, same form ("left mouse Fire Strike, at a target") |
 | G | Pick up the nearest item on the ground (the game's own Pickup action: within 10 units, loot filter applied; auto-equips into an empty slot like the game does) |
 | (automatic) | Place changes, in Zira: the region when it changes, the sub-region when it changes, then the room's title ("Devil's Crossing, the prison, cell block corridor"; "room 193" while a room has no title yet). See docs/rooms.md |
 | X | The current room: title, then the authored description ("no description yet" until then), through the screen reader |

@@ -285,6 +285,12 @@ ENTRIES = [
     ("Skill_vftable", "Game", r"const GAME::Skill::`vftable'$"),
     ("Skill_Mastery_GetStaticClassInfo", "Game", r"GAME::Skill_Mastery::GetStaticClassInfo\("),
     ("Skill_GetStaticClassInfo", "Game", r"GAME::Skill::GetStaticClassInfo\("),
+    # A skill's targeting: SkillActivated::GetTargetType returns *(int*)(this+0x5c0), the SkillTargetType enum
+    # {Default=0, Point=1, Object=2, Target=3} loaded from the DBR targetingMode. The base impl is never
+    # overridden (only SkillActivated defines it), so it can be called directly on any SkillActivated object;
+    # guard with is-a SkillActivated first (passives/modifiers are Skill but not SkillActivated).
+    ("SkillActivated_GetTargetType", "Game", r"GAME::SkillActivated::GetTargetType\(void\)"),
+    ("SkillActivated_GetStaticClassInfo", "Game", r"GAME::SkillActivated::GetStaticClassInfo\(void\)"),
     ("Character_GetSkillPoints", "Game", r"GAME::Character::GetSkillPoints\(void\)"),
     ("Character_SubtractSkillPoint", "Game", r"GAME::Character::SubtractSkillPoint\("),
     ("Character_AddSkillPoints", "Game", r"GAME::Character::AddSkillPoints\("),

@@ -149,6 +149,12 @@ inline constexpr std::string_view kQuickbar = "quickbar";
 inline constexpr std::string_view kSlot = "slot";
 inline constexpr std::string_view kLeftMouse = "left mouse";
 inline constexpr std::string_view kRightMouse = "right mouse";
+// How a slotted skill aims (appended to the slot readout; docs/skills-targeting.md).
+inline constexpr std::string_view kAimSelf = "self";
+inline constexpr std::string_view kAimAround = "around you";
+inline constexpr std::string_view kAimPoint = "at a spot";
+inline constexpr std::string_view kAimTarget = "at a target";
+inline constexpr std::string_view kAimObject = "at an object";
 inline constexpr std::string_view kAssigned = "assigned";
 inline constexpr std::string_view kNothingToAssign = "nothing to assign";
 inline constexpr std::string_view kCannot = "can't";

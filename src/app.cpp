@@ -100,11 +100,16 @@ static void register_actions() {
   // Ctrl+Tab / Ctrl+Shift+Tab: the current screen's tabs (tab list across the top; the page is one column).
   m.register_action("ui.tabNext", "Next tab", InputCategory::UI, [] { Screen* s = g_screens.current(); if (s) s->switch_tab(1); }).bind(keys::Tab, true, false, false);
   m.register_action("ui.tabPrev", "Previous tab", InputCategory::UI, [] { Screen* s = g_screens.current(); if (s) s->switch_tab(-1); }).bind(keys::Tab, true, true, false);
-  // In-world readouts: Q = the objective tracker, Y = the quickbar.
+  // In-world readouts: Q = the objective tracker. Bare Y is the game's own Quickbar Switch (it passes
+  // straight through -- see screens/in_game.cpp; the switch is announced by screens::quickbar_tick).
   m.register_action("ingame.objectives", "Objectives", InputCategory::InGame, [] { screens::speak_objectives(); }).bind(0x10);
-  m.register_action("ingame.quickbar", "Quickbar", InputCategory::InGame, [] { screens::speak_quickbar(); }).bind(0x15);
   // G = the game's own Pickup action (nearest item within 10 units; the game leaves it unbound).
   m.register_action("ingame.pickup", "Pick up nearest item", InputCategory::InGame, [] { screens::pickup_nearest(); }).bind(0x22);
+  // Reading the quickbar in the world: Ctrl+1..0 read slot 1..10 of the displayed bar, each saying the skill
+  // and how it aims (world::skill_aim); Ctrl+- / Ctrl+= read the left / right mouse skill.
+  for (int k = 1; k <= 10; ++k) m.register_action(std::format("read.slot{}", k), std::format("Read quickbar slot {}", k % 10), InputCategory::InGame, [k] { screens::speak_slot(k); }).bind(k == 10 ? 0x0b : 0x01 + k, true, false, false);
+  m.register_action("read.leftMouse", "Read left mouse skill", InputCategory::InGame, [] { screens::speak_mouse(true); }).bind(0x0c, true, false, false);   // Ctrl+-
+  m.register_action("read.rightMouse", "Read right mouse skill", InputCategory::InGame, [] { screens::speak_mouse(false); }).bind(0x0d, true, false, false);  // Ctrl+=
   // Quickbar assignment from a window (the skills window's focused skill): Ctrl+1..0 -> slot, Ctrl+J / Ctrl+I -> mouse.
   for (int k = 1; k <= 10; ++k) m.register_action(std::format("assign.slot{}", k), std::format("Assign to quickbar slot {}", k % 10), InputCategory::Windows, [k] { screens::assign_focused(k); }).bind(k == 10 ? 0x0b : 0x01 + k, true, false, false);
   m.register_action("assign.primary", "Assign to left mouse", InputCategory::Windows, [] { screens::assign_focused(0); }).bind(0x24, true, false, false);
@@ -156,7 +161,7 @@ static void register_actions() {
     {"game.map", "Map window", 0x32, u'm'}, {"game.lootFilter", "Loot filter window", 0x18, u'o'}, {"game.group", "Group window", 0x25, u'k'},
     {"game.gameMenu", "Game menu", 0x22, u'g'}, {"game.help", "Help window", 0x23, u'h'}, {"game.factions", "Factions window", 0x24, u'j'},
     {"game.achievements", "Achievements window", 0x2f, u'v'}, {"game.riftgate", "Personal riftgate", 0x26, u'l'}, {"game.drop", "Drop item", 0x30, u'b'},
-    {"game.tooltips", "Show item tooltips", 0x2d, u'x'}, {"game.showItems", "Show items (filter common)", 0x2c, u'z'}, {"game.quickbarSwitch", "Quickbar switch", 0x15, u'y'},
+    {"game.tooltips", "Show item tooltips", 0x2d, u'x'}, {"game.showItems", "Show items (filter common)", 0x2c, u'z'},
     {"game.pause", "Pause game", 0x19, u'p'}, {"game.petDisplay", "Toggle pet display", 0x0e, 0}, {"game.partyDisplay", "Toggle party display", 0x2b, u'\\'},
     {"game.toggleUi", "Toggle UI", 0x1b, u']'}, {"game.cameraLeft", "Camera rotate left", 0x33, u','}, {"game.cameraRight", "Camera rotate right", 0x34, u'.'},
     {"game.chat", "Chat window", 0x1c, 0}, {"game.pushToTalk", "Push to talk", 0x0f, 0},

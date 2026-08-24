@@ -8,6 +8,7 @@
 #include "gameapi.h"
 #include "screens/skills.h"
 #include "speech.h"
+#include "world.h"
 
 namespace gd::screens {
 using namespace gd::core;
@@ -20,22 +21,53 @@ unsigned quickbar_slot_index(int k) {
 }
 void set_quickbar_base(unsigned, unsigned) {}   // the layout is known now; kept for the dev route
 
-void speak_quickbar() {
-  std::vector<gameapi::HotSlot> all = gameapi::hotslots();
-  if (all.empty()) { speech::speak(strings::kNotInWorld, true); return; }
-  MessageBuilder m;
-  int page = exe_ui::quickbar_page();
-  m.list_item().fragment(strings::kQuickbar).fragment(std::format("{}", (page < 0 ? 0 : page) + 1));
-  for (int k = 1; k <= 10; ++k) {
-    unsigned idx = quickbar_slot_index(k);
-    const gameapi::HotSlot& s = all[idx < all.size() ? idx : 0];
-    m.list_item().fragment(std::format("{}", k % 10)).fragment(s.empty ? std::string(strings::kEmptySlot) : s.name);
+namespace {
+// How a slotted skill aims (docs/skills-targeting.md), appended after the skill name so you know before you
+// fire it. Empty for a passive/modifier, a potion, or an empty slot.
+std::string_view aim_word(world::SkillAim a) {
+  switch (a) {
+    case world::SkillAim::SelfCast: return strings::kAimSelf;
+    case world::SkillAim::AroundYou: return strings::kAimAround;
+    case world::SkillAim::AtPoint: return strings::kAimPoint;
+    case world::SkillAim::AtTarget: return strings::kAimTarget;
+    case world::SkillAim::AtObject: return strings::kAimObject;
+    default: return {};
   }
-  gameapi::HotSlot p = gameapi::primary_slot(), q = gameapi::secondary_slot();
-  m.list_item().fragment(strings::kLeftMouse).fragment(p.empty ? std::string(strings::kEmptySlot) : p.name);
-  m.list_item().fragment(strings::kRightMouse).fragment(q.empty ? std::string(strings::kEmptySlot) : q.name);
+}
+// Speak one slot: "<lead> <name>, <aim>", or "<lead> empty".
+void speak_slot_line(std::string_view lead, const gameapi::HotSlot& s) {
+  MessageBuilder m;
+  if (s.empty) { m.list_item().fragment(lead).fragment(strings::kEmptySlot); speech::speak(m.build(), true); return; }
+  m.list_item().fragment(lead).fragment(s.name);
+  std::string_view aim = s.skill_id ? aim_word(world::skill_aim(gameapi::object_by_id(s.skill_id))) : std::string_view{};
+  if (!aim.empty()) m.list_item().fragment(aim);
   speech::speak(m.build(), true);
 }
+}  // namespace
+
+void speak_slot(int k) {
+  if (!world::in_world()) { speech::speak(strings::kNotInWorld, true); return; }
+  speak_slot_line(std::format("{}", k % 10), gameapi::hotslot(quickbar_slot_index(k)));
+}
+void speak_mouse(bool primary) {
+  if (!world::in_world()) { speech::speak(strings::kNotInWorld, true); return; }
+  speak_slot_line(primary ? strings::kLeftMouse : strings::kRightMouse, primary ? gameapi::primary_slot() : gameapi::secondary_slot());
+}
+
+// Announce the displayed quickbar page when it changes (the game's own Y = Quickbar Switch cycles it; we only
+// add the readout). Called every world frame; the first observation seeds without speaking, and re-entering
+// the world resets so the next switch announces afresh.
+namespace { int g_last_page = -2; }
+void quickbar_tick() {
+  int p = exe_ui::quickbar_page();
+  if (p < 0) { g_last_page = -2; return; }
+  if (g_last_page != -2 && p != g_last_page) {
+    MessageBuilder m; m.fragment(strings::kQuickbar).fragment(std::format("{}", p + 1));
+    speech::speak(m.build(), true);
+  }
+  g_last_page = p;
+}
+void quickbar_reset() { g_last_page = -2; }
 
 void assign_focused(int target) {
   Screen* cur = app::screens().current();

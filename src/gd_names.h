@@ -802,6 +802,12 @@ inline constexpr const char* Skill_Mastery_GetStaticClassInfo = "?GetStaticClass
 // public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::Skill::GetStaticClassInfo(void)
 inline constexpr const char* Skill_GetStaticClassInfo_DLL = "Game.dll";
 inline constexpr const char* Skill_GetStaticClassInfo = "?GetStaticClassInfo@Skill@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
+// public: virtual enum GAME::SkillTargetType __cdecl GAME::SkillActivated::GetTargetType(void)const __ptr64
+inline constexpr const char* SkillActivated_GetTargetType_DLL = "Game.dll";
+inline constexpr const char* SkillActivated_GetTargetType = "?GetTargetType@SkillActivated@GAME@@UEBA?AW4SkillTargetType@2@XZ";
+// public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::SkillActivated::GetStaticClassInfo(void)
+inline constexpr const char* SkillActivated_GetStaticClassInfo_DLL = "Game.dll";
+inline constexpr const char* SkillActivated_GetStaticClassInfo = "?GetStaticClassInfo@SkillActivated@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
 // public: unsigned int const __cdecl GAME::Character::GetSkillPoints(void)const __ptr64
 inline constexpr const char* Character_GetSkillPoints_DLL = "Game.dll";
 inline constexpr const char* Character_GetSkillPoints = "?GetSkillPoints@Character@GAME@@QEBA?BIXZ";

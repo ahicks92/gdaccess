@@ -424,15 +424,28 @@ unsigned quickbar_slot_index(int bar, int k) {
   if (bar < 0) bar = 0; if (bar > 3) bar = 3; if (k < 1) k = 1; if (k > 10) k = 10;
   return base[bar] + (unsigned)(k - 1);
 }
+namespace {
+const char* aim_name(world::SkillAim a) {
+  switch (a) {
+    case world::SkillAim::SelfCast: return "self";
+    case world::SkillAim::AroundYou: return "around";
+    case world::SkillAim::AtPoint: return "point";
+    case world::SkillAim::AtTarget: return "target";
+    case world::SkillAim::AtObject: return "object";
+    default: return "-";
+  }
+}
+const char* slot_aim(unsigned skill_id) { return skill_id ? aim_name(world::skill_aim(object_by_id(skill_id))) : "-"; }
+}  // namespace
 std::string dump_hotslots() {
   std::string out;
   void* c = hotslot_ctrl();
   if (!c) return "no hot slot ctrl\n";
   unsigned set = 0; if (g.HS_GetDisplayedSkillSetIndex) guarded("GetDisplayedSkillSetIndex", [&] { set = g.HS_GetDisplayedSkillSetIndex(c); });
   out += std::format("hotslot ctrl {} displayed set {}\n", c, set);
-  for (const HotSlot& s : hotslots()) if (!s.empty || s.status != -1) out += std::format("  slot {:2} type={} skill={} cd={} status={} '{}'\n", s.index, s.type, s.skill_id, s.cooldown_ms, s.status, s.name);
+  for (const HotSlot& s : hotslots()) if (!s.empty || s.status != -1) out += std::format("  slot {:2} type={} skill={} aim={} cd={} status={} '{}'\n", s.index, s.type, s.skill_id, slot_aim(s.skill_id), s.cooldown_ms, s.status, s.name);
   HotSlot p = primary_slot(), q = secondary_slot();
-  out += std::format("  primary: type={} skill={} '{}'\n  secondary: type={} skill={} '{}'\n", p.type, p.skill_id, p.name, q.type, q.skill_id, q.name);
+  out += std::format("  primary: type={} skill={} aim={} '{}'\n  secondary: type={} skill={} aim={} '{}'\n", p.type, p.skill_id, slot_aim(p.skill_id), p.name, q.type, q.skill_id, slot_aim(q.skill_id), q.name);
   return out;
 }
 
