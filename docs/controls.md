@@ -90,7 +90,7 @@ stationary attack, Ctrl pet targeting) and typing into the game's chat field.
 | Ctrl+1..0 | Read quickbar slot 1..10 of the displayed bar: the skill and how it aims -- "Cadence, at a target" / "War Cry, around you" / "Word of Pain, at a spot" / "Overguard, self" ("empty" for an empty slot). See docs/skills-targeting.md |
 | Ctrl+- , Ctrl+= | Read the left / right mouse skill, same form ("left mouse Fire Strike, at a target") |
 | F | Swap the active weapon set (the game's "Switch Weapons", which it leaves unbound); announces "weapon set N" and the two hands. Only the two hands change between sets; everything else is shared |
-| Ctrl+` | The hotbar manager: the two number bars of the current weapon set; activate a slot to open a picker (clear, then every learned skill you can assign) and assign it |
+| Ctrl+` | The hotbar manager: the two number bars of the current weapon set; activate a slot to open a picker (clear, then every learned skill you can assign) and assign it. In either picker, Space reads the tooltip (the skill's text / the item's stats) |
 | G | Pick up the nearest item on the ground (the game's own Pickup action: within 10 units, loot filter applied; auto-equips into an empty slot like the game does) |
 | (automatic) | Place changes, in Zira: the region when it changes, the sub-region when it changes, then the room's title ("Devil's Crossing, the prison, cell block corridor"; "room 193" while a room has no title yet). See docs/rooms.md |
 | X | The current room: title, then the authored description ("no description yet" until then), through the screen reader |

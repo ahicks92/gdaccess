@@ -42,14 +42,19 @@ static void open_slot_picker(unsigned index, const std::string& slot_label) {
   items.push_back({0, std::string(strings::kClear), {}});
   // Only learned/available skills (level > 0): an unlearned skill won't stay on a slot (the game clears it),
   // and level-0 skills of masteries the player hasn't invested in are just noise. skill_aim != None drops
-  // passives / modifiers / the mastery bar.
-  for (const gameapi::SkillInfo& s : gameapi::assignable_skills())
-    if (s.id && s.level > 0 && world::skill_aim(gameapi::object_by_id(s.id)) != world::SkillAim::None)
-      items.push_back({s.id, s.name, {}});
+  // passives / modifiers / the mastery bar. Default utility skills (records/skills/default/* -- the basic
+  // weapon attack, move-to, evade, the health/energy potions) are excluded: they have their own keys (mouse,
+  // R/E) and only cluttered the list (they were the "Weapon Attack twice" and the potions the user saw).
+  for (const gameapi::SkillInfo& s : gameapi::assignable_skills()) {
+    if (!s.id || s.level == 0) continue;
+    if (s.record.rfind("records/skills/default/", 0) == 0) continue;
+    if (world::skill_aim(gameapi::object_by_id(s.id)) == world::SkillAim::None) continue;
+    items.push_back({s.id, s.name, {}});
+  }
   open_picker(slot_label, std::move(items), [index](unsigned id) {
     bool ok = gameapi::assign_skill_to_slot(index, id);
     speech::speak(ok ? std::string(id ? strings::kAssigned : strings::kCleared) : std::string(strings::kCannot), true);
-  });
+  }, [](unsigned id, bool) { if (void* s = gameapi::object_by_id(id)) speak_lines(gameapi::skill_tooltip(s)); });   // Space = the skill's text
 }
 
 class HotbarManagerScreen : public Screen {

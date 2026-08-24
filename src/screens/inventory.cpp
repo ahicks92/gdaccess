@@ -80,7 +80,7 @@ class InventoryScreen : public WindowScreen, public AssignSource {
           bool ok = pid ? gameapi::equip(pid, loc) : gameapi::unequip(loc);
           if (!ok) speech::speak(strings::kCannot, true);
           invalidate();
-        });
+        }, [](unsigned pid, bool detail) { item_tip(pid, detail)(); });   // Space / Ctrl+Space = the item's tooltip
       };
       auto unequip = [this, id, loc] { if (!id) { speech::speak(strings::kEmptySlot, true); return; } if (!gameapi::unequip(loc)) speech::speak(strings::kCannot, true); invalidate(); };
       b.add_item(ControlId::structural(std::format("inventory.eq{}", s.loc)),

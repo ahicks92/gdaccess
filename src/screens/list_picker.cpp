@@ -14,14 +14,17 @@ struct Ctx {
   std::string title;
   std::vector<PickerItem> items;
   std::function<void(unsigned)> on_pick;
+  std::function<void(unsigned, bool)> tooltip;
 };
 Ctx g_ctx;
 }  // namespace
 
-void open_picker(std::string title, std::vector<PickerItem> items, std::function<void(unsigned)> on_pick) {
+void open_picker(std::string title, std::vector<PickerItem> items, std::function<void(unsigned)> on_pick,
+                 std::function<void(unsigned, bool)> tooltip) {
   g_ctx.title = std::move(title);
   g_ctx.items = std::move(items);
   g_ctx.on_pick = std::move(on_pick);
+  g_ctx.tooltip = std::move(tooltip);
   g_ctx.open = true;
 }
 bool picker_open() { return g_ctx.open; }
@@ -47,8 +50,10 @@ class ListPickerScreen : public Screen {
       const PickerItem& it = g_ctx.items[i];
       unsigned id = it.id;
       std::string value = it.value;
+      std::function<void()> tip, tip_detail;
+      if (g_ctx.tooltip && id) { tip = [id] { if (g_ctx.tooltip) g_ctx.tooltip(id, false); }; tip_detail = [id] { if (g_ctx.tooltip) g_ctx.tooltip(id, true); }; }
       b.add_item(ControlId::structural("picker." + std::to_string(i)),
-                 row_item(it.label, value.empty() ? std::function<std::string()>{} : [value] { return value; }, [id] { pick(id); }));
+                 row_item(it.label, value.empty() ? std::function<std::string()>{} : [value] { return value; }, [id] { pick(id); }, tip, {}, tip_detail));
     }
   }
 

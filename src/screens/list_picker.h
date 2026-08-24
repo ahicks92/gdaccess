@@ -15,7 +15,10 @@ struct PickerItem { unsigned id; std::string label; std::string value; };
 // entry; each row is navigable; activating a row runs on_pick(id) and closes the picker, which re-exposes the
 // screen that opened it with its focus intact (so the launching slot stays selected). Escape cancels.
 // Only one picker is open at a time (equip OR hotbar assign, never both).
-void open_picker(std::string title, std::vector<PickerItem> items, std::function<void(unsigned)> on_pick);
+// `tooltip`, if given, is invoked on Space (detail=false) / Ctrl+Space (detail=true) with the focused row's id
+// -- the equip picker speaks the item's tooltip, the skill picker the skill's.
+void open_picker(std::string title, std::vector<PickerItem> items, std::function<void(unsigned)> on_pick,
+                 std::function<void(unsigned, bool)> tooltip = {});
 bool picker_open();
 
 std::unique_ptr<gd::core::Screen> make_list_picker();
