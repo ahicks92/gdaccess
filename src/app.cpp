@@ -30,6 +30,8 @@
 #include "screens/quickbar.h"
 #include "screens/modals.h"
 #include "screens/vendor.h"
+#include "screens/list_picker.h"
+#include "screens/hotbar_manager.h"
 #include "gameapi.h"
 #include "speech.h"
 #include "world.h"
@@ -105,6 +107,10 @@ static void register_actions() {
   m.register_action("ingame.objectives", "Objectives", InputCategory::InGame, [] { screens::speak_objectives(); }).bind(0x10);
   // G = the game's own Pickup action (nearest item within 10 units; the game leaves it unbound).
   m.register_action("ingame.pickup", "Pick up nearest item", InputCategory::InGame, [] { screens::pickup_nearest(); }).bind(0x22);
+  // F = swap the active weapon set (the game's "Switch Weapons" is unbound); announces the new set + hands.
+  m.register_action("ingame.swapWeapons", "Swap weapon set", InputCategory::InGame, [] { screens::swap_weapons(); }).bind(0x21);
+  // Ctrl+` = the hotbar manager (assign skills to the number bars).
+  m.register_action("ingame.hotbarManager", "Hotbar manager", InputCategory::InGame, [] { screens::open_hotbar_manager(); }).bind(0x29, true, false, false);
   // Reading the quickbar in the world: Ctrl+1..0 read slot 1..10 of the displayed bar, each saying the skill
   // and how it aims (world::skill_aim); Ctrl+- / Ctrl+= read the left / right mouse skill.
   for (int k = 1; k <= 10; ++k) m.register_action(std::format("read.slot{}", k), std::format("Read quickbar slot {}", k % 10), InputCategory::InGame, [k] { screens::speak_slot(k); }).bind(k == 10 ? 0x0b : 0x01 + k, true, false, false);
@@ -219,6 +225,8 @@ void init() {
   g_screens.register_screen(screens::make_shrine());
   g_screens.register_screen(screens::make_vendor());
   g_screens.register_screen(screens::make_stash());
+  g_screens.register_screen(screens::make_hotbar_manager());
+  g_screens.register_screen(screens::make_list_picker());
   gameapi::load();
   g_last_tick = now();
   log::writef("app: initialized with {} actions", g_input.actions().size());

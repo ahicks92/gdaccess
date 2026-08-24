@@ -237,6 +237,9 @@ ENTRIES = [
     ("EquipmentCtrl_GetIsAlternate", "Game", r"GAME::EquipmentCtrl::GetIsAlternate\("),
     ("EquipmentCtrl_PlaceItem", "Game", r"GAME::EquipmentCtrl::PlaceItem\(enum"),
     ("EquipmentCtrl_RemoveItem", "Game", r"GAME::EquipmentCtrl::RemoveItem\("),
+    # two-weapon-set swap on the controller (the two hands only). CanItemBePlaced is already defined below.
+    ("ControllerCharacter_GetAlternateEquipment", "Game", r"GAME::ControllerCharacter::GetAlternateEquipment\(void\)"),
+    ("ControllerCharacter_SetAlternateEquipment", "Game", r"GAME::ControllerCharacter::SetAlternateEquipment\(bool\)"),
     ("Character_GetCurrentMoney", "Game", r"GAME::Character::GetCurrentMoney\("),
     ("ControllerPlayer_UseItem", "Game", r"GAME::ControllerPlayer::UseItem\(unsigned int,enum"),
     ("ControllerCharacter_SendDropItemRandom", "Game", r"GAME::ControllerCharacter::SendDropItemRandom\("),
@@ -295,6 +298,8 @@ ENTRIES = [
     # skill list for the default action of a role (0 = left mouse basic attack, 1 = right mouse), so the id is
     # per-character and weapon-dependent -- never cache it. Used to restore the mouse buttons to basic attack.
     ("SkillManager_GetDefaultSkillId", "Game", r"GAME::SkillManager::GetDefaultSkillId\(enum GAME::DefaultSkill\)"),
+    # skills granted by equipped items (the hotbar-manager palette includes these)
+    ("SkillManager_GetItemSkillList", "Game", r"GAME::SkillManager::GetItemSkillList\(void\)"),
     ("Character_GetSkillPoints", "Game", r"GAME::Character::GetSkillPoints\(void\)"),
     ("Character_SubtractSkillPoint", "Game", r"GAME::Character::SubtractSkillPoint\("),
     ("Character_AddSkillPoints", "Game", r"GAME::Character::AddSkillPoints\("),

@@ -3,6 +3,7 @@
 #include "gameapi.h"
 #include "gameapi_internal.h"
 #include <format>
+#include <set>
 #include "core/message_builder.h"
 #include "core/strings.h"
 
@@ -20,6 +21,7 @@ struct Api {
   bool (*SM_UseReclamationPoints)(void*, int) = nullptr;
   unsigned (*SM_GetNumMasteryPoints)(const void*) = nullptr;
   unsigned (*GetDefaultSkillId)(const void*, int) = nullptr;   // GetDefaultSkillId(DefaultSkill): 0 = left mouse basic attack, 1 = right mouse
+  const MemVec* (*SM_GetItemSkillList)(const void*) = nullptr; // mem::vector<Skill*>: skills granted by equipped items
   unsigned (*Skill_GetSkillLevel)(const void*) = nullptr;
   unsigned (*Skill_GetMaxLevel)(const void*) = nullptr;
   unsigned (*Skill_GetUltimateLevel)(const void*) = nullptr;
@@ -89,6 +91,7 @@ void load_skills() {
   GAPI_LOAD(g, SM_UseReclamationPoints, SkillManager_UseReclamationPoints);
   GAPI_LOAD(g, SM_GetNumMasteryPoints, SkillManager_GetNumMasteryPoints);
   GAPI_LOAD(g, GetDefaultSkillId, SkillManager_GetDefaultSkillId);
+  GAPI_LOAD(g, SM_GetItemSkillList, SkillManager_GetItemSkillList);
   GAPI_LOAD(g, Skill_GetSkillLevel, Skill_GetSkillLevel);
   GAPI_LOAD(g, Skill_GetMaxLevel, Skill_GetMaxLevel);
   GAPI_LOAD(g, Skill_GetUltimateLevel, Skill_GetUltimateLevel);
@@ -192,6 +195,28 @@ unsigned default_skill_id(int role) {
   unsigned id = 0;
   if (sm && g.GetDefaultSkillId) guarded("GetDefaultSkillId", [&] { id = g.GetDefaultSkillId(sm, role); });
   return id;
+}
+// Everything that could go on a hotbar slot: the UI skill list plus item-granted skills, deduped by id, each
+// as a SkillInfo (with names). The caller filters to what is actually activatable (world::skill_aim != None).
+std::vector<SkillInfo> assignable_skills() {
+  std::vector<SkillInfo> out;
+  std::set<unsigned> seen;
+  for (const SkillInfo& s : skills()) if (s.id && seen.insert(s.id).second) out.push_back(s);
+  for (unsigned id : item_skill_ids()) {
+    if (!id || !seen.insert(id).second) continue;
+    if (void* s = object_by_id(id)) out.push_back(read_skill(s));
+  }
+  return out;
+}
+// Skills granted by equipped items (SkillManager::GetItemSkillList -> mem::vector<Skill*>), as object ids.
+std::vector<unsigned> item_skill_ids() {
+  const void* sm = skill_manager();
+  std::vector<unsigned> out;
+  if (!sm || !g.SM_GetItemSkillList) return out;
+  std::vector<void*> ptrs;
+  guarded("GetItemSkillList", [&] { ptrs = vec_items<void*>(g.SM_GetItemSkillList(sm), 256); });
+  for (void* s : ptrs) if (s && g.Object_GetObjectId) { unsigned id = 0; guarded("item skill id", [&] { id = g.Object_GetObjectId(s); }); if (id) out.push_back(id); }
+  return out;
 }
 unsigned masteries_allowed() { load_skills(); void* p = player(); unsigned n = 0; if (p && g.GetSkillMasteriesAllowed) guarded("GetSkillMasteriesAllowed", [&] { n = g.GetSkillMasteriesAllowed(p); }); return n; }
 std::vector<unsigned> mastery_ids() {

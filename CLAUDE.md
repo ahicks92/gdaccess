@@ -312,6 +312,24 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   mouse (Overguard), focused Right Hand, assign restored "Weapon Attack" on both buttons; a non-weapon slot says
   "nothing to assign". Deliberate small-scope stand-in for a full hotbar manager. Full reset available via
   `PlayerHotSlotCtrl::SetToDefaults` if wanted later.
+- Equip-by-list, hotbar manager, two weapon sets (2026-08-23, `docs/skills-targeting.md`/`controls.md`, all
+  verified live on the test char). **Reusable picker** `src/screens/list_picker.{h,cpp}`: a layered overlay
+  (layer 30, `open_picker(title, items, on_pick)`); closing re-exposes the launching screen with focus on the
+  slot it came from (the existing layered-screen focus restoration -- no `push_child` needed). **Equip picker**:
+  Enter on an equipment slot lists every bag item across all bags that fits (`gameapi::can_equip` ->
+  `EquipmentCtrl::CanItemBePlaced`), first entry "empty" = unequip; Backspace still unequips directly. Weapons
+  go to the ACTIVE weapon set (equip() uses the current EquipmentCtrl). **Hotbar manager** (Ctrl+`,
+  `src/screens/hotbar_manager.{h,cpp}`, layer 1 so game windows cover+close it; closes on on_unfocus unless our
+  picker is up): lists the current set's two bars (indices 0-9, 14-23), activate a slot -> skill picker (clear
+  [id 0 -> `assign_skill_to_slot(idx,0)`] + `gameapi::assignable_skills()` filtered to `level>0` and
+  `world::skill_aim != None`, so learned activatable skills only, passives/masteries excluded, item-granted
+  included). **Weapon swap = F** (`gameapi::swap_weapon_set` -> `ControllerCharacter::SetAlternateEquipment`;
+  the game's "Switch Weapons" is unbound); a weapon set is ONLY the two hands (+0xe0/+0x138), everything else
+  shared. The swap propagates to the equipment view a frame later, so the announce ("weapon set N, <right>,
+  <left>") is deferred 3 ticks (`weapon_swap_tick` from the in-world tick). Verified: armed set A=Gladius,
+  B=Splintered Club independently, F swaps and each keeps its own; equip picker filters correctly; manager
+  assigns learned skills + focus returns to the slot. New gameapi: `can_equip`, `swap_weapon_set`,
+  `item_skill_ids`, `assignable_skills` (+ exports GetItemSkillList / Controller Get/SetAlternateEquipment).
 - Lua (2026-08-22, `docs/lua.md`): LuaJIT 2.0.4 (`x64\lua51.dll`) behind the LUAGLUE binding layer; one
   state owned by `LuaManager` at `*(gEngine+0x68)`; `LuaManager::RunCode` is exported (dev route `/lua?code=`,
   readback via `Game.AddObjective` -> `/objectives`). Sandboxed (no io/os/ffi/debug/require) but `loadfile`

@@ -661,6 +661,12 @@ inline constexpr const char* EquipmentCtrl_PlaceItem = "?PlaceItem@EquipmentCtrl
 // public: bool __cdecl GAME::EquipmentCtrl::RemoveItem(unsigned int) __ptr64
 inline constexpr const char* EquipmentCtrl_RemoveItem_DLL = "Game.dll";
 inline constexpr const char* EquipmentCtrl_RemoveItem = "?RemoveItem@EquipmentCtrl@GAME@@QEAA_NI@Z";
+// public: bool __cdecl GAME::ControllerCharacter::GetAlternateEquipment(void)const __ptr64
+inline constexpr const char* ControllerCharacter_GetAlternateEquipment_DLL = "Game.dll";
+inline constexpr const char* ControllerCharacter_GetAlternateEquipment = "?GetAlternateEquipment@ControllerCharacter@GAME@@QEBA_NXZ";
+// public: void __cdecl GAME::ControllerCharacter::SetAlternateEquipment(bool) __ptr64
+inline constexpr const char* ControllerCharacter_SetAlternateEquipment_DLL = "Game.dll";
+inline constexpr const char* ControllerCharacter_SetAlternateEquipment = "?SetAlternateEquipment@ControllerCharacter@GAME@@QEAAX_N@Z";
 // public: unsigned int const __cdecl GAME::Character::GetCurrentMoney(void)const __ptr64
 inline constexpr const char* Character_GetCurrentMoney_DLL = "Game.dll";
 inline constexpr const char* Character_GetCurrentMoney = "?GetCurrentMoney@Character@GAME@@QEBA?BIXZ";
@@ -811,6 +817,9 @@ inline constexpr const char* SkillActivated_GetStaticClassInfo = "?GetStaticClas
 // public: virtual unsigned int __cdecl GAME::SkillManager::GetDefaultSkillId(enum GAME::DefaultSkill)const __ptr64
 inline constexpr const char* SkillManager_GetDefaultSkillId_DLL = "Game.dll";
 inline constexpr const char* SkillManager_GetDefaultSkillId = "?GetDefaultSkillId@SkillManager@GAME@@UEBAIW4DefaultSkill@2@@Z";
+// public: class mem::vector<class GAME::Skill * __ptr64> const & __ptr64 __cdecl GAME::SkillManager::GetItemSkillList(void)const __ptr64
+inline constexpr const char* SkillManager_GetItemSkillList_DLL = "Game.dll";
+inline constexpr const char* SkillManager_GetItemSkillList = "?GetItemSkillList@SkillManager@GAME@@QEBAAEBV?$vector@PEAVSkill@GAME@@@mem@@XZ";
 // public: unsigned int const __cdecl GAME::Character::GetSkillPoints(void)const __ptr64
 inline constexpr const char* Character_GetSkillPoints_DLL = "Game.dll";
 inline constexpr const char* Character_GetSkillPoints = "?GetSkillPoints@Character@GAME@@QEBA?BIXZ";

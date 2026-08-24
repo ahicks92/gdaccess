@@ -6,6 +6,7 @@
 #include "audio.h"
 #include "combat.h"
 #include "rooms.h"
+#include "screens/hotbar_manager.h"
 #include "screens/quickbar.h"
 #include "sonar.h"
 #include "core/graph_builder.h"
@@ -160,6 +161,7 @@ class InGameScreen : public Screen {
     combat::tick();
     rooms::tick();
     quickbar_tick();
+    weapon_swap_tick();
     sonar::tick();
     walltones::tick();
     // The mouse buttons as keys, with real hold semantics: J (or Enter) = left, I = right, for as long as the

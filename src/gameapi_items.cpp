@@ -32,6 +32,8 @@ struct Api {
   bool (*Equip_RemoveItem)(void*, unsigned) = nullptr;
   bool (*Equip_SmartAutoInsert)(void*, unsigned, MemVec*, bool) = nullptr;
   bool (*Equip_CanItemBePlaced)(const void*, int, unsigned) = nullptr;
+  bool (*Ctrl_GetAlternateEquipment)(const void*) = nullptr;   // the active weapon set (A/B) on the controller
+  void (*Ctrl_SetAlternateEquipment)(void*, bool) = nullptr;   // swap the active weapon set (only the two hands change)
   unsigned (*GetCurrentMoney)(const void*) = nullptr;
   void (*SendDropItemRandom)(void*, unsigned) = nullptr;
   void (*PickupItem)(void*, unsigned) = nullptr;               // virtual on the controller; the export is the implementation
@@ -90,6 +92,8 @@ void load_items() {
   GAPI_LOAD(g, Equip_RemoveItem, EquipmentCtrl_RemoveItem);
   GAPI_LOAD(g, Equip_SmartAutoInsert, EquipmentCtrl_SmartAutoInsert);
   GAPI_LOAD(g, Equip_CanItemBePlaced, EquipmentCtrl_CanItemBePlaced);
+  GAPI_LOAD(g, Ctrl_GetAlternateEquipment, ControllerCharacter_GetAlternateEquipment);
+  GAPI_LOAD(g, Ctrl_SetAlternateEquipment, ControllerCharacter_SetAlternateEquipment);
   GAPI_LOAD(g, GetCurrentMoney, Character_GetCurrentMoney);
   GAPI_LOAD(g, SendDropItemRandom, ControllerCharacter_SendDropItemRandom);
   GAPI_LOAD(g, PickupItem, ControllerCharacter_PickupItem);
@@ -226,6 +230,24 @@ std::vector<EquipSlot> equipment() {
   return out;
 }
 bool alternate_weapons() { void* ec = equip_ctrl(); bool a = false; if (ec && g.Equip_GetIsAlternate) guarded("GetIsAlternate", [&] { a = g.Equip_GetIsAlternate(ec); }); return a; }
+// Whether an item can go in an equipment slot (EquipmentCtrl::CanItemBePlaced) -- the equip picker's filter.
+bool can_equip(unsigned item_id, int loc) {
+  void* ec = equip_ctrl();
+  bool ok = false;
+  if (ec && g.Equip_CanItemBePlaced && item_id) guarded("CanItemBePlaced", [&] { ok = g.Equip_CanItemBePlaced(ec, loc, item_id); });
+  return ok;
+}
+// Swap the active weapon set (the two hands); returns the new state (true = alternate/set B). Everything else
+// is shared. ControllerCharacter::SetAlternateEquipment propagates to the EquipmentCtrl, so equipment() then
+// reads the new set's hands.
+bool swap_weapon_set() {
+  void* c = controller();
+  if (!c || !g.Ctrl_GetAlternateEquipment || !g.Ctrl_SetAlternateEquipment) return alternate_weapons();
+  bool nv = false;
+  guarded("SetAlternateEquipment", [&] { nv = !g.Ctrl_GetAlternateEquipment(c); g.Ctrl_SetAlternateEquipment(c, nv); });
+  log::writef("gameapi: swap weapon set -> alternate={}", nv);
+  return nv;
+}
 unsigned money() { void* p = player(); unsigned m = 0; load_items(); if (p && g.GetCurrentMoney) guarded("GetCurrentMoney", [&] { m = g.GetCurrentMoney(p); }); return m; }
 
 // The bag's right-click (exe+0x1eb1a0): a consumable goes through PlayerInventoryCtrl::UseItem(id, bag);

@@ -5,6 +5,7 @@
 #include "app.h"
 #include "core/navigator.h"
 #include "gameapi.h"
+#include "screens/list_picker.h"
 #include "screens/skills.h"
 #include "screens/window_base.h"
 
@@ -65,10 +66,25 @@ class InventoryScreen : public WindowScreen, public AssignSource {
       std::string label = s.label.empty() ? std::format("slot {}", s.loc) : s.label;
       std::string name = s.name.empty() ? std::string(strings::kEmptySlot) : s.name;
       unsigned id = s.item_id; int loc = s.loc;
-      // Enter = unequip into the bag (the exe's own order: bag AddItem, then the slot's RemoveItem).
-      auto activate = [this, id, loc] { if (!id) { speech::speak(strings::kEmptySlot, true); return; } if (!gameapi::unequip(loc)) speech::speak(strings::kCannot, true); invalidate(); };
+      // Enter opens the equip picker: everything across all bags that fits this slot (weapons/off-hands go to
+      // the ACTIVE weapon set, since equip() uses the current EquipmentCtrl). Its first entry, "empty",
+      // unequips. Backspace stays a direct unequip shortcut.
+      auto open_equip = [this, loc, label] {
+        std::vector<PickerItem> items;
+        items.push_back({0, std::string(strings::kEmptySlot), {}});
+        for (const gameapi::Bag& bag : gameapi::bags())
+          for (const gameapi::BagItem& it : bag.items)
+            if (gameapi::can_equip(it.id, loc))
+              items.push_back({it.id, it.name.empty() ? std::format("item {}", it.id) : it.name, it.stack > 1 ? std::format("x{}", it.stack) : std::string()});
+        open_picker(label, std::move(items), [this, loc](unsigned pid) {
+          bool ok = pid ? gameapi::equip(pid, loc) : gameapi::unequip(loc);
+          if (!ok) speech::speak(strings::kCannot, true);
+          invalidate();
+        });
+      };
+      auto unequip = [this, id, loc] { if (!id) { speech::speak(strings::kEmptySlot, true); return; } if (!gameapi::unequip(loc)) speech::speak(strings::kCannot, true); invalidate(); };
       b.add_item(ControlId::structural(std::format("inventory.eq{}", s.loc)),
-                 row_item(label, [name] { return name; }, activate, id ? item_tip(id, false) : std::function<void()>{}, {}, id ? item_tip(id, true) : std::function<void()>{}));
+                 row_item(label, [name] { return name; }, open_equip, id ? item_tip(id, false) : std::function<void()>{}, unequip, id ? item_tip(id, true) : std::function<void()>{}));
     }
     MessageBuilder m; strings::push_stat(m, strings::kIronBits, std::format("{}", gameapi::money()));
     b.add_item(ControlId::structural("inventory.money"), line_item(m.build()));

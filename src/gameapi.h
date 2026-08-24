@@ -66,7 +66,9 @@ int selected_bag();
 bool select_bag(int index);
 struct EquipSlot { int loc; std::string label; unsigned item_id; void* item; std::string name; };   // loc = EquipmentCtrlLocation 1..14
 std::vector<EquipSlot> equipment();
-bool alternate_weapons();                        // the weapon-swap set in use
+bool alternate_weapons();                        // the weapon-swap set in use (EquipmentCtrl::GetIsAlternate)
+bool can_equip(unsigned item_id, int loc);       // EquipmentCtrl::CanItemBePlaced -- the equip picker's filter
+bool swap_weapon_set();                          // toggle the active weapon set (the two hands); returns new state (true = alternate)
 unsigned money();                                // iron bits
 std::string item_name(const void* item);         // Item::GetGameDescription (virtual)
 unsigned item_stack(const void* item);
@@ -101,6 +103,8 @@ struct SkillInfo {
 std::vector<SkillInfo> skills();                 // the UI skill list, in the game's order
 unsigned skill_points();
 unsigned default_skill_id(int role);             // SkillManager::GetDefaultSkillId (0 = left mouse basic attack, 1 = right); live, never cache
+std::vector<unsigned> item_skill_ids();          // skills granted by equipped items (SkillManager::GetItemSkillList)
+std::vector<SkillInfo> assignable_skills();      // UI skills + item-granted skills (deduped); caller filters by skill_aim
 unsigned masteries_allowed();
 std::vector<unsigned> mastery_ids();             // the masteries the character has
 std::vector<std::string> skill_tooltip(const void* skill);   // GameEngine::GenerateUISkillText
