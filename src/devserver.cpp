@@ -298,6 +298,7 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     if (q.count("tip")) { std::string out; for (const std::string& l : gameapi::skill_tooltip(gameapi::object_by_id((unsigned)parse_int(q.at("tip"), 0)))) out += l + "\n"; return out.empty() ? "no text\n" : out; }
     if (q.count("learn")) return gameapi::learn_skill(gameapi::object_by_id((unsigned)parse_int(q.at("learn"), 0))) ? "ok\n" : "failed\n";
     if (q.count("refund")) return gameapi::refund_skill(gameapi::object_by_id((unsigned)parse_int(q.at("refund"), 0))) ? "ok\n" : "failed\n";
+    if (q.count("itemskills")) return gameapi::dump_item_skills();
     return gameapi::dump_skills();
   }
   if (path == "/sheet") return gameapi::dump_sheet();

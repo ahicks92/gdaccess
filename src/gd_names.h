@@ -820,6 +820,9 @@ inline constexpr const char* SkillManager_GetDefaultSkillId = "?GetDefaultSkillI
 // public: class mem::vector<class GAME::Skill * __ptr64> const & __ptr64 __cdecl GAME::SkillManager::GetItemSkillList(void)const __ptr64
 inline constexpr const char* SkillManager_GetItemSkillList_DLL = "Game.dll";
 inline constexpr const char* SkillManager_GetItemSkillList = "?GetItemSkillList@SkillManager@GAME@@QEBAAEBV?$vector@PEAVSkill@GAME@@@mem@@XZ";
+// public: unsigned int const __cdecl GAME::SkillManager::FindItemSkillIdByItemId(unsigned int)const __ptr64
+inline constexpr const char* SkillManager_FindItemSkillIdByItemId_DLL = "Game.dll";
+inline constexpr const char* SkillManager_FindItemSkillIdByItemId = "?FindItemSkillIdByItemId@SkillManager@GAME@@QEBA?BII@Z";
 // public: unsigned int const __cdecl GAME::Character::GetSkillPoints(void)const __ptr64
 inline constexpr const char* Character_GetSkillPoints_DLL = "Game.dll";
 inline constexpr const char* Character_GetSkillPoints = "?GetSkillPoints@Character@GAME@@QEBA?BIXZ";

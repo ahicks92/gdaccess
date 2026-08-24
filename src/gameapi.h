@@ -104,7 +104,8 @@ std::vector<SkillInfo> skills();                 // the UI skill list, in the ga
 unsigned skill_points();
 unsigned default_skill_id(int role);             // SkillManager::GetDefaultSkillId (0 = left mouse basic attack, 1 = right); live, never cache
 std::vector<unsigned> item_skill_ids();          // skills granted by equipped items (SkillManager::GetItemSkillList)
-std::vector<SkillInfo> assignable_skills();      // UI skills + item-granted skills (deduped); caller filters by skill_aim
+std::vector<SkillInfo> assignable_skills();      // UI skills + EQUIPPED-item granted skills (deduped); caller filters by skill_aim
+std::string dump_item_skills();                  // dev: GetItemSkillList vs equipped-item granted skills
 unsigned masteries_allowed();
 std::vector<unsigned> mastery_ids();             // the masteries the character has
 std::vector<std::string> skill_tooltip(const void* skill);   // GameEngine::GenerateUISkillText

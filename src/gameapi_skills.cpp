@@ -21,7 +21,8 @@ struct Api {
   bool (*SM_UseReclamationPoints)(void*, int) = nullptr;
   unsigned (*SM_GetNumMasteryPoints)(const void*) = nullptr;
   unsigned (*GetDefaultSkillId)(const void*, int) = nullptr;   // GetDefaultSkillId(DefaultSkill): 0 = left mouse basic attack, 1 = right mouse
-  const MemVec* (*SM_GetItemSkillList)(const void*) = nullptr; // mem::vector<Skill*>: skills granted by equipped items
+  const MemVec* (*SM_GetItemSkillList)(const void*) = nullptr; // mem::vector<Skill*>: ALL item skills (incl. loose bag components)
+  unsigned (*FindItemSkillIdByItemId)(const void*, unsigned) = nullptr;   // an item's granted skill (equipped-only sourcing)
   unsigned (*Skill_GetSkillLevel)(const void*) = nullptr;
   unsigned (*Skill_GetMaxLevel)(const void*) = nullptr;
   unsigned (*Skill_GetUltimateLevel)(const void*) = nullptr;
@@ -92,6 +93,7 @@ void load_skills() {
   GAPI_LOAD(g, SM_GetNumMasteryPoints, SkillManager_GetNumMasteryPoints);
   GAPI_LOAD(g, GetDefaultSkillId, SkillManager_GetDefaultSkillId);
   GAPI_LOAD(g, SM_GetItemSkillList, SkillManager_GetItemSkillList);
+  GAPI_LOAD(g, FindItemSkillIdByItemId, SkillManager_FindItemSkillIdByItemId);
   GAPI_LOAD(g, Skill_GetSkillLevel, Skill_GetSkillLevel);
   GAPI_LOAD(g, Skill_GetMaxLevel, Skill_GetMaxLevel);
   GAPI_LOAD(g, Skill_GetUltimateLevel, Skill_GetUltimateLevel);
@@ -202,10 +204,17 @@ std::vector<SkillInfo> assignable_skills() {
   std::vector<SkillInfo> out;
   std::set<unsigned> seen;
   for (const SkillInfo& s : skills()) if (s.id && seen.insert(s.id).second) out.push_back(s);
-  for (unsigned id : item_skill_ids()) {
-    if (!id || !seen.insert(id).second) continue;
-    if (void* s = object_by_id(id)) out.push_back(read_skill(s));
-  }
+  // Item-granted skills from EQUIPPED items only. GetItemSkillList also returns skills from loose bag
+  // components (a Chilled Steel in the bag grants Ice Spike), which must NOT be assignable; so we ask each
+  // EQUIPPED item for its granted skill (FindItemSkillIdByItemId), which includes an attached component's.
+  const void* sm = skill_manager();
+  if (sm && g.FindItemSkillIdByItemId)
+    for (const EquipSlot& e : equipment())
+      if (e.item_id) {
+        unsigned sid = 0;
+        guarded("FindItemSkillIdByItemId", [&] { sid = g.FindItemSkillIdByItemId(sm, e.item_id); });
+        if (sid && seen.insert(sid).second) { if (void* s = object_by_id(sid)) out.push_back(read_skill(s)); }
+      }
   return out;
 }
 // Skills granted by equipped items (SkillManager::GetItemSkillList -> mem::vector<Skill*>), as object ids.
@@ -242,6 +251,18 @@ const SkillInfo* mastery_skill(const std::vector<SkillInfo>& list, int enumerati
   std::string tail = std::format("/playerclass{:02}/_classtraining_class{:02}.dbr", enumeration + 1, enumeration + 1);
   for (const SkillInfo& s : list) if (s.is_mastery && s.record.size() >= tail.size() && s.record.compare(s.record.size() - tail.size(), tail.size(), tail) == 0) return &s;
   return nullptr;
+}
+std::string dump_item_skills() {
+  std::string out = "GetItemSkillList (ALL item skills, incl. loose bag components):\n";
+  for (unsigned id : item_skill_ids()) { void* s = object_by_id(id); SkillInfo i = s ? read_skill(s) : SkillInfo{}; out += std::format("  id={} '{}' {}\n", id, i.name, i.record); }
+  out += "equipped items' granted skills (what the palette uses):\n";
+  const void* sm = skill_manager();
+  for (const EquipSlot& e : equipment())
+    if (e.item_id && sm && g.FindItemSkillIdByItemId) {
+      unsigned sid = 0; guarded("FindItemSkillIdByItemId", [&] { sid = g.FindItemSkillIdByItemId(sm, e.item_id); });
+      if (sid) { void* s = object_by_id(sid); SkillInfo i = s ? read_skill(s) : SkillInfo{}; out += std::format("  loc {} item {} -> skill {} '{}'\n", e.loc, e.item_id, sid, i.name); }
+    }
+  return out;
 }
 std::vector<std::string> skill_tooltip(const void* skill) {
   load_skills();

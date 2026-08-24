@@ -300,6 +300,9 @@ ENTRIES = [
     ("SkillManager_GetDefaultSkillId", "Game", r"GAME::SkillManager::GetDefaultSkillId\(enum GAME::DefaultSkill\)"),
     # skills granted by equipped items (the hotbar-manager palette includes these)
     ("SkillManager_GetItemSkillList", "Game", r"GAME::SkillManager::GetItemSkillList\(void\)"),
+    # per-item granted skill: FindItemSkillIdByItemId(item id) -- used to source the palette from EQUIPPED items
+    # only (GetItemSkillList also returns loose bag components' skills, e.g. a Chilled Steel granting Ice Spike).
+    ("SkillManager_FindItemSkillIdByItemId", "Game", r"GAME::SkillManager::FindItemSkillIdByItemId\(unsigned int\)"),
     ("Character_GetSkillPoints", "Game", r"GAME::Character::GetSkillPoints\(void\)"),
     ("Character_SubtractSkillPoint", "Game", r"GAME::Character::SubtractSkillPoint\("),
     ("Character_AddSkillPoints", "Game", r"GAME::Character::AddSkillPoints\("),
