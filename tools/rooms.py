@@ -7,6 +7,10 @@ rooms database the mod ships (assets/rooms.db). docs/rooms.md has the model and 
   uv run tools/rooms.py area devilscrossing [params] [--write] [--name "Devil's Crossing"] [--set persist=1.0,...]
                                   all overworld chunks of a region (world-map location), stitched;
                                   --write stores grid/rooms/exits in the db, --set stores params
+  uv run tools/rooms.py exits [devilscrossing] [--write]  recompute intra-region exits from the stored grid
+                                  (heal tile-seam erosion, one exit per pair); no re-segmentation. Run after
+                                  area --write, before seams --write. Default: all regions.
+  uv run tools/rooms.py seams [--write]                    cross-region exits over region boundaries
   uv run tools/rooms.py status                             per-region counts and staleness from the db
   uv run tools/rooms.py plan devilscrossing               floor plan from the db (what the mod will use)
 
@@ -132,6 +136,8 @@ def build_area(wm, regs, want_roads):
     # tile coordinates are world coordinates (verified live 2026-08-22): no placement offsets
     parts = [(g, (0.0, 0.0)) for r, _, g in grids]
     grid = stitch(parts) if len(parts) > 1 else parts[0][0]
+    from gdmap.rooms import bridge_walk_seams
+    print(f"  seam-stitched {bridge_walk_seams(grid)} walkable cells (runtime-navmesh connectivity)")
     roads = None
     if want_roads:
         roads = np.zeros(grid.shape, dtype=bool)
@@ -189,6 +195,46 @@ def cmd_area(wm, args):
             print(f"  overlay cells: {len(overlays)} ({len(overlays) * 0.0625:.0f} m2), {orphan} unlabeled")
         counts = db.write_segmentation(key, args.name, regs[0].location if regs else key, chunks, params, signature, ALGO_VERSION, grid, seg, overlays)
         print(f"  written to {DB}: {counts}")
+
+
+def cmd_exits(wm, args):
+    """Recompute a region's intra-region exits from its STORED label grid -- no re-segmentation, so authored
+    room titles/anchors are untouched (re-segmenting the bridge-corrected grid orphaned 36% of DC's authored
+    rooms; this pass touches only the exits table). It heals the tile-cache's seam erosion in a working copy
+    (fill_label_seams: the runtime navmesh stitches internal tile seams the bake severs, so islanded rooms
+    like the riftgate circle get their opening back) and emits one exit per room pair (the widest run), fixing
+    the "no exit" and "several exits to the same room" complaints. Cross-region (foreign) rows are preserved;
+    re-run `seams` after this if a region boundary changed. Re-run after any `area --write`."""
+    from gdmap.level import Grid
+    from gdmap.rooms import exits_of, fill_label_seams
+    from gdmap.roomsdb import rle_decode
+    db = RoomsDb(DB)
+    keys = [args.region] if args.region else [r[0] for r in db.c.execute("SELECT region_key FROM grids ORDER BY region_key")]
+    for rk in keys:
+        row = db.c.execute("SELECT x0, z0, w, h, labels, heights, label_keys FROM grids WHERE region_key=?", (rk,)).fetchone()
+        if not row:
+            print(f"{rk}: no grid"); continue
+        x0, z0, w, h, lab_blob, h_blob, keys_json = row
+        labels = rle_decode(lab_blob, h, w).astype(np.int32)
+        heights = rle_decode(h_blob, h, w) if h_blob else None
+        label_keys = json.loads(keys_json)
+        filled = fill_label_seams(labels, heights, x0, z0)
+        grid = Grid(x0, z0, labels >= 0, np.zeros(labels.shape, dtype=np.float32), 0)
+        exits = exits_of(labels, grid)
+        n = int(labels.max()) + 1
+
+        def key_of(i):
+            return label_keys[i] if 0 <= i < len(label_keys) else ""
+        rows = [(rk, key_of(e.a), key_of(e.b), e.x, e.z, e.width, int(e.cut)) for e in exits
+                if key_of(e.a) and key_of(e.b)]
+        old = db.c.execute("SELECT COUNT(*) FROM exits WHERE region_key=? AND room_b LIKE ?", (rk, rk + ":%")).fetchone()[0]
+        print(f"{rk}: healed {filled} seam cells; {old} intra exits -> {len(rows)} (foreign rows kept)")
+        if args.write:
+            db.c.execute("DELETE FROM exits WHERE region_key=? AND room_b LIKE ?", (rk, rk + ":%"))
+            db.c.executemany("INSERT INTO exits(region_key, room_a, room_b, x, z, width, cut) VALUES(?,?,?,?,?,?,?)", rows)
+            db.c.commit()
+    if args.write:
+        print("written. Re-run `seams --write` if any region boundary changed.")
 
 
 def cmd_seams(wm, args):
@@ -309,6 +355,9 @@ def main():
     s.add_argument("--write", action="store_true"); s.add_argument("--name", default=None)
     s.add_argument("--set", default=None, help="store params: persist=1.0,max_walk=80")
     add_params(s); s.set_defaults(fn=cmd_area)
+    s = sub.add_parser("exits", help="recompute a region's intra exits from the stored grid (heal seams, one per pair); re-run after area --write")
+    s.add_argument("region", nargs="?", default=None, help="region key (default: all regions)")
+    s.add_argument("--write", action="store_true"); s.set_defaults(fn=cmd_exits)
     s = sub.add_parser("seams", help="cross-region exits over all region pairs; re-run after any area --write")
     s.add_argument("--write", action="store_true"); s.set_defaults(fn=cmd_seams)
     s = sub.add_parser("status"); s.set_defaults(fn=cmd_status)

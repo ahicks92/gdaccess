@@ -39,6 +39,11 @@ authoring workflow and the description rules come next).
 
 ## Segmentation (`tools/gdmap/rooms.py`, a port of wotr-access's RoomMap)
 Per region, all its overworld chunks stitched (a room never needs to stop at a chunk seam):
+**seam-stitch** (`bridge_walk_seams`, 2026-08-24: reconnect walkable cells across internal 32-unit tile seams
+the baked tile-cache erodes -- per-tile builds drop a thin band the runtime navmesh actually keeps continuous,
+which otherwise islands rooms the player walks to freely, e.g. the riftgate courtyard. A gap <= `max_gap`=6
+straddling a seam with matching floor height on both sides is filled; heals the riftgate + ~10 island rooms
+per region, validated cell-by-cell vs the live navmesh) ->
 seam filter -> islands (components not connected to the main one; under `island_min` m² dropped, larger
 ones flagged) -> furniture mask (interior islands <= `furniture_max` cast no clearance shadow) -> clearance
 (EDT) -> persistence watershed (basins from clearance maxima, split where they meet across a dip deeper than
@@ -47,11 +52,32 @@ a room whose longest walk (double-sweep Dijkstra on the 8-neighbour cell graph) 
 bisected with an **axis-aligned line** across its bounding box's longer axis, in the middle third, where the
 cross-section is narrowest (decided: the announcements ARE the perception, so a boundary must be simple to
 hold in the head -- a north-south or east-west line, never a geodesic contour) -> merge again -> stats
-(anchor = the cell of maximum clearance, class from area/elongation/clearance as in wotr) -> exits
-(connected runs of boundary cells between two rooms; `cut` marks cap cuts). Rooms are ordered by anchor
-(z, x). Devil's Crossing: 8 chunks, 45,000 m², 202 rooms, 297 exits, 4 s.
+(anchor = the cell of maximum clearance, class from area/elongation/clearance as in wotr). Rooms are ordered
+by anchor (z, x). `area --write` still records per-pair exits in the db, but **intra-region exits are now
+computed at RUNTIME** (below) and the mod ignores those stored rows; only the cross-region `seams` rows are
+read. Devil's Crossing after the 2026-08-24 reseg: ~50,000 m², 197 rooms.
 
-**Cross-region exits** (`rooms.py seams [--write]`, 2026-08-23): the per-region watershed sees its grid
+## Exits (computed live at runtime, 2026-08-24)
+The exit table was flat-bake-derived and wrong: the segmentation runs on the baked Detour **tile-cache**,
+which is flat (lowest layer), per-tile seam-eroded, and off-mesh-blind, so stored exits were false (2-D
+adjacency across a wall or a height step), missing (seam erosion; stairs/quest doors are off-mesh, not in the
+bake), or duplicated. The map holds only the tile-cache -- the game assembles the real 3-D navmesh from it at
+load -- so the correct source for connectivity is that live navmesh, at the player's actual position and quest
+state. So the mod **finds exits at runtime** (`src/rooms.cpp exit_items`, on V / room change only):
+- `LabelGrid::neighbors_within(x, z, y, radius=28u)` returns every OTHER room whose cells fall within the
+  radius (height-aware via `at(col,row,y)`), each with its nearest cell.
+- `world::find_path` (= `GAME::Player::FindPath`, dev route `/findpath`; result 0 = reachable) validates each:
+  a neighbour is an exit iff the game's own pathfinder can reach it. This is correct for quest state, doors,
+  destructibles and stacked floors for free -- `NavBlocker` (`dynamicblocker_invisible`), `FixedItemDoor` and
+  `Destructible` gate `find_path` exactly as they gate the player, and unreachable elevated floors are dropped.
+- The bearing is to the neighbour's nearest cell and **may point through a wall** at a room reached by going
+  round (decided with the user: same as the old adjacency exits; line-of-sight is not required).
+Consequences: no false doors, no duplicates, seam-islanded and off-mesh-reachable rooms appear when actually
+reachable; a room whose opening is > radius away shows once you near it (accepted). The offline `exits_of` /
+`fill_label_seams` / `rooms.py exits` machinery is now vestigial for intra exits.
+
+**Cross-region exits** (`rooms.py seams [--write]`, 2026-08-23; still used at runtime): the per-region
+watershed sees its grid
 edge as a wall, so an opening at a REGION boundary (the Devil's Crossing -> Lower Crossing road at z=-256,
 found on the user's real save) never becomes an exit. The seams pass scans every region pair in the db for
 adjacent walkable cells across the seam (heights within 1 unit when known), clusters them into openings

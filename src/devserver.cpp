@@ -181,7 +181,7 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     int g = q.count("group") ? parse_int(q.at("group"), 3) : 3;
     float r = q.count("max") ? (float)atof(q.at("max").c_str()) : 40.0f;
     std::string out;
-    for (const world::ScanItem& it : world::scan((world::ScanGroup)g, r)) out += std::format("{:6.1f} id={} {} '{}' {}\n", it.dist, it.id, it.cls, it.label, it.record);
+    for (const world::ScanItem& it : world::scan((world::ScanGroup)g, r)) out += std::format("{:6.1f} at ({:.1f},{:.1f}) hour {} id={} {} '{}' {} {}\n", it.dist, it.pos.x, it.pos.z, world::clock_hour(it.pos), it.id, it.cls, it.label, it.record, it.note);
     return out.empty() ? "nothing\n" : out;
   }
   if (path == "/keydown" || path == "/keyup") {  // hold a key across frames: /keydown?name=w ... /keyup?name=w
@@ -256,6 +256,16 @@ static std::string handle(const std::string& path, const std::map<std::string, s
   if (path == "/navprobe") {  // /navprobe?x0=&z0=&x1=&z1=&step=0.5 -- IsPointOnPathMesh over a grid, '#' walkable, rows = z ascending
     auto f = [&](const char* k, float d) { return q.count(k) ? (float)atof(q.at(k).c_str()) : d; };
     return world::navprobe(f("x0", 0), f("z0", 0), f("x1", 0), f("z1", 0), f("step", 0.5f));
+  }
+  if (path == "/findpath") {  // /findpath?x=&z=[&y=][&f1=][&f2=] -- Player::FindPath from the player to (x,z); raw PathResult + endpoint
+    auto f = [&](const char* k, float d) { return q.count(k) ? (float)atof(q.at(k).c_str()) : d; };
+    if (!q.count("x") || !q.count("z")) { status = 400; return "need x and z\n"; }
+    world::Vec3 me{}; world::player_position(me);
+    world::Vec3 out{};
+    int r = world::find_path(world::Vec3{f("x", 0), f("y", me.y), f("z", 0)}, f("f1", 0.f), f("f2", 0.f), &out);
+    return std::format("findpath to ({:.1f},{:.1f}) f1={} f2={}: result={} endpoint=({:.1f},{:.1f},{:.1f}) dist_to_target={:.1f}\n",
+                       f("x", 0), f("z", 0), f("f1", 0.f), f("f2", 0.f), r, out.x, out.y, out.z,
+                       std::hypot(out.x - f("x", 0), out.z - f("z", 0)));
   }
   if (path == "/conv") return world::conversation_dump();
   if (path == "/ui") return exe_ui::ui_dump();            // the exe's menu widget tree (framework A)

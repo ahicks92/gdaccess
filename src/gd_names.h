@@ -166,6 +166,9 @@ inline constexpr const char* NavManager_FindStraightMovePoint = "?FindStraightMo
 // public: enum GAME::NavResult __cdecl GAME::NavManager::FindClosestPointOnPathMesh(class GAME::WorldVec3 const & __ptr64,class GAME::WorldVec3 & __ptr64,float) __ptr64
 inline constexpr const char* NavManager_FindClosestPointOnPathMesh_DLL = "Engine.dll";
 inline constexpr const char* NavManager_FindClosestPointOnPathMesh = "?FindClosestPointOnPathMesh@NavManager@GAME@@QEAA?AW4NavResult@2@AEBVWorldVec3@2@AEAV42@M@Z";
+// public: enum GAME::CharacterMovementManager::PathResult __cdecl GAME::Player::FindPath(class GAME::WorldVec3 const & __ptr64,float,class GAME::WorldVec3 & __ptr64,float)const __ptr64
+inline constexpr const char* Player_FindPath_DLL = "Game.dll";
+inline constexpr const char* Player_FindPath = "?FindPath@Player@GAME@@QEBA?AW4PathResult@CharacterMovementManager@2@AEBVWorldVec3@2@MAEAV52@M@Z";
 // public: __cdecl GAME::WorldVec3::WorldVec3(class GAME::Region * __ptr64,class GAME::Vec3 const & __ptr64) __ptr64
 inline constexpr const char* WorldVec3_ctor_DLL = "Engine.dll";
 inline constexpr const char* WorldVec3_ctor = "??0WorldVec3@GAME@@QEAA@PEAVRegion@1@AEBVVec3@1@@Z";

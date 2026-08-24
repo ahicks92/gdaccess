@@ -272,21 +272,38 @@ std::string foreign_label(const std::string& key) {
   return m.build();
 }
 
-// The scanner's exit group: the current room's exits as point items. id = kPointIdBase + the region's exit
-// index (stable, so the cycle continues from the reviewed exit); label = the destination's title or "room N".
+// The scanner's exit group: the current room's exits as point items. id = kPointIdBase + the neighbour's
+// label (stable, so the cycle continues from the reviewed exit); label = the destination's title or "room N".
+// Exits are found LIVE from the runtime navmesh, not the stored (flat, seam-eroded, off-mesh-blind) exit
+// table (2026-08-24): every OTHER room whose cells fall within kExitRadius and that the game's own pathfinder
+// (world::find_path) can actually reach from here is an exit, pointed at that room's nearest cell. Correct by
+// construction for reachability -- quest doors / destructibles / NavBlockers gate find_path exactly as they
+// gate the player, and stacked/elevated floors the player cannot reach are dropped (find_path is height-aware).
+// Line-of-sight is NOT required: the bearing to the nearest cell may point through a wall at a room you reach
+// by going round (the same as the old adjacency exits -- decided with the user 2026-08-24). Cross-region
+// (foreign) openings still come from the seam rows because the far room lives in another region's label grid.
+// On-demand (V / room change), so the ~a-few find_path calls are not a per-frame cost.
+constexpr double kExitRadius = 28.0;   // units; a room whose opening is farther than this shows once you near it
 std::vector<world::ScanItem> exit_items() {
   std::vector<world::ScanItem> out;
   world::Vec3 p;
   if (!g_current || g_hyst.current < 0 || !world::player_position(p)) return out;
-  int room = g_hyst.current;
+  const int room = g_hyst.current;
+  for (const auto& nb : g_current->grid.neighbors_within(p.x, p.z, p.y, room, kExitRadius)) {
+    world::Vec3 at{(float)nb.x, p.y, (float)nb.z};
+    if (world::find_path(at, 0.f, 0.f, nullptr) != 0) continue;   // not reachable at all -> not an exit
+    std::string dest = room_label(*g_current, nb.label);
+    if (dest.empty()) dest = nb.label < (int)g_current->rooms.size() ? g_current->rooms[nb.label].cls : std::string(strings::kRoom);
+    out.push_back({world::kPointIdBase + (unsigned)nb.label, "exit", dest, {}, at, (float)nb.dist, {}});
+  }
+  // Cross-region openings: the neighbour is in another region's grid, so keep them from the seam rows,
+  // shown only when the live mesh still reaches the opening.
   for (int i = 0; i < (int)g_current->exits.size(); ++i) {
     const Exit& e = g_current->exits[i];
-    if (e.a != room && e.b != room) continue;
-    int other = e.a == room ? e.b : e.a;
+    if (e.a != room || e.foreign.empty()) continue;
     world::Vec3 at{e.x, p.y, e.z};
-    std::string dest = other < 0 && !e.foreign.empty() ? foreign_label(e.foreign) : room_label(*g_current, other);
-    if (dest.empty()) dest = other >= 0 && other < (int)g_current->rooms.size() ? g_current->rooms[other].cls : std::string(strings::kRoom);
-    out.push_back({world::kPointIdBase + (unsigned)i, "exit", dest, {}, at, 0.0f, exit_blocked(at) ? std::string(strings::kBlocked) : std::string()});
+    if (!world::on_navmesh(at)) continue;
+    out.push_back({world::kPointIdBase + 0x10000u + (unsigned)i, "exit", foreign_label(e.foreign), {}, at, std::hypot(e.x - p.x, e.z - p.z), {}});
   }
   return out;
 }

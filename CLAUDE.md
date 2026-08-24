@@ -387,6 +387,38 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   "stacked coffin floor", the base at -0.5 is "vine curtain gallery"; all 453 authored rooms re-attached
   by anchor on the schema regen (kept=all, orphaned=0). Next: road helpers, the next regions, region names
   from `tagWorldMap*`.
+- Runtime exits + a corrected segmenter + a full retag (2026-08-24, `docs/rooms.md`; verified live). Root
+  cause of the exit bugs (the user's report: a false cobbled-house-yard<->wrecked-house-gap door, the
+  islanded riftgate): the segmentation ran on the baked Detour **tile-cache**, which is flat (we took the
+  lowest layer), per-tile seam-eroded, and blind to off-mesh links -- so exits were false (2-D adjacency
+  across a wall/height), missing (seam erosion islanded rooms; stairs/quest doors are off-mesh, absent from
+  the bake), or duplicated. The map holds ONLY the tile-cache (RLTD blobs, no assembled navmesh); the game
+  builds the real 3-D navmesh from it at load. Two changes:
+  1. **Exits are computed LIVE at runtime, not stored** (`src/rooms.cpp exit_items`, `world::find_path` =
+     `Player::FindPath`, dev route `/findpath`; `core/rooms_model LabelGrid::neighbors_within`). On V / room
+     change: every OTHER room whose cells fall within `kExitRadius`=28u (a radius) and that the game's own
+     pathfinder can reach is an exit, bearing to its nearest cell. Correct for quest state / doors /
+     destructibles (`NavBlocker` = `dynamicblocker_invisible`; `FixedItemDoor`; `Destructible` = breakables --
+     all detectable via the sphere query + RTTI name, gate `find_path` exactly as they gate the player) and
+     height (find_path drops unreachable stacked floors). **Line-of-sight is NOT required** -- the bearing may
+     point through a wall at a room reached by going round (decided with the user; same as the old adjacency
+     exits). Cross-region (foreign) exits still come from the stored `seams` rows (the far room is in another
+     region's grid). The offline `exits_of`/`fill_label_seams`/`exits` passes are now vestigial for intra
+     (the mod ignores stored intra rows); `seams --write` is still required after any `area --write`.
+  2. **Seam-stitched segmenter** (`gdmap.rooms.bridge_walk_seams`, run in `tools/rooms.py build_area`):
+     stitches walkable cells across internal tile seams so segmentation matches runtime connectivity, healing
+     the riftgate + ~10 island rooms per region. Validated cell-by-cell vs the live navmesh (every bridged
+     courtyard cell was on the runtime path mesh; `max_gap`=6, height <=1.5u).
+  **Full retag from scratch** on the new segmenter (~30M Opus tokens, ~1.5 h): resegment (`area --write`) ->
+  delete dead rooms (anchors moved, keys not in the grid's label_keys) -> re-shoot -> `rooms_author.js`
+  (subregions + describe + consistency) per region. DC 195/197 titled (2 untitled = genuinely-unreachable
+  off-mesh cliffs), LC 198/198, Burial Cave 22/22; 417 rooms, then `seams --write`. Not fixed (deferred,
+  perceived-place segmentation quality, not a bug): boundaries at watershed narrowings through open ground can
+  feel arbitrary (cobbled<->wrecked is a real narrowing). Note: the prison courtyard has stacked floors
+  (~y3.6 under ~y7); dev `/teleport` floors from the char's incoming y and can land on the lower one (looks
+  exitless) -- a tool artifact, the rooms are keyed to the y7 floor the player walks. The mod loads `rooms.db`
+  from next to the DLL (`build/ninja/assets/`, copied at build time); a hot copy + `/room?reload=1` tests a db
+  edit without a rebuild.
 - Riftgate travel screen (2026-08-22, verified live through the loop incl. a real trip Lower Crossing -> Devil's
   Crossing): `screens/riftgate.cpp` over the world map in riftgate mode (`exe_ui::riftgate_*`, layout in
   docs/exe-ui-layout.md "Riftgate travel"). Review groups: N = people + non-loot objects of interest, M = loot.

@@ -64,6 +64,7 @@ ENTRIES = [
     ("NavManager_IsPointOnPathMesh", "Engine", r"GAME::NavManager::IsPointOnPathMesh\("),
     ("NavManager_FindStraightMovePoint", "Engine", r"GAME::NavManager::FindStraightMovePoint\(class GAME::WorldVec3 const & __ptr64,class GAME::WorldVec3 const & __ptr64,class GAME::WorldVec3 & __ptr64\)"),
     ("NavManager_FindClosestPointOnPathMesh", "Engine", r"GAME::NavManager::FindClosestPointOnPathMesh\("),
+    ("Player_FindPath", "Game", r"GAME::Player::FindPath\(class GAME::WorldVec3 const & __ptr64,float,class GAME::WorldVec3 & __ptr64,float\)"),
     ("WorldVec3_ctor", "Engine", r"GAME::WorldVec3::WorldVec3\(class GAME::Region \* __ptr64,class GAME::Vec3 const & __ptr64\)"),
     ("WorldVec3_GetWorldPosition", "Engine", r"GAME::WorldVec3::GetWorldPosition\(void\)"),
     ("WorldVec3_GetRegion", "Engine", r"GAME::WorldVec3::GetRegion\(void\)"),

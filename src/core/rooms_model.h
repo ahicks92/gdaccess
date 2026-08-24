@@ -30,6 +30,12 @@ struct LabelGrid {
   // so a stacked cell resolves to the layer under their feet; NaN ignores height.
   int label_at(double x, double z, double y, int ring = 2) const;
   int label_at(double x, double z, int ring = 2) const;
+  // Distinct OTHER-room labels whose cells fall within `radius` world units of (x, z), each with the nearest
+  // such cell's world centre and distance (height-aware via at(col,row,y)). The caller filters these by real
+  // reachability (world::find_path) to get the room's exits; the bearing to the nearest cell may point through
+  // a wall (accepted -- it's the same as the old adjacency exits).
+  struct Neighbor { int label; double x, z, dist; };
+  std::vector<Neighbor> neighbors_within(double x, double z, double y, int current, double radius) const;
 };
 
 // The current room changes immediately once the player has been in it for settle_ms (a genuine move);

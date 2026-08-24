@@ -90,6 +90,28 @@ int LabelGrid::label_at(double x, double z, int ring) const {
   return label_at(x, z, std::numeric_limits<double>::quiet_NaN(), ring);
 }
 
+std::vector<LabelGrid::Neighbor> LabelGrid::neighbors_within(double x, double z, double y, int current, double radius) const {
+  std::vector<Neighbor> out;
+  if (w <= 0 || h <= 0 || cell <= 0 || radius <= 0) return out;
+  int col = (int)std::floor((x - x0) / cell), row = (int)std::floor((z - z0) / cell);
+  int rc = (int)std::ceil(radius / cell);
+  double r2 = radius * radius;
+  for (int dr = -rc; dr <= rc; ++dr)
+    for (int dc = -rc; dc <= rc; ++dc) {
+      int l = at(col + dc, row + dr, y);
+      if (l < 0 || l == current) continue;
+      double cx = x0 + (col + dc + 0.5) * cell, cz = z0 + (row + dr + 0.5) * cell;
+      double d2 = (cx - x) * (cx - x) + (cz - z) * (cz - z);
+      if (d2 > r2) continue;
+      bool found = false;
+      for (Neighbor& n : out)
+        if (n.label == l) { if (d2 < n.dist) { n.x = cx; n.z = cz; n.dist = d2; } found = true; break; }
+      if (!found) out.push_back({l, cx, cz, d2});
+    }
+  for (Neighbor& n : out) n.dist = std::sqrt(n.dist);
+  return out;
+}
+
 bool Hysteresis::update(int observed, int now_ms) {
   if (observed == current) { candidate = -1; return false; }
   if (observed < 0) { candidate = -1; return false; }       // off the grid: keep the current room

@@ -170,6 +170,9 @@ struct Api {
   bool (*IsPointOnPathMesh)(void*, const void*) = nullptr;
   int (*FindStraightMovePoint)(void*, const void*, const void*, void*) = nullptr;
   int (*FindClosestPointOnPathMesh)(void*, const void*, void*, float) = nullptr;
+  // GAME::Player::FindPath(WorldVec3 const& dest, float, WorldVec3& out, float) const -> PathResult (enum int).
+  // Member ABI maps to: self=rcx, dest=rdx, f1=xmm2, out=r9, f2=stack -- a plain fn ptr marshals it (dev only).
+  int (*Player_FindPath)(void*, const void*, float, void*, float) = nullptr;
   void* (*WorldVec3_ctor)(void*, void*, const void*) = nullptr;
   void* (*WorldVec3_GetWorldPosition)(const void*, void*) = nullptr;
   void* (*WorldVec3_GetRegion)(const void*) = nullptr;
@@ -282,6 +285,7 @@ void load_api() {
   LOAD(WorldVec3_GetRegion, WorldVec3_GetRegion);
   LOAD(WorldVec3_GetRegionPosition, WorldVec3_GetRegionPosition);
   LOAD(WorldVec3_PutOnFloor, WorldVec3_PutOnFloor);
+  LOAD(Player_FindPath, Player_FindPath);
   LOAD(WorldCoords_GetRegionCoords, WorldCoords_GetRegionCoords);
   LOAD(GetCameraYaw, WorldCamera_GetCameraYaw);
   LOAD(GetEntitiesInPriorFrameFrustum, Engine_GetEntitiesInPriorFrameFrustum);
@@ -542,6 +546,32 @@ bool on_navmesh(const Vec3& world_point) {
   g_api.WorldVec3_ctor(&wv, region, &rel);
   if (g_api.WorldVec3_PutOnFloor) g_api.WorldVec3_PutOnFloor(&wv);
   return g_api.IsPointOnPathMesh(nav, &wv);
+}
+
+// dev only: run the game's own pathfinder (Player::FindPath) from the player to a world point. Returns the raw
+// PathResult enum (calibrate live) and, in out_world, the reachable endpoint the pathfinder resolved. Used to
+// tell whether a bake-islanded room is actually connected to its region's main body via the runtime navmesh
+// (stairs/ramps the flat bake drops), and where -- so exits can be added for real connections (2026-08-24).
+namespace {
+int seh_find_path(void* p, const void* dest, float f1, void* out, float f2) {
+  __try { return g_api.Player_FindPath(p, dest, f1, out, f2); }
+  __except (EXCEPTION_EXECUTE_HANDLER) { return -1000; }
+}
+}
+int find_path(const Vec3& dest_world, float f1, float f2, Vec3* out_world) {
+  load_api();
+  void* p = player();
+  Buf base; void* region = nullptr;
+  if (!p || !g_api.Player_FindPath || !g_api.WorldVec3_ctor || !player_world_vec(base, &region)) return -1001;
+  Vec3 wb = world_pos_of(base);
+  const Vec3* rb = g_api.WorldVec3_GetRegionPosition(&base);
+  Vec3 rel{dest_world.x - wb.x + rb->x, dest_world.y - wb.y + rb->y, dest_world.z - wb.z + rb->z};
+  Buf dest{}; g_api.WorldVec3_ctor(&dest, region, &rel);
+  if (g_api.WorldVec3_PutOnFloor) g_api.WorldVec3_PutOnFloor(&dest);
+  Buf out = dest;   // valid WorldVec3 (same region) in case FindPath leaves it untouched
+  int result = seh_find_path(p, &dest, f1, &out, f2);
+  if (out_world) *out_world = world_pos_of(out);
+  return result;
 }
 
 // ---- dev dumps of the world structure (chunks = engine Regions; tools/gdmap reads the same data offline) ----

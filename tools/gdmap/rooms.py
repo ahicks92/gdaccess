@@ -11,6 +11,7 @@ Cost (0A001, 69k walkable cells): the watershed is a Python loop (~15 us/cell); 
 scipy (geodesics = Dijkstra over a sparse 8-neighbour graph). Stage timings are in Segmentation.log."""
 from __future__ import annotations
 
+import math
 import time
 from dataclasses import dataclass, field
 
@@ -90,6 +91,92 @@ def seam_filter(walk: np.ndarray, tile: int = 128, band: int = SEAM_BAND) -> np.
     interior = walk & ~in_band
     backed = ndimage.binary_dilation(interior, structure=np.ones((2 * band + 1, 2 * band + 1), dtype=bool))
     return walk & (~in_band | backed)
+
+
+TILE_UNITS = 32.0    # a Detour tile is 32 world units (128 cells)
+
+
+def seam_line_indices(n: int, origin: float) -> list[int]:
+    """Grid indices along an axis that fall on a 32-unit Detour tile boundary (world coord = origin+i*CELL)."""
+    return [i for i in range(n + 1)
+            if abs(((origin + i * CELL) % TILE_UNITS + TILE_UNITS / 2) % TILE_UNITS - TILE_UNITS / 2) < CELL / 2]
+
+
+def fill_label_seams(labels: np.ndarray, heights_dm: np.ndarray | None, x0: float, z0: float,
+                     max_gap: int = 6, height_tol_dm: int = 15) -> int:
+    """Heal the tile-cache's seam erosion in a room LABEL grid (in place). The baked Detour tile-cache drops
+    walkable cells in a thin band along SOME internal 32-unit tile seams (per-tile builds don't see the
+    neighbour), but the runtime navmesh stitches the tiles and stays continuous there -- verified live
+    2026-08-24: the Devil's Crossing riftgate courtyard is one navmesh-continuous space, yet the bake left a
+    4-cell unwalkable band on the x=96 seam that islanded the riftgate room (and 5 others) so they got no
+    exit. Along every tile-seam line, a run of unlabelled (-1) cells at most `max_gap` wide that straddles the
+    seam and has labelled cells of matching floor height (within `height_tol_dm` decimetres) on both sides is
+    filled by assigning each gap cell to the nearer side's label. Same-label sides just heal the room; two
+    different labels become adjacent, so exits_of() then emits the missing opening. A real wall is thicker
+    than the erosion or has a height step (a cliff edge), so it is left alone -- validated against the live
+    navmesh (every bridged courtyard cell was on the runtime path mesh). Returns cells filled."""
+    h, w = labels.shape
+    have_h = heights_dm is not None
+    filled = 0
+    for vertical in (True, False):
+        seams = seam_line_indices(w, x0) if vertical else seam_line_indices(h, z0)
+        n_axis, n_other = (w, h) if vertical else (h, w)
+        for s in seams:
+            if s <= 0 or s >= n_axis:
+                continue
+            for t in range(n_other):
+                cell = (lambda k: (t, k)) if vertical else (lambda k: (k, t))
+                left = next((k for k in range(s - 1, s - 1 - max_gap, -1) if k >= 0 and labels[cell(k)] >= 0), None)
+                right = next((k for k in range(s, min(n_axis, s + max_gap)) if labels[cell(k)] >= 0), None)
+                if left is None or right is None or not (left < s <= right) or right - left - 1 > max_gap:
+                    continue
+                if have_h:
+                    hl, hr = int(heights_dm[cell(left)]), int(heights_dm[cell(right)])
+                    if hl == -32768 or hr == -32768 or abs(hl - hr) > height_tol_dm:
+                        continue
+                la, lb = int(labels[cell(left)]), int(labels[cell(right)])
+                for k in range(left + 1, right):
+                    if labels[cell(k)] < 0:
+                        labels[cell(k)] = la if (k - left) <= (right - k) else lb
+                        filled += 1
+    return filled
+
+
+def bridge_walk_seams(grid, max_gap: int = 6, height_tol: float = 1.5) -> int:
+    """Stitch walkable cells across internal tile seams (mutates grid.walk / grid.height) so the segmentation
+    runs on connectivity that matches the runtime navmesh, not the flat per-tile bake. The baked Detour
+    tile-cache erodes a thin band of walkable cells along some 32-unit tile seams (per-tile builds don't see
+    the neighbour), but the runtime navmesh stitches the tiles and stays continuous there -- so without this
+    the segmentation islands rooms the player walks to freely (the Devil's Crossing riftgate courtyard,
+    verified live 2026-08-24). Along every tile-seam line, an unwalkable gap of at most `max_gap` cells that
+    straddles the seam and has walkable cells of matching floor height (within `height_tol` units) on both
+    sides is filled (interpolated floor y). A real wall is thicker than the erosion or has a height step, so it
+    is left alone -- validated against the live navmesh (every bridged courtyard cell was on the runtime path
+    mesh; heals the riftgate + 10 other DC islands). Returns cells filled."""
+    walk, height = grid.walk, grid.height
+    h, w = walk.shape
+    filled = 0
+    for vertical in (True, False):
+        seams = seam_line_indices(w, grid.x0) if vertical else seam_line_indices(h, grid.z0)
+        n_axis, n_other = (w, h) if vertical else (h, w)
+        for s in seams:
+            if s <= 0 or s >= n_axis:
+                continue
+            for t in range(n_other):
+                cell = (lambda k: (t, k)) if vertical else (lambda k: (k, t))
+                left = next((k for k in range(s - 1, s - 1 - max_gap, -1) if k >= 0 and walk[cell(k)]), None)
+                right = next((k for k in range(s, min(n_axis, s + max_gap)) if walk[cell(k)]), None)
+                if left is None or right is None or not (left < s <= right) or right - left - 1 > max_gap:
+                    continue
+                hl, hr = height[cell(left)], height[cell(right)]
+                if np.isnan(hl) or np.isnan(hr) or abs(hl - hr) > height_tol:
+                    continue
+                for k in range(left + 1, right):
+                    if not walk[cell(k)]:
+                        walk[cell(k)] = True
+                        height[cell(k)] = hl + (hr - hl) * (k - left) / (right - left)
+                        filled += 1
+    return filled
 
 
 def furniture_fill(walk: np.ndarray, furniture_max: float) -> np.ndarray:
@@ -351,8 +438,16 @@ def walk_cap(labels: np.ndarray, cg: CellGraph, p: Params, log: list[str],
 
 # ----------------------------------------------------------------------------------------------- output
 
-def exits_of(labels: np.ndarray, grid: Grid, cuts: np.ndarray | None = None) -> list[Exit]:
-    """Openings = connected runs of boundary cells between a given pair of rooms."""
+def exits_of(labels: np.ndarray, grid: Grid, cuts: np.ndarray | None = None,
+             second_min_width: float = 2.5, second_min_dist: float = 10.0) -> list[Exit]:
+    """Exits between neighbouring room pairs. Two rooms often share a long, wavy or obstacle-broken boundary
+    (a watershed split of an open space, or a walk-cap bisection line) and so touch in several disconnected
+    runs; emitting one exit per run listed the same neighbour 2-4 times at spots 5-25 units apart, none an
+    obvious doorway (the "rooms list multiple exits to another room" complaint, 2026-08-24). So the widest run
+    is always kept as the primary opening, and a further run is kept ONLY when it is a genuinely distinct
+    second doorway: at least `second_min_width` units wide AND at least `second_min_dist` units from every
+    run already kept for this pair (2026-08-24: keeps ~10 real double-openings in DC -- two ends of a boundary
+    around a central obstacle -- while fragmentation still collapses to one). `cut` marks a walk-cap run."""
     out = []
     h, w = labels.shape
     pairs = border_pairs(labels)
@@ -375,12 +470,21 @@ def exits_of(labels: np.ndarray, grid: Grid, cuts: np.ndarray | None = None) -> 
         db = ndimage.binary_dilation(mb, structure=ndimage.generate_binary_structure(2, 1))
         touch = (ma & db) | (mb & da)
         comp, k = ndimage.label(touch, structure=S8)
+        runs = []   # (cells, Exit) per touch run, widest first
         for i in range(1, k + 1):
             ys, xs = np.nonzero(comp == i)
             cx, cz = grid.center(float(xs.mean() + c0), float(ys.mean() + r0))
             width = max(xs.max() - xs.min(), ys.max() - ys.min()) * CELL + CELL
             is_cut = bool(cuts is not None and cuts[r0:r1, c0:c1][comp == i].mean() > 0.5)
-            out.append(Exit(a, b, cx, cz, float(width), len(ys), is_cut))
+            runs.append((len(ys), Exit(a, b, cx, cz, float(width), len(ys), is_cut)))
+        runs.sort(key=lambda t: -t[0])
+        kept = []   # Exits kept for this pair (widest first)
+        for cells, e in runs:
+            if not kept:
+                kept.append(e)
+            elif e.width >= second_min_width and all(math.hypot(e.x - o.x, e.z - o.z) >= second_min_dist for o in kept):
+                kept.append(e)
+        out.extend(kept)
     return out
 
 
