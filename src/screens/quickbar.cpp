@@ -33,11 +33,15 @@ std::string_view aim_word(world::SkillAim a) {
     default: return {};
   }
 }
-// Speak one slot: "<lead> <name>, <aim>", or "<lead> empty".
+// Speak one slot: "<lead> <name>, <aim>", or "<lead> empty". `lead` is omitted when empty -- the numbered
+// slots say just the skill (the player pressed the number, so they know which slot it is); the mouse slots
+// pass their "left mouse" / "right mouse" label as the lead.
 void speak_slot_line(std::string_view lead, const gameapi::HotSlot& s) {
   MessageBuilder m;
-  if (s.empty) { m.list_item().fragment(lead).fragment(strings::kEmptySlot); speech::speak(m.build(), true); return; }
-  m.list_item().fragment(lead).fragment(s.name);
+  m.list_item();
+  if (!lead.empty()) m.fragment(lead);
+  if (s.empty) { m.fragment(strings::kEmptySlot); speech::speak(m.build(), true); return; }
+  m.fragment(s.name);
   std::string_view aim = s.skill_id ? aim_word(world::skill_aim(gameapi::object_by_id(s.skill_id))) : std::string_view{};
   if (!aim.empty()) m.list_item().fragment(aim);
   speech::speak(m.build(), true);
@@ -46,7 +50,7 @@ void speak_slot_line(std::string_view lead, const gameapi::HotSlot& s) {
 
 void speak_slot(int k) {
   if (!world::in_world()) { speech::speak(strings::kNotInWorld, true); return; }
-  speak_slot_line(std::format("{}", k % 10), gameapi::hotslot(quickbar_slot_index(k)));
+  speak_slot_line({}, gameapi::hotslot(quickbar_slot_index(k)));   // no number -- the player pressed it
 }
 void speak_mouse(bool primary) {
   if (!world::in_world()) { speech::speak(strings::kNotInWorld, true); return; }
