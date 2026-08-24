@@ -4,6 +4,7 @@
 // a tab row across the top (Left/Right, Enter; Ctrl+Tab / Ctrl+Shift+Tab from anywhere) and one vertical
 // column below it. Content comes from src/gameapi.h snapshots refreshed every few frames and after every
 // action (the graph is immediate-mode; the snapshot keeps the per-frame rebuild cheap).
+#include <algorithm>
 #include <functional>
 #include <memory>
 #include <string>
@@ -112,12 +113,21 @@ class WindowScreen : public gd::core::Screen {
   void select_tab(int index, bool speak) {
     if (index < 0 || index >= (int)tab_labels_.size()) return;
     tab_ = index;
+    tab_key_ = tab_labels_[(size_t)index];   // remember WHICH tab, not its position
     on_tab_changed(index);
     if (speak) { gd::core::MessageBuilder m; gd::strings::push_control(m, tab_labels_[(size_t)index], gd::strings::kTab, false, false); speech::speak(m.build(), true); }
   }
   void add_tabs(gd::core::GraphBuilder& b, std::vector<std::string> labels) {
     tab_labels_ = std::move(labels);
-    if (tab_ >= (int)tab_labels_.size()) tab_ = 0;
+    // Re-resolve the selection by its label: when the tab SET changes membership (a merchant's empty
+    // category, or buying the last item in a category so its tab vanishes -- 2026-08-23) a bare index would
+    // silently point at a different tab. Fall back to clamping when the remembered tab is gone.
+    if (!tab_key_.empty()) {
+      auto it = std::find(tab_labels_.begin(), tab_labels_.end(), tab_key_);
+      if (it != tab_labels_.end()) tab_ = (int)(it - tab_labels_.begin());
+    }
+    if (tab_ < 0 || tab_ >= (int)tab_labels_.size()) tab_ = 0;
+    if (tab_key_.empty() && !tab_labels_.empty()) tab_key_ = tab_labels_[(size_t)tab_];
     b.begin_stop("tabs");
     b.start_row("tabs");
     for (size_t i = 0; i < tab_labels_.size(); ++i) {
@@ -139,6 +149,7 @@ class WindowScreen : public gd::core::Screen {
   unsigned off_;
   int layer_;
   int tab_ = 0;
+  std::string tab_key_;      // the selected tab's label; the index is re-resolved from it each render
   std::vector<std::string> tab_labels_;
 };
 
