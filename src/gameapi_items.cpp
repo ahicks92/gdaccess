@@ -346,17 +346,29 @@ std::string vendor_dump(unsigned id) {
   }
   return out;
 }
+// The merchant's stock, one tab per Market_TypeEnum, in the game's own display order with the game's own
+// captions. The enum values were read from each item class's GetItemMarketType (Game.dll, 2026-08-23):
+// 1=Armor, 2=Melee, 3=Ranged, 4=Accessories/Consumables, 6=Artifacts. Types 0/5/7 are the buyback/fallback
+// sack the engine returns for out-of-range values (all the same pointer) -- dropped here, we have our own
+// Sell tab. Empty tabs (a merchant who does not stock a category) are skipped.
 std::vector<MarketTab> market_stock(unsigned market_id) {
   std::vector<MarketTab> out;
   void* e = engine(); load_items();
   if (!e || !market_id || !g.GetMarketInventorySack) return out;
-  for (int type = 0; type < 8; ++type) {
+  static const struct { int type; const char* tag; } kTabs[] = {
+    {2, "tagVendorTab01A"},          // Melee Weapons
+    {3, "tagVendorTab02A"},          // Ranged Weapons
+    {1, "tagVendorTab03A"},          // Armor
+    {4, "tagVendorTab04A"},          // Accessories and Consumables
+    {6, "tagVendorTabArtifactA"},    // Artifacts
+  };
+  for (const auto& t : kTabs) {
     const void* sack = nullptr;
-    guarded("GetMarketInventorySack", [&] { sack = g.GetMarketInventorySack(e, market_id, type); });
+    guarded("GetMarketInventorySack", [&] { sack = g.GetMarketInventorySack(e, market_id, t.type); });
     if (!sack) continue;
-    Bag b = read_sack(sack, type);
+    Bag b = read_sack(sack, t.type);
     if (b.items.empty()) continue;
-    out.push_back({type, b.name, std::move(b.items)});
+    out.push_back({t.type, localize(t.tag), std::move(b.items)});
   }
   return out;
 }
