@@ -215,9 +215,9 @@ static std::string handle(const std::string& path, const std::map<std::string, s
       out += std::format("  '{}' at ({}, {}, {}) obj={} owner={} uid={:#x}:{:#x}:{:#x}:{:#x} current={}\n", g.name, g.pos[0], g.pos[1], g.pos[2], g.object_id, g.owner, (unsigned)g.uid[0], (unsigned)g.uid[1], (unsigned)g.uid[2], (unsigned)g.uid[3], g.current);
     return out;
   }
-  if (path == "/sonar") {   // the sonar sweep: ?on=0|1 &radius= &vol= &ref= &gap_min= &gap_max= &rest= (seconds)
+  if (path == "/sonar") {   // the sonar field: ?on=0|1 &radius= &vol= &ref= &floor= &pnear= &pfar= &dnear= &dfar= &force=
     if (q.count("on")) sonar::set_enabled(truthy(q.at("on")));
-    for (const char* k : {"radius", "vol", "ref", "floor", "gap_min", "gap_max", "rest", "force"}) if (q.count(k)) sonar::set_knob(k, (float)atof(q.at(k).c_str()));
+    for (const char* k : {"radius", "vol", "ref", "floor", "pnear", "pfar", "dnear", "dfar", "force"}) if (q.count(k)) sonar::set_knob(k, (float)atof(q.at(k).c_str()));
     return sonar::status();
   }
   if (path == "/where") { screens::speak_where(); return "ok\n"; }

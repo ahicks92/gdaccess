@@ -75,7 +75,7 @@ stationary attack, Ctrl pet targeting) and typing into the game's chat field.
 | B / Shift+B | Next / previous bystander (NPCs without one) |
 | M / Shift+M | Next / previous loot: items on the ground and containers (`Item` / `FixedItemContainer` whose `IsOfInterest()` says so) |
 | Alt + . N B M V | The NEAREST of that group, whatever is reviewed now (the enemy that just ran up to you) |
-| \ (backslash) | Sonar sweep on / off: the automatic pings of enemies, loot and dungeon entrances around you (wotr's sonar; Ctrl+\ is the game's party display) |
+| \ (backslash) | Sonar on / off: each nearby enemy, loot drop and dungeon entrance repeats its own ping, faster as it nears you and panned to its direction (Ctrl+\ is the game's party display) |
 | J (or Enter) | Left mouse button at the reviewed thing (or the real cursor when nothing is reviewed): attack / talk / open / move, exactly as a click. HOLD to hold (sustained attack, skill, move). A reviewed thing the camera does not show: "too far away", nothing happens. Exception: a reviewed ITEM on the ground -- sighted players click its floating label, which only exists while the loot filter shows it -- gets the game's own "walk there and pick it up" command (`ControllerPlayer::ItemAction`, docs/re_pickup.md) on the press instead of a click |
 | I | Right mouse button, same rules (the right-slot skill; hold to hold) |
 | U | The game's own Interact: uses the nearest usable object (door, chest, shrine ...) or NPC within 10 units of the character, no aiming, walks there if needed |
