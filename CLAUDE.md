@@ -282,17 +282,22 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   prefix in this exe; `EquipmentCtrl::RemoveItem` only detaches (always AddItem to the bag first); the bag
   map's pair sits at +0x1c/+0x20 (4-byte value alignment), the market map's at +0x20/+0x28. Dev routes:
   `/quests /objectives /factions /hotbar /lore /inv /skills /sheet /obj /loc2 /cheat /ingame?action=`.
-- Quickbar + skill targeting (2026-08-23, `docs/skills-targeting.md`, built, NOT yet verified live): bare Y is
-  now the game's own Quickbar Switch (passed straight through; `screens::quickbar_tick` watches
-  `exe_ui::quickbar_page()` and announces the new bar "quickbar N"). Reading moved to Ctrl+1..0 = read slot
-  1..10 of the displayed bar, Ctrl+- / Ctrl+= = the left / right mouse skill; each says the skill and how it
-  aims. **Aim = `world::skill_aim`**: `SkillActivated::GetTargetType()` returns `*(int*)(this+0x5c0)` = the
-  DBR `targetingMode` enum {Default=0, Point=1, Object=2, Target=3} (never overridden, callable directly after
-  an is-a `SkillActivated` guard). Point->"at a spot", Target->"at a target", Object->"at an object"; Default
-  is overloaded (self-buff vs weapon attack), disambiguated by the concrete RTTI class name (Radius->"around
-  you", BuffSelf/Passive/Toggled/Shapeshift->"self", else->"at a target"). Passives/modifiers are Skill not
-  SkillActivated -> None. `/hotbar` prints `aim=` per slot. Open: confirm the +0x5c0 value live, and whether
-  the mouse buttons refuse self/around-you skills (believed yes, via HotSlotOption::Validate).
+- Quickbar + skill targeting (2026-08-23, `docs/skills-targeting.md`, verified live on the test character):
+  bare Y is now the game's own Quickbar Switch (passed straight through; `screens::quickbar_tick` watches
+  `exe_ui::quickbar_page()` and announces the new bar "quickbar N" -- verified). Reading moved to Ctrl+1..0 =
+  read slot 1..10 of the displayed bar, Ctrl+- / Ctrl+= = the left / right mouse skill; each says the skill
+  and how it aims. **Aim = `world::skill_aim`**: `SkillActivated::GetTargetType()` returns `*(int*)(this+0x5c0)`
+  (never overridden, called directly after an is-a `SkillActivated` guard). The RUNTIME enum is NOT the DBR
+  targetingMode order -- read off the game: **1 = self/buff** (Overguard, potions, Field Command), **2 =
+  offensive** (Weapon Attack, Cadence, Blitz, Forcewave, War Cry), **3 = ground point** (unconfirmed;
+  Evade/Move To are actually 0), **0 = passive/none**. Value 2 is split by the concrete RTTI class name
+  (Radius -> "around you" for War Cry, else "at a target"). Verified via `/hotbar` (prints `aim=`) and
+  `/action read.leftMouse` -> "left mouse Weapon Attack, at a target". **Input:** `Ctrl+<digit>` is a read
+  chord but a digit is also a passthrough key, so `app.cpp`'s game-key filter swallows 0x02..0x0b while Ctrl is
+  held (else a real Ctrl+1 reads AND activates slot 1). Synthetic `/key` bypasses that filter and always
+  reaches the game, so in-world Ctrl-chords can't be verified through `/key` -- use `/action`. Open: confirm on
+  the user's own keyboard; whether the mouse buttons refuse self/around-you skills (believed via
+  HotSlotOption::Validate).
 - Lua (2026-08-22, `docs/lua.md`): LuaJIT 2.0.4 (`x64\lua51.dll`) behind the LUAGLUE binding layer; one
   state owned by `LuaManager` at `*(gEngine+0x68)`; `LuaManager::RunCode` is exported (dev route `/lua?code=`,
   readback via `Game.AddObjective` -> `/objectives`). Sandboxed (no io/os/ffi/debug/require) but `loadfile`

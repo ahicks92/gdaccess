@@ -30,7 +30,6 @@ std::string_view aim_word(world::SkillAim a) {
     case world::SkillAim::AroundYou: return strings::kAimAround;
     case world::SkillAim::AtPoint: return strings::kAimPoint;
     case world::SkillAim::AtTarget: return strings::kAimTarget;
-    case world::SkillAim::AtObject: return strings::kAimObject;
     default: return {};
   }
 }

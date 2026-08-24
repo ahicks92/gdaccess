@@ -1246,26 +1246,24 @@ bool in_group(const void* e, const void* ci, const std::string& cls, ScanGroup g
 }
 }  // namespace
 
-// A skill's aiming, for the quickbar readout (docs/skills-targeting.md). The runtime SkillTargetType
-// (SkillActivated::GetTargetType, from the DBR targetingMode) names Point / Object / Target outright;
-// Default is overloaded (a self-buff and a basic weapon attack both leave it unset), so it is disambiguated
-// by the skill's concrete RTTI class name. Passives / modifiers are Skill but not SkillActivated -> None.
+// A skill's aiming, for the quickbar readout (docs/skills-targeting.md). SkillActivated::GetTargetType is a
+// field at this+0x5c0; its RUNTIME values were read off the game (2026-08-23, /hotbar over known skills) and
+// are NOT the DBR targetingMode enum order: 1 = self / buff (Overguard, potions, Field Command), 2 = offensive
+// (Weapon Attack, Cadence, Blitz, Forcewave, War Cry -- the game aims these at your target), 3 = a ground
+// point (Evade, Move To); 0 = passive / not applicable. A player-centred AoE (War Cry) is a 2 too, split off
+// as "around you" by its concrete RTTI class name (Skill_AttackRadius). Passives / modifiers are Skill but
+// not SkillActivated -> None.
 SkillAim skill_aim(const void* skill_obj) {
   if (!skill_obj || !g_api.SkillActivated_StaticClassInfo || !g_api.SkillActivated_GetTargetType) return SkillAim::None;
   if (!is_kind_of(rtti_of(skill_obj), g_api.SkillActivated_StaticClassInfo())) return SkillAim::None;
   int tt = 0;
   if (!call_int_fn(skill_obj, g_api.SkillActivated_GetTargetType, &tt)) return SkillAim::None;
   switch (tt) {
-    case 1: return SkillAim::AtPoint;    // Point: a ground spot at the cursor
-    case 2: return SkillAim::AtObject;   // Object: a world object
-    case 3: return SkillAim::AtTarget;   // Target: a specific entity under the cursor
-    default: break;                      // Default (0): resolve by the concrete class
+    case 1: return SkillAim::SelfCast;                                                            // self / buff: no aiming
+    case 2: return class_name(skill_obj).find("Radius") != std::string::npos ? SkillAim::AroundYou : SkillAim::AtTarget;
+    case 3: return SkillAim::AtPoint;                                                             // a ground location: movement, placed AoE
+    default: return SkillAim::None;                                                               // 0 = passive / not applicable
   }
-  std::string cls = class_name(skill_obj);
-  auto has = [&](const char* s) { return cls.find(s) != std::string::npos; };
-  if (has("Radius")) return SkillAim::AroundYou;                                                  // AttackRadius / BuffRadius: centred on you
-  if (has("BuffSelf") || has("Passive") || has("Toggled") || has("Shapeshift")) return SkillAim::SelfCast;
-  return SkillAim::AtTarget;                                                                      // weapon / spell / projectile: your current target
 }
 
 int clock_hour(const Vec3& p) {

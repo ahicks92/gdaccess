@@ -431,7 +431,6 @@ const char* aim_name(world::SkillAim a) {
     case world::SkillAim::AroundYou: return "around";
     case world::SkillAim::AtPoint: return "point";
     case world::SkillAim::AtTarget: return "target";
-    case world::SkillAim::AtObject: return "object";
     default: return "-";
   }
 }

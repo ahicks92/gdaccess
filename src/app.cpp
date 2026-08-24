@@ -189,7 +189,15 @@ void init() {
   Screen::set_host([](std::string_view s) { speech::speak(s, false); }, [](Screen* s) { if (g_nav) g_nav->screen_closed(s); });
   g_screens.set_navigator([](Screen* s) { if (g_nav) g_nav->attach(s); }, [] { if (g_nav) g_nav->ensure_focus(); });
   register_actions();
-  hooks::set_game_key_filter([](int code) { Screen* s = g_screens.current(); return s && s->passes_key(code); });
+  hooks::set_game_key_filter([](int code) {
+    Screen* s = g_screens.current();
+    if (!s || !s->passes_key(code)) return false;
+    // Ctrl+<digit> is the mod's quickbar-read chord (read.slot1..10), never the game's -- the game binds
+    // single buttons only, so it never wants a modified digit. The passthrough is by code alone (modifier
+    // blind), so without this a real Ctrl+1 would ALSO activate the game's slot 1 you only meant to read.
+    if ((code >= 0x02 && code <= 0x0b) && hooks::key_source().ctrl()) return false;
+    return true;
+  });
   g_screens.register_screen(screens::make_unsupported());
   g_screens.register_screen(screens::make_main_menu());
   g_screens.register_screen(screens::make_create_character());

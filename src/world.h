@@ -55,7 +55,7 @@ std::string label_of(unsigned id);
 
 // How using a skill chooses where it lands, for the quickbar readout (docs/skills-targeting.md): the runtime
 // SkillTargetType plus the skill's class. None = not an activated skill (a passive or a modifier).
-enum class SkillAim { None, SelfCast, AroundYou, AtPoint, AtTarget, AtObject };
+enum class SkillAim { None, SelfCast, AroundYou, AtPoint, AtTarget };
 SkillAim skill_aim(const void* skill_obj);   // skill_obj from gameapi::object_by_id(skill_id)
 
 // ---- the review cursor (wotr's scanner, adapted) ----

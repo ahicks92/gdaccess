@@ -13,37 +13,48 @@ returned by the virtual `SkillActivated::GetTargetType()` (Game.dll export; the 
     SkillActivated::GetTargetType()  ->  return *(int*)(this + 0x5c0);
 
 and it is **never overridden** (only `SkillActivated` defines it), so once an object is confirmed to be a
-`SkillActivated` the export can be called directly on it. The value is the `SkillTargetType` enum, loaded from
-the DBR `targetingMode` field, whose template default order fixes the numbering:
+`SkillActivated` the export can be called directly on it. It returns a `SkillTargetType`.
 
-- **0 Default** — no explicit aim; the game resolves it from the skill's kind.
-- **1 Point** — a ground spot: the mouse cursor's world position.
-- **2 Object** — a world object (rare).
-- **3 Target** — a specific entity under the cursor.
+**The runtime values are NOT the DBR `targetingMode` enum.** The DBR field's authoring order is
+`Default;Point;Object;Target`, but the *runtime* `+0x5c0` is a resolved value the class sets, and it was read
+straight off the game (2026-08-23, `/hotbar` over known Soldier skills):
 
-`Default` is overloaded: a self-buff and a basic weapon attack both leave `targetingMode` unset. So Default is
-disambiguated by the skill's concrete RTTI class name (each concrete `Skill_*` class has its own
-`GetStaticClassInfo`, so `GetRTTIClassInfo` returns e.g. `Skill_AttackRadius`, `Skill_WeaponPool_ChargedFinale`,
-`Skill_BuffSelfToggled`):
+- **1 = self / buff** — cast on you (or allies), no aiming. Overguard (`Skill_BuffSelfDuration`), the health /
+  energy potions (`Skill_ChargePotion`), Field Command (`Skill_BuffRadiusToggled`).
+- **2 = offensive** — the game aims it at your target / where you're facing. Basic Weapon Attack, Cadence,
+  Blitz, Forcewave, **and player-centred AoE like War Cry** (`Skill_AttackRadius`).
+- **3 = a ground point** — go to / place at a location. Evade, Move To are actually `0` (they came back as
+  "target" only through the old miscoded fallback); `3` is inferred for cursor-placed skills, not yet seen on a
+  Soldier — treat as unconfirmed.
+- **0 = not applicable** — passives, and `SkillActivated` skills that expose nothing. Menhir's Will
+  (`Skill_PassiveOnLifeBuffSelf`) is not a `SkillActivated` at all → `None`.
 
-- name contains `Radius` (`Skill_AttackRadius`, `Skill_BuffRadius*`, `Skill_OnHitAttackRadius`) → **around you**
-  (centred on the player: War Cry, etc.).
-- name contains `BuffSelf` / `Passive` / `Toggled` / `Shapeshift` → **self** (cast on you, no aim).
-- otherwise (`SkillActivatedWeapon`, `WeaponPool`, `Attack*`, `Spell`, projectiles) → **at your current
-  target** (the enemy under the cursor / auto-face).
+`2` is the one that needs splitting for the readout: a player-centred AoE (War Cry) is a `2` like a targeted
+attack, so it is separated by the skill's concrete RTTI class name (each `Skill_*` class has its own
+`GetStaticClassInfo`, so `GetRTTIClassInfo` returns e.g. `Skill_AttackRadius`, `Skill_WeaponPool_ChargedFinale`):
+class name contains `Radius` → **around you**, else **at a target**.
 
-Passives and modifiers are `Skill` but **not** `SkillActivated` (no `+0x5c0`), so `skill_aim` returns `None`
-for them — they are never on the bar anyway.
+The player-facing buckets (`world::SkillAim`, spoken by `screens::speak_slot` / `speak_mouse`):
 
-The four player-facing buckets (`world::SkillAim`, spoken by `screens::speak_slot` / `speak_mouse`):
-
-- **self** — Overguard, Field Command, the stances, Cadence's secondary buff.
-- **around you** — War Cry (`Skill_AttackRadius`, instant, `skillTargetRadius`).
-- **at a spot** — targetingMode `Point`: Shattering Smash (`Skill_AttackWave`), most cursor-placed AoE/spells.
-- **at a target** — Cadence, Blade Arc, Blitz, and any targetingMode `Target`.
+- **self** — value 1 (Overguard, potions, stances).
+- **around you** — value 2 with a `Radius` class (War Cry).
+- **at a target** — value 2 otherwise (Weapon Attack, Cadence, Blitz, Forcewave).
+- **at a spot** — value 3 (cursor-placed; unconfirmed on Soldier).
+- (nothing spoken) — value 0 or not a `SkillActivated`.
 
 The game does the actual targeting natively (the number keys pass straight through); the mod only *says* which
 bucket a slot is, so the player knows before firing. Verify with `/hotbar` (each slot prints `aim=`).
+
+Verified live (2026-08-23, test character, `/hotbar` with skills assigned to slots): Cadence / Weapon Attack /
+Blitz / Forcewave → `target`, War Cry → `around`, Overguard / Field Command / potions → `self`, Menhir's Will
+→ `-`. The read handlers themselves were confirmed with `/action read.leftMouse` → "left mouse Weapon Attack,
+at a target".
+
+**Input note:** `Ctrl+<digit>` is the read chord, but a digit is also a passthrough key (bare digits activate
+the game's slots). `in_game`'s passthrough is by code alone, so `app.cpp`'s game-key filter additionally
+swallows `0x02..0x0b` while Ctrl is held — otherwise a real Ctrl+1 would read *and* activate slot 1. (Synthetic
+`/key` events bypass that filter entirely and always reach the game, so in-world Ctrl-chords can't be verified
+through `/key`; use `/action` for the mod side.)
 
 ## Hot slots (the quickbar model)
 
