@@ -72,8 +72,12 @@ through `/key`; use `/action` for the mod side.)
 
 ## When a skill can / cannot be on the mouse
 
-Believed (needs one live confirmation — try dropping a self-buff on a mouse button): the mouse buttons accept
-only skills that need aiming — attacks and `Point` / `Target` skills — and reject pure self-buffs, toggles and
-passives, gated by `HotSlotOption::Validate` / `ValidationResult` on the same target-type. i.e. a slot whose
-`skill_aim` is `self` or `around you` is a keyboard-bar skill, not a mouse skill; `at a spot` / `at a target`
-are mouse-eligible. To be checked against the game's own drop behaviour before relying on it.
+Tested live (2026-08-23): the assignment path (`SetPrimarySlot` / `SetSecondarySlot`, what
+`gameapi::set_primary_skill` uses) accepts **any learned skill** on the mouse buttons — a pure self-buff
+(Overguard) took the left mouse and reads "left mouse Overguard, self". So there is **no self-buff restriction
+at the API level**; the belief that the mouse rejects buffs was a red herring. The only thing that fails to
+stick is an **unlearned** skill (level 0), which the game drops regardless of the slot (bar or mouse).
+
+Caveat: this is the direct API, which the game's own drag-and-drop UI may gate more tightly, and I did not
+click a mouse-slotted self-buff to confirm it actually casts. But for the mod (which assigns through the API),
+every learned skill is mouse-assignable, and the readout reports whatever is there with the right aim.

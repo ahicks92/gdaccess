@@ -295,9 +295,13 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   `/action read.leftMouse` -> "left mouse Weapon Attack, at a target". **Input:** `Ctrl+<digit>` is a read
   chord but a digit is also a passthrough key, so `app.cpp`'s game-key filter swallows 0x02..0x0b while Ctrl is
   held (else a real Ctrl+1 reads AND activates slot 1). Synthetic `/key` bypasses that filter and always
-  reaches the game, so in-world Ctrl-chords can't be verified through `/key` -- use `/action`. Open: confirm on
-  the user's own keyboard; whether the mouse buttons refuse self/around-you skills (believed via
-  HotSlotOption::Validate).
+  reaches the game, so in-world Ctrl-chords can't be verified through `/key` -- use `/action`. Verified with a
+  levelled test char (cheat XP -> learn Cadence/War Cry/Overguard/Forcewave): reads on the displayed page give
+  "1 Cadence, at a target" / "2 War Cry, around you" / "3 Overguard, self" and are page-relative (Y switches
+  page, reads follow). **Mouse assignability**: the assign API (SetPrimarySlot) accepts ANY learned skill on
+  the mouse incl. a self-buff (Overguard -> "left mouse Overguard, self"); the earlier non-stick was UNLEARNED
+  skills, not a self-buff rule. Open: confirm real-key Ctrl-chord dispatch on the user's own keyboard (synth
+  can't).
 - Lua (2026-08-22, `docs/lua.md`): LuaJIT 2.0.4 (`x64\lua51.dll`) behind the LUAGLUE binding layer; one
   state owned by `LuaManager` at `*(gEngine+0x68)`; `LuaManager::RunCode` is exported (dev route `/lua?code=`,
   readback via `Game.AddObjective` -> `/objectives`). Sandboxed (no io/os/ffi/debug/require) but `loadfile`
