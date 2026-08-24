@@ -77,6 +77,41 @@ TEST_CASE("hysteresis: first room immediate, a settled room changes at once, bou
   h.reset(); CHECK(h.current == -1);
 }
 
+TEST_CASE("path_is_direct: a route inside the two rooms is direct; one detouring through a third is not") {
+  // 3x3, cell 1, origin 0. Left column + top/bottom of the middle = room 0 (A); right column = room 1 (B);
+  // the centre cell (1,1) = room 7 (C, a third room).  Row-major: 0 0 1 / 0 7 1 / 0 0 1.
+  LabelGrid g;
+  g.x0 = 0; g.z0 = 0; g.cell = 1.0;
+  auto blob = rle({{0, 2}, {1, 1}, {0, 1}, {7, 1}, {1, 1}, {0, 2}, {1, 1}});
+  REQUIRE(g.decode_rle(blob.data(), blob.size(), 3, 3));
+  // Cell centres are (col+0.5, row+0.5). A route along the top row A->A->B never touches C.
+  std::vector<std::array<double, 3>> direct = {{0.5, 0, 0.5}, {1.5, 0, 0.5}, {2.5, 0, 0.5}};
+  CHECK(g.path_is_direct(direct, 0, 1, /*ring*/ 0, /*tol*/ 0.5));
+  // A route through the middle row A->C->B passes through the centre C.
+  std::vector<std::array<double, 3>> detour = {{0.5, 0, 1.5}, {1.5, 0, 1.5}, {2.5, 0, 1.5}};
+  CHECK_FALSE(g.path_is_direct(detour, 0, 1, 0, 0.5));   // a 1-unit stretch in C exceeds tol 0.5
+  CHECK(g.path_is_direct(detour, 0, 1, 0, 2.0));         // the same graze is under tol 2.0 -> tolerated
+}
+
+TEST_CASE("path_is_direct: a long stretch inside a third room is caught mid-segment; gaps and short paths pass") {
+  // 5x1, cell 1: A C C C B.  A single long segment crosses all three C cells.
+  LabelGrid g;
+  g.x0 = 0; g.z0 = 0; g.cell = 1.0;
+  auto blob = rle({{0, 1}, {7, 3}, {1, 1}});
+  REQUIRE(g.decode_rle(blob.data(), blob.size(), 5, 1));
+  std::vector<std::array<double, 3>> across = {{0.5, 0, 0.5}, {4.5, 0, 0.5}};   // one segment A..B over C,C,C
+  CHECK_FALSE(g.path_is_direct(across, 0, 1, 0, 2.0));   // ~3 units inside C, sampled along the segment
+  // An unwalkable/off-grid gap between the rooms is not a "third room": B at col 4, unlabeled between.
+  LabelGrid gap;
+  gap.x0 = 0; gap.z0 = 0; gap.cell = 1.0;
+  auto gb = rle({{0, 1}, {-1, 1}, {1, 1}});   // A . B
+  REQUIRE(gap.decode_rle(gb.data(), gb.size(), 3, 1));
+  std::vector<std::array<double, 3>> over_gap = {{0.5, 0, 0.5}, {1.5, 0, 0.5}, {2.5, 0, 0.5}};
+  CHECK(gap.path_is_direct(over_gap, 0, 1, 0, 0.5));   // the -1 cell is ignored, not a detour
+  CHECK(gap.path_is_direct({}, 0, 1));                 // no corridor -> fail open (direct)
+  CHECK(gap.path_is_direct({{0.5, 0, 0.5}}, 0, 1));    // single point -> fail open
+}
+
 TEST_CASE("cycle wraps both ways and starts from the nearest") {
   Cycle c;
   CHECK(c.next(3, +1) == 0); CHECK(c.next(3, +1) == 1); CHECK(c.next(3, +1) == 2); CHECK(c.next(3, +1) == 0);

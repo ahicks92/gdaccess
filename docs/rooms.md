@@ -72,9 +72,21 @@ state. So the mod **finds exits at runtime** (`src/rooms.cpp exit_items`, on V /
   `Destructible` gate `find_path` exactly as they gate the player, and unreachable elevated floors are dropped.
 - The bearing is to the neighbour's nearest cell and **may point through a wall** at a room reached by going
   round (decided with the user: same as the old adjacency exits; line-of-sight is not required).
-Consequences: no false doors, no duplicates, seam-islanded and off-mesh-reachable rooms appear when actually
-reachable; a room whose opening is > radius away shows once you near it (accepted). The offline `exits_of` /
-`fill_label_seams` / `rooms.py exits` machinery is now vestigial for intra exits.
+- **The route must be DIRECT** (2026-08-24, on the user's report): "near and reachable" is not enough -- a room
+  whose only navmesh path from here runs *through* a third labelled room is that third room's exit, not ours.
+  So each reachable candidate's actual corridor (`world::find_path_corridor` = `GAME::NavManager::FindPath`,
+  whose 7th arg is a `mem::vector<WorldVec3>` straight path; dev `/findpath?...&corridor=1`) is classified
+  cell-by-cell against the label grid (`LabelGrid::path_is_direct`, engine-free + unit-tested): the candidate
+  is dropped if the corridor lingers more than a ~2u tolerance inside any room that is neither the current room
+  nor the candidate. Off-grid / unlabelled samples (a gap between rooms) don't count as a detour, and LOS is
+  still not required (the corridor may curve round a wall, it just must run from our room into the neighbour).
+  The test is **strictly additive**: a candidate is dropped only on a positive detour finding; if the corridor
+  cannot be computed the candidate is kept (the reachability gate already passed) -- so a corridor hiccup never
+  loses a real exit.
+Consequences: no false doors, no duplicates, no exits that are really two rooms away, seam-islanded and
+off-mesh-reachable rooms appear when actually reachable; a room whose opening is > radius away shows once you
+near it (accepted). The offline `exits_of` / `fill_label_seams` / `rooms.py exits` machinery is now vestigial
+for intra exits.
 
 **Cross-region exits** (`rooms.py seams [--write]`, 2026-08-23; still used at runtime): the per-region
 watershed sees its grid

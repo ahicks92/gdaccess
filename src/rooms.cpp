@@ -12,6 +12,7 @@
 #include "core/strings.h"
 #include <windows.h>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <format>
 #include <map>
@@ -280,9 +281,15 @@ std::string foreign_label(const std::string& key) {
 // construction for reachability -- quest doors / destructibles / NavBlockers gate find_path exactly as they
 // gate the player, and stacked/elevated floors the player cannot reach are dropped (find_path is height-aware).
 // Line-of-sight is NOT required: the bearing to the nearest cell may point through a wall at a room you reach
-// by going round (the same as the old adjacency exits -- decided with the user 2026-08-24). Cross-region
-// (foreign) openings still come from the seam rows because the far room lives in another region's label grid.
-// On-demand (V / room change), so the ~a-few find_path calls are not a per-frame cost.
+// by going round (the same as the old adjacency exits -- decided with the user 2026-08-24). But the route must
+// be DIRECT: a room whose only navmesh path from here runs THROUGH a third labelled room is that third room's
+// exit, not ours, so each candidate's actual corridor (world::find_path_corridor = NavManager::FindPath) is
+// classified against the label grid (LabelGrid::path_is_direct) and dropped if it lingers in a third room
+// (2026-08-24, on the user's report that "in A, can directly reach B" -- not merely "B is near and reachable").
+// The directness test is strictly additive: a candidate is dropped only on a positive detour finding; if the
+// corridor cannot be computed we keep it (the reachability gate already passed). Cross-region (foreign)
+// openings still come from the seam rows because the far room lives in another region's label grid.
+// On-demand (V / room change), so the ~a-few pathfinder calls are not a per-frame cost.
 constexpr double kExitRadius = 28.0;   // units; a room whose opening is farther than this shows once you near it
 std::vector<world::ScanItem> exit_items() {
   std::vector<world::ScanItem> out;
@@ -292,6 +299,16 @@ std::vector<world::ScanItem> exit_items() {
   for (const auto& nb : g_current->grid.neighbors_within(p.x, p.z, p.y, room, kExitRadius)) {
     world::Vec3 at{(float)nb.x, p.y, (float)nb.z};
     if (world::find_path(at, 0.f, 0.f, nullptr) != 0) continue;   // not reachable at all -> not an exit
+    // Direct-exit test: an exit to `nb` exists only if the game's actual navmesh route to it does not detour
+    // through a third labelled room (LOS is NOT required -- the route may curve round a wall, but it must run
+    // from our room straight into the neighbour). Strictly additive: only DROP on a positive detour finding;
+    // if the corridor can't be computed we keep the exit (the reachability gate above already passed).
+    if (std::vector<world::Vec3> corridor; world::find_path_corridor(at, corridor)) {
+      std::vector<std::array<double, 3>> pts;
+      pts.reserve(corridor.size());
+      for (const world::Vec3& c : corridor) pts.push_back({c.x, c.y, c.z});
+      if (!g_current->grid.path_is_direct(pts, room, nb.label)) continue;
+    }
     std::string dest = room_label(*g_current, nb.label);
     if (dest.empty()) dest = nb.label < (int)g_current->rooms.size() ? g_current->rooms[nb.label].cls : std::string(strings::kRoom);
     out.push_back({world::kPointIdBase + (unsigned)nb.label, "exit", dest, {}, at, (float)nb.dist, {}});

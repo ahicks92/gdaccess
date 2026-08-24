@@ -112,6 +112,31 @@ std::vector<LabelGrid::Neighbor> LabelGrid::neighbors_within(double x, double z,
   return out;
 }
 
+bool LabelGrid::path_is_direct(const std::vector<std::array<double, 3>>& pts, int a, int b, int ring,
+                               double tol) const {
+  if (pts.size() < 2) return true;   // no corridor to judge -> fail open
+  const double step = cell > 0 ? std::min(cell, 1.0) : 1.0;   // fine enough to catch a thin room
+  int foreign = -1;      // the third room the current contiguous run is inside (-1 = not in one)
+  double run = 0;        // world-unit length accumulated inside `foreign`
+  for (size_t i = 1; i < pts.size(); ++i) {
+    const double ax = pts[i - 1][0], ay = pts[i - 1][1], az = pts[i - 1][2];
+    const double dx = pts[i][0] - ax, dy = pts[i][1] - ay, dz = pts[i][2] - az;
+    const double seg = std::sqrt(dx * dx + dz * dz);
+    const int n = std::max(1, (int)std::ceil(seg / step));
+    const double inc = seg / n;
+    // Sample k = 1..n (skip k = 0: it duplicates the previous segment's endpoint).
+    for (int k = 1; k <= n; ++k) {
+      const double t = (double)k / n;
+      const int l = label_at(ax + dx * t, az + dz * t, ay + dy * t, ring);
+      if (l < 0 || l == a || l == b) { foreign = -1; run = 0; continue; }
+      if (l != foreign) { foreign = l; run = 0; }
+      run += inc;
+      if (run > tol) return false;   // the route lingers in a third room -> not a direct exit
+    }
+  }
+  return true;
+}
+
 bool Hysteresis::update(int observed, int now_ms) {
   if (observed == current) { candidate = -1; return false; }
   if (observed < 0) { candidate = -1; return false; }       // off the grid: keep the current room

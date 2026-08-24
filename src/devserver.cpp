@@ -262,10 +262,18 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     if (!q.count("x") || !q.count("z")) { status = 400; return "need x and z\n"; }
     world::Vec3 me{}; world::player_position(me);
     world::Vec3 out{};
-    int r = world::find_path(world::Vec3{f("x", 0), f("y", me.y), f("z", 0)}, f("f1", 0.f), f("f2", 0.f), &out);
-    return std::format("findpath to ({:.1f},{:.1f}) f1={} f2={}: result={} endpoint=({:.1f},{:.1f},{:.1f}) dist_to_target={:.1f}\n",
-                       f("x", 0), f("z", 0), f("f1", 0.f), f("f2", 0.f), r, out.x, out.y, out.z,
-                       std::hypot(out.x - f("x", 0), out.z - f("z", 0)));
+    world::Vec3 target{f("x", 0), f("y", me.y), f("z", 0)};
+    int r = world::find_path(target, f("f1", 0.f), f("f2", 0.f), &out);
+    std::string s = std::format("findpath to ({:.1f},{:.1f}) f1={} f2={}: result={} endpoint=({:.1f},{:.1f},{:.1f}) dist_to_target={:.1f}\n",
+                                f("x", 0), f("z", 0), f("f1", 0.f), f("f2", 0.f), r, out.x, out.y, out.z,
+                                std::hypot(out.x - f("x", 0), out.z - f("z", 0)));
+    if (q.count("corridor")) {  // &corridor=1 -- the NavManager straight-path corridor used by the direct-exit test
+      std::vector<world::Vec3> c;
+      bool ok = world::find_path_corridor(target, c);
+      s += std::format("corridor: {} ({} points)\n", ok ? "found" : "empty", c.size());
+      for (size_t i = 0; i < c.size(); ++i) s += std::format("  [{}] ({:.1f}, {:.1f}, {:.1f})\n", i, c[i].x, c[i].y, c[i].z);
+    }
+    return s;
   }
   if (path == "/conv") return world::conversation_dump();
   if (path == "/ui") return exe_ui::ui_dump();            // the exe's menu widget tree (framework A)

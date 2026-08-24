@@ -44,6 +44,9 @@ std::string regions_dump(int max);  // engine Regions (chunks) 0..max-1: index, 
 std::string portals_dump();      // the player's chunk's portals: connected chunk, choke point, open (dev)
 std::string navprobe(float x0, float z0, float x1, float z1, float step);  // IsPointOnPathMesh over a grid (dev)
 int find_path(const Vec3& dest_world, float f1, float f2, Vec3* out_world);  // Player::FindPath -> raw PathResult (dev)
+// NavManager::FindPath -> the navmesh straight-path corridor from the player to dest, as absolute world points
+// (empty on failure). Used to test whether a nearby room is a DIRECT exit; on-demand (V / room change) only.
+bool find_path_corridor(const Vec3& dest_world, std::vector<Vec3>& out);
 std::string teleport(float x, float z, bool check_only);
 std::string set_paused(int want);                                      // dev: -1 = report, 0/1 = GAME::UnpauseGameTime/PauseGameTime (a hot reload in the world pauses the game)                 // dev: Entity::SetCoords on the player (floored); refuses unloaded chunks
 std::string project_points(const std::vector<Vec3>& pts);                // dev: world ground points -> screen

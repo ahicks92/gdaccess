@@ -166,6 +166,9 @@ inline constexpr const char* NavManager_FindStraightMovePoint = "?FindStraightMo
 // public: enum GAME::NavResult __cdecl GAME::NavManager::FindClosestPointOnPathMesh(class GAME::WorldVec3 const & __ptr64,class GAME::WorldVec3 & __ptr64,float) __ptr64
 inline constexpr const char* NavManager_FindClosestPointOnPathMesh_DLL = "Engine.dll";
 inline constexpr const char* NavManager_FindClosestPointOnPathMesh = "?FindClosestPointOnPathMesh@NavManager@GAME@@QEAA?AW4NavResult@2@AEBVWorldVec3@2@AEAV42@M@Z";
+// public: bool __cdecl GAME::NavManager::FindPath(class GAME::WorldVec3 const & __ptr64,class GAME::WorldVec3 const & __ptr64,float,class GAME::WorldVec3 * __ptr64,unsigned int * __ptr64,float * __ptr64,class mem::vector<c
+inline constexpr const char* NavManager_FindPath_DLL = "Engine.dll";
+inline constexpr const char* NavManager_FindPath = "?FindPath@NavManager@GAME@@QEAA_NAEBVWorldVec3@2@0MPEAV32@PEAIPEAMPEAV?$vector@VWorldVec3@GAME@@@mem@@PEAVVec3@2@_N@Z";
 // public: enum GAME::CharacterMovementManager::PathResult __cdecl GAME::Player::FindPath(class GAME::WorldVec3 const & __ptr64,float,class GAME::WorldVec3 & __ptr64,float)const __ptr64
 inline constexpr const char* Player_FindPath_DLL = "Game.dll";
 inline constexpr const char* Player_FindPath = "?FindPath@Player@GAME@@QEBA?AW4PathResult@CharacterMovementManager@2@AEBVWorldVec3@2@MAEAV52@M@Z";

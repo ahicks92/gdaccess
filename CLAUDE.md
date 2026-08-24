@@ -422,9 +422,18 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
      all detectable via the sphere query + RTTI name, gate `find_path` exactly as they gate the player) and
      height (find_path drops unreachable stacked floors). **Line-of-sight is NOT required** -- the bearing may
      point through a wall at a room reached by going round (decided with the user; same as the old adjacency
-     exits). Cross-region (foreign) exits still come from the stored `seams` rows (the far room is in another
-     region's grid). The offline `exits_of`/`fill_label_seams`/`exits` passes are now vestigial for intra
-     (the mod ignores stored intra rows); `seams --write` is still required after any `area --write`.
+     exits). But the **route must be DIRECT** (2026-08-24, on the user's report that "in A, can directly reach
+     B" is the rule, not "B is near and reachable"): each reachable candidate's actual navmesh corridor
+     (`world::find_path_corridor` = `NavManager::FindPath`, whose 7th arg is a `mem::vector<WorldVec3>` straight
+     path -- all four scalar out-params null-checked, Engine+0x10c2c0; dev `/findpath?...&corridor=1`) is
+     classified cell-by-cell against the label grid (`core/rooms_model LabelGrid::path_is_direct`, engine-free +
+     unit-tested) and DROPPED if it lingers > ~2u inside any room that is neither the current room nor the
+     candidate (a third room = that room's exit, not ours). Off-grid/unlabelled samples don't count as a detour.
+     **Strictly additive**: dropped only on a positive detour finding; if the corridor can't be computed the
+     candidate is kept (reachability already passed), so a hiccup never loses a real exit. Cross-region
+     (foreign) exits still come from the stored `seams` rows (the far room is in another region's grid). The
+     offline `exits_of`/`fill_label_seams`/`exits` passes are now vestigial for intra (the mod ignores stored
+     intra rows); `seams --write` is still required after any `area --write`.
   2. **Seam-stitched segmenter** (`gdmap.rooms.bridge_walk_seams`, run in `tools/rooms.py build_area`):
      stitches walkable cells across internal tile seams so segmentation matches runtime connectivity, healing
      the riftgate + ~10 island rooms per region. Validated cell-by-cell vs the live navmesh (every bridged

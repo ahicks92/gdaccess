@@ -2,6 +2,7 @@
 // Engine-free model of the rooms data (assets/rooms.db, written by tools/rooms.py): a run-length-encoded
 // label grid per region looked up by world position, a dwell-gated "current room" (hysteresis), and the
 // exit cycling state. Bearings/distances are computed by the caller with world::clock_hour.
+#include <array>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -36,6 +37,15 @@ struct LabelGrid {
   // a wall (accepted -- it's the same as the old adjacency exits).
   struct Neighbor { int label; double x, z, dist; };
   std::vector<Neighbor> neighbors_within(double x, double z, double y, int current, double radius) const;
+
+  // Is a navmesh path (world points, from room `a` to room `b`) a DIRECT route between them -- i.e. it never
+  // spends more than `tol` world units inside a THIRD labelled room? Samples each segment at ~cell resolution
+  // and resolves each sample with label_at(x, z, y, ring). Samples labelled `a`, `b`, or -1 (unlabelled / off
+  // this grid) are fine; a contiguous run longer than `tol` inside some other room means the route detours
+  // through it -> not a direct exit. The `tol` slack absorbs grid discretization at room boundaries. An empty
+  // or single-point path is treated as direct (caller couldn't compute a corridor -> fail open).
+  bool path_is_direct(const std::vector<std::array<double, 3>>& pts, int a, int b, int ring = 2,
+                      double tol = 2.0) const;
 };
 
 // The current room changes immediately once the player has been in it for settle_ms (a genuine move);

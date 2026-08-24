@@ -173,6 +173,10 @@ struct Api {
   // GAME::Player::FindPath(WorldVec3 const& dest, float, WorldVec3& out, float) const -> PathResult (enum int).
   // Member ABI maps to: self=rcx, dest=rdx, f1=xmm2, out=r9, f2=stack -- a plain fn ptr marshals it (dev only).
   int (*Player_FindPath)(void*, const void*, float, void*, float) = nullptr;
+  // GAME::NavManager::FindPath(WorldVec3 const& from, WorldVec3 const& to, float radius, WorldVec3* p5,
+  // uint* p6, float* p7, mem::vector<WorldVec3>* corridor, Vec3* p9, bool p10). All four scalar out-params are
+  // null-checked in the body (Engine+0x10c2c0, read 2026-08-24); we pass only the corridor (the straight path).
+  bool (*NavManager_FindPath)(void*, const void*, const void*, float, void*, void*, void*, void*, void*, bool) = nullptr;
   void* (*WorldVec3_ctor)(void*, void*, const void*) = nullptr;
   void* (*WorldVec3_GetWorldPosition)(const void*, void*) = nullptr;
   void* (*WorldVec3_GetRegion)(const void*) = nullptr;
@@ -280,6 +284,7 @@ void load_api() {
   LOAD(IsPointOnPathMesh, NavManager_IsPointOnPathMesh);
   LOAD(FindStraightMovePoint, NavManager_FindStraightMovePoint);
   LOAD(FindClosestPointOnPathMesh, NavManager_FindClosestPointOnPathMesh);
+  LOAD(NavManager_FindPath, NavManager_FindPath);
   LOAD(WorldVec3_ctor, WorldVec3_ctor);
   LOAD(WorldVec3_GetWorldPosition, WorldVec3_GetWorldPosition);
   LOAD(WorldVec3_GetRegion, WorldVec3_GetRegion);
@@ -572,6 +577,49 @@ int find_path(const Vec3& dest_world, float f1, float f2, Vec3* out_world) {
   int result = seh_find_path(p, &dest, f1, &out, f2);
   if (out_world) *out_world = world_pos_of(out);
   return result;
+}
+
+// The game's own navmesh path from the player to a world point, as a polyline in absolute world coords
+// (NavManager::FindPath, Engine.dll). The mem::vector<WorldVec3> 7th arg is the straight-path corridor -- all
+// four scalar out-params are null-checked in the body, so we pass only the corridor. Used to decide whether a
+// nearby room is a DIRECT exit (the route to it does not detour through a third room). On-demand (V / room
+// change), never per frame. Fills `out` with the path points; returns false (and clears `out`) on any failure.
+namespace {
+constexpr float kNavSnapRadius = 4.0f;   // how far off-mesh from/to may be and still snap (gates the found point)
+bool seh_nav_find_path(void* nav, const void* from, const void* to, void* corridor) {
+  __try { return g_api.NavManager_FindPath(nav, from, to, kNavSnapRadius, nullptr, nullptr, nullptr, corridor, nullptr, false); }
+  __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+}
+bool find_path_corridor(const Vec3& dest_world, std::vector<Vec3>& out) {
+  out.clear();
+  load_api();
+  void* nav = g_api.NavManager_Get ? g_api.NavManager_Get() : nullptr;
+  Buf base; void* region = nullptr;
+  if (!nav || !g_api.NavManager_FindPath || !g_api.WorldVec3_ctor || !g_api.WorldVec3_GetRegionPosition ||
+      !player_world_vec(base, &region))
+    return false;
+  Vec3 wb = world_pos_of(base);
+  const Vec3* rb = g_api.WorldVec3_GetRegionPosition(&base);
+  Vec3 rel{dest_world.x - wb.x + rb->x, dest_world.y - wb.y + rb->y, dest_world.z - wb.z + rb->z};
+  Buf dest{}; g_api.WorldVec3_ctor(&dest, region, &rel);
+  if (g_api.WorldVec3_PutOnFloor) g_api.WorldVec3_PutOnFloor(&dest);
+  // Reuse one game-allocated corridor vector across calls (game thread only): reset its size to 0 (POD
+  // WorldVec3, no dtors) so the game refills from empty and reuses capacity. The buffer is intentionally never
+  // freed -- a single small leak on unload, the same pattern as GetEntitiesInSphere.
+  static MemVec corridor{};
+  corridor.end = corridor.begin;   // size 0, keep capacity
+  if (!seh_nav_find_path(nav, &base, &dest, &corridor)) return false;
+  if (!(corridor.begin && corridor.end && (uintptr_t)corridor.end > (uintptr_t)corridor.begin &&
+        (uintptr_t)corridor.end - (uintptr_t)corridor.begin < (1u << 20)))
+    return false;
+  constexpr size_t kStride = 0x18;   // sizeof(WorldVec3): Region*(8) + Vec3(12) + pad(4)
+  size_t n = (size_t)((char*)corridor.end - (char*)corridor.begin) / kStride;
+  for (size_t i = 0; i < n && i < 4096; ++i) {
+    Buf wv{}; memcpy(wv.b, (char*)corridor.begin + i * kStride, kStride);
+    out.push_back(world_pos_of(wv));
+  }
+  return !out.empty();
 }
 
 // ---- dev dumps of the world structure (chunks = engine Regions; tools/gdmap reads the same data offline) ----
