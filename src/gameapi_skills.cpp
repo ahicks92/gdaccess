@@ -4,6 +4,7 @@
 #include "gameapi_internal.h"
 #include <format>
 #include <set>
+#include <unordered_map>
 #include "core/message_builder.h"
 #include "core/strings.h"
 
@@ -19,6 +20,7 @@ struct Api {
   void (*SM_IncrementSkill)(void*, unsigned, unsigned) = nullptr;
   void (*SM_RecalculateSkills)(void*) = nullptr;
   bool (*SM_UseReclamationPoints)(void*, int) = nullptr;
+  unsigned (*SM_GetCurrentSkillReclamationCost)(const void*) = nullptr;
   unsigned (*SM_GetNumMasteryPoints)(const void*) = nullptr;
   unsigned (*GetDefaultSkillId)(const void*, int) = nullptr;   // GetDefaultSkillId(DefaultSkill): 0 = left mouse basic attack, 1 = right mouse
   const MemVec* (*SM_GetItemSkillList)(const void*) = nullptr; // mem::vector<Skill*>: ALL item skills (incl. loose bag components)
@@ -27,7 +29,9 @@ struct Api {
   unsigned (*Skill_GetMaxLevel)(const void*) = nullptr;
   unsigned (*Skill_GetUltimateLevel)(const void*) = nullptr;
   unsigned (*Skill_GetMasteryId)(const void*) = nullptr;
+  unsigned (*Skill_GetMasteryLevel)(const void*) = nullptr;
   unsigned (*Skill_GetMasteryLevelRequirement)(const void*) = nullptr;
+  const MemVec* (*Skill_GetModifiers)(const void*) = nullptr;   // a base skill's modifier skill ids
   bool (*Skill_IsLocked)(const void*) = nullptr;
   bool (*Skill_IsSkillTheMasterySkill)(const void*) = nullptr;
   bool (*Skill_IsSkillModifier)(const void*) = nullptr;
@@ -76,6 +80,7 @@ struct Api {
   float (*IntelligenceLifeIncrement)(const void*) = nullptr;
   // dev
   void (*CharacterExperienceOutbound)(void*, unsigned, unsigned) = nullptr;
+  void (*DisplaySkillReallocationWindow)(void*) = nullptr;   // the spirit guide's own open-in-reclaim-mode path
   bool loaded = false;
 } g;
 int g_s_enabled = -1, g_s_name = -1, g_s_profile = -1, g_s_inc = -1, g_s_dec = -1;
@@ -91,6 +96,7 @@ void load_skills() {
   GAPI_LOAD(g, SM_IncrementSkill, SkillManager_IncrementSkill);
   GAPI_LOAD(g, SM_RecalculateSkills, SkillManager_RecalculateSkills);
   GAPI_LOAD(g, SM_UseReclamationPoints, SkillManager_UseReclamationPoints);
+  GAPI_LOAD(g, SM_GetCurrentSkillReclamationCost, SkillManager_GetCurrentSkillReclamationCost);
   GAPI_LOAD(g, SM_GetNumMasteryPoints, SkillManager_GetNumMasteryPoints);
   GAPI_LOAD(g, GetDefaultSkillId, SkillManager_GetDefaultSkillId);
   GAPI_LOAD(g, SM_GetItemSkillList, SkillManager_GetItemSkillList);
@@ -99,7 +105,9 @@ void load_skills() {
   GAPI_LOAD(g, Skill_GetMaxLevel, Skill_GetMaxLevel);
   GAPI_LOAD(g, Skill_GetUltimateLevel, Skill_GetUltimateLevel);
   GAPI_LOAD(g, Skill_GetMasteryId, Skill_GetMasteryId);
+  GAPI_LOAD(g, Skill_GetMasteryLevel, Skill_GetMasteryLevel);
   GAPI_LOAD(g, Skill_GetMasteryLevelRequirement, Skill_GetMasteryLevelRequirement);
+  GAPI_LOAD(g, Skill_GetModifiers, Skill_GetModifiers);
   GAPI_LOAD(g, Skill_IsLocked, Skill_IsLocked);
   GAPI_LOAD(g, Skill_IsSkillTheMasterySkill, Skill_IsSkillTheMasterySkill);
   GAPI_LOAD(g, Skill_IsSkillModifier, Skill_IsSkillModifier);
@@ -145,6 +153,7 @@ void load_skills() {
   GAPI_LOAD(g, DexterityLifeIncrement, Character_GetDexterityLifeIncrement);
   GAPI_LOAD(g, IntelligenceLifeIncrement, Character_GetIntelligenceLifeIncrement);
   GAPI_LOAD(g, CharacterExperienceOutbound, GameEngine_CharacterExperienceOutbound);
+  GAPI_LOAD(g, DisplaySkillReallocationWindow, GameEngine_DisplaySkillReallocationWindow);
   g_s_enabled = vslot(g.Skill_vftable, (const void*)g.Skill_IsSkillEnabled);
   g_s_name = vslot(g.Skill_vftable, (const void*)g.Skill_CreateUISkillName);
   g_s_profile = vslot(g.Skill_vftable, (const void*)g.Skill_GetSkillProfile);
@@ -165,7 +174,10 @@ SkillInfo read_skill(void* s) {
     i.max_level = g.Skill_GetMaxLevel ? g.Skill_GetMaxLevel(s) : 0;
     i.ultimate_level = g.Skill_GetUltimateLevel ? g.Skill_GetUltimateLevel(s) : 0;
     i.mastery_id = g.Skill_GetMasteryId ? g.Skill_GetMasteryId(s) : 0;
+    i.mastery_level = g.Skill_GetMasteryLevel ? g.Skill_GetMasteryLevel(s) : 0;
     i.mastery_req = g.Skill_GetMasteryLevelRequirement ? g.Skill_GetMasteryLevelRequirement(s) : 0;
+    // i.modified_skill_id (the base a modifier enhances) is filled by skills() via the reverse of Skill::GetModifiers;
+    // Skill::GetModifiedSkillId is a different (transform/replace) relationship and reads 0 for tree modifiers.
     i.locked = g.Skill_IsLocked ? g.Skill_IsLocked(s) : false;
     i.is_mastery = g.Skill_IsSkillTheMasterySkill ? g.Skill_IsSkillTheMasterySkill(s) : false;
     i.modifier = g.Skill_IsSkillModifier ? g.Skill_IsSkillModifier(s) : false;
@@ -189,7 +201,37 @@ std::vector<SkillInfo> skills() {
     guarded("GetSkillList", [&] { ptrs = vec_items<void*>(g.SM_GetSkillList(sm), 1024); });
     for (void* s : ptrs) if (s) out.push_back(read_skill(s));
   }
+  // Fill each modifier's base skill (what it "modifies") by reversing Skill::GetModifiers: a base skill lists the
+  // ids of the modifier skills attached to it. GetModifiedSkillId is a different relationship and reads 0 here.
+  if (g.Skill_GetModifiers) {
+    std::unordered_map<unsigned, unsigned> base_of;   // modifier id -> base skill id
+    for (const SkillInfo& s : out) {
+      std::vector<unsigned> mods;
+      guarded("GetModifiers", [&] { if (const MemVec* v = g.Skill_GetModifiers(s.p)) mods = vec_items<unsigned>(v, 64); });
+      for (unsigned m : mods) base_of[m] = s.id;
+    }
+    for (SkillInfo& s : out) { auto it = base_of.find(s.id); if (it != base_of.end()) s.modified_skill_id = it->second; }
+  }
   return out;
+}
+// The base skill a modifier enhances (reverse of Skill::GetModifiers), or 0. On-demand (a key press), so the
+// one-pass scan over the skill list is fine.
+unsigned modifier_base_id(const void* skill) {
+  const void* sm = skill_manager();
+  if (!sm || !skill || !g.SM_GetSkillList || !g.Skill_GetModifiers || !g.Object_GetObjectId) return 0;
+  unsigned my = 0; guarded("obj id", [&] { my = g.Object_GetObjectId(skill); });
+  if (!my) return 0;
+  unsigned base = 0;
+  std::vector<void*> ptrs;
+  guarded("GetSkillList", [&] { ptrs = vec_items<void*>(g.SM_GetSkillList(sm), 1024); });
+  for (void* s : ptrs) {
+    if (!s) continue;
+    std::vector<unsigned> mods;
+    guarded("GetModifiers", [&] { if (const MemVec* v = g.Skill_GetModifiers(s)) mods = vec_items<unsigned>(v, 64); });
+    for (unsigned m : mods) if (m == my) { guarded("obj id", [&] { base = g.Object_GetObjectId(s); }); break; }
+    if (base) break;
+  }
+  return base;
 }
 unsigned skill_points() { load_skills(); void* p = player(); unsigned n = 0; if (p && g.GetSkillPoints) guarded("GetSkillPoints", [&] { n = g.GetSkillPoints(p); }); return n; }
 // The character's current default skill for a role (0 = left mouse basic attack, 1 = right mouse), via the
@@ -267,11 +309,65 @@ std::vector<std::string> skill_tooltip(const void* skill) {
   for (TextLine& l : buf.take("skill text")) out.push_back(std::move(l.text));
   return out;
 }
+// Whether the character can put a point into this skill right now, and if not, a spoken reason. Replicates the
+// game's own skill-icon gate (the SkillReasons builder exe+0x2492b0): points>0, below max, and either the
+// mastery skill (with a free mastery slot when committing a new one) or a non-mastery whose mastery bar has
+// reached its GetMasteryLevelRequirement and whose base skill (for a modifier) is already learned. "" = allowed.
+std::string can_learn_skill(const void* skill) {
+  load_skills(); void* p = player();
+  if (!skill || !p) return std::string(strings::kCannot);
+  std::string reason;
+  guarded("can_learn_skill", [&] {
+    if (g.GetSkillPoints && g.GetSkillPoints(p) == 0) { reason = std::string(strings::kNoPoints); return; }
+    unsigned lvl = g.Skill_GetSkillLevel ? g.Skill_GetSkillLevel(skill) : 0;
+    unsigned max = g.Skill_GetMaxLevel ? g.Skill_GetMaxLevel(skill) : 0;
+    if (max && lvl >= max) { reason = std::string(strings::kAtMaximum); return; }
+    // The mastery ("class training") skill has req 0 and no base, so it passes the checks below and is always
+    // learnable (raising the bar); choosing a NEW class is a separate flow (build_select / skills_set_pane).
+    unsigned mlvl = g.Skill_GetMasteryLevel ? g.Skill_GetMasteryLevel(skill) : 0;
+    unsigned mreq = g.Skill_GetMasteryLevelRequirement ? g.Skill_GetMasteryLevelRequirement(skill) : 0;
+    if (mlvl < mreq) { reason = std::format("{} {}", strings::kRequiresMastery, mreq); return; }
+    if (g.Skill_IsSkillModifier && g.Skill_IsSkillModifier(skill)) {   // a modifier needs its base skill learned
+      unsigned base = modifier_base_id(skill);
+      void* bs = base ? object_by_id(base) : nullptr;
+      unsigned blvl = (bs && g.Skill_GetSkillLevel) ? g.Skill_GetSkillLevel(bs) : 0;
+      if (base && blvl == 0) {
+        std::string bname = bs ? read_skill(bs).name : std::string();
+        reason = bname.empty() ? std::string(strings::kRequirementsNotMet) : std::format("{} {}", strings::kRequires, bname);
+      }
+    }
+  });
+  return reason;
+}
+unsigned reclaim_cost() {
+  const void* sm = skill_manager();
+  unsigned n = 0;
+  if (sm && g.SM_GetCurrentSkillReclamationCost) guarded("reclaim cost", [&] { n = g.SM_GetCurrentSkillReclamationCost(sm); });
+  return n;
+}
+// Why a point can't be reclaimed right now (spirit-guide mode assumed), or "" if it can. The mastery bar
+// reclaims down to 1 like any skill (base Skill::DecrementSkillLevel), but the game blocks its LAST point
+// (can't drop the class -> tagDecreaseMasteryError); reclaiming costs iron bits (byte8 of the SkillReasons
+// builder: cost > money). A base skill's final point with modifiers still on it is refused by the game's
+// DecrementSkillLevel (the caller falls back to tagReclaimBase).
+std::string can_reclaim_skill(const void* skill) {
+  load_skills(); void* p = player();
+  if (!skill || !p) return std::string(strings::kCannot);
+  std::string reason;
+  guarded("can_reclaim_skill", [&] {
+    unsigned lvl = g.Skill_GetSkillLevel ? g.Skill_GetSkillLevel(skill) : 0;
+    if (lvl == 0) { reason = std::string(strings::kNothingToReclaim); return; }
+    if (g.Skill_IsSkillTheMasterySkill && g.Skill_IsSkillTheMasterySkill(skill) && lvl <= 1) { reason = localize("tagDecreaseMasteryError"); return; }
+    if (reclaim_cost() > money()) { reason = std::string(strings::kNotEnoughBits); return; }
+  });
+  return reason;
+}
 // The skills window's own "+" (exe+0x248505): points left, below max, ReleasePets, IncrementSkillLevel(1),
-// SubtractSkillPoint.
+// SubtractSkillPoint. Gated by can_learn_skill so requirements (mastery rank, modifier base) are respected.
 bool learn_skill(const void* skill) {
   load_skills(); void* p = player();
   if (!skill || !p || !g.GetSkillPoints || !g.SubtractSkillPoint) return false;
+  if (!can_learn_skill(skill).empty()) return false;
   bool ok = false;
   guarded("learn skill", [&] {
     if (g.GetSkillPoints(p) == 0) return;
@@ -307,6 +403,15 @@ bool refund_skill(const void* skill) {
   log::writef("gameapi: refund skill {} ok={}", skill, ok);
   return ok;
 }
+// Dev: open the skills window in spirit-guide reclaim mode (GameEngine::DisplaySkillReallocationWindow, the exact
+// path an NpcSkillReallocator uses). Lets reclaim be tested without walking to a guide. Game thread.
+bool dev_open_skill_reclaim() {
+  load_skills(); void* e = engine();
+  if (!e || !g.DisplaySkillReallocationWindow) return false;
+  bool ok = guarded("DisplaySkillReallocationWindow", [&] { g.DisplaySkillReallocationWindow(e); });
+  log::writef("gameapi: dev open skill reclaim ok={}", ok);
+  return ok;
+}
 bool dev_add_experience(unsigned xp) {
   load_skills(); void* e = engine(); void* p = player();
   if (!e || !p || !g.CharacterExperienceOutbound) return false;
@@ -320,7 +425,7 @@ std::string dump_skills() {
   out += "\n";
   for (const MasteryChoice& c : mastery_choices()) out += std::format("  mastery {} '{}'\n", c.enumeration, c.name);
   for (const SkillInfo& s : skills())
-    out += std::format("  skill {} id={} '{}' lvl {}/{} (ult {}) mastery={} req={} tier={} locked={} mastery_skill={} enabled={} modifier={} {}\n", s.p, s.id, s.name, s.level, s.max_level, s.ultimate_level, s.mastery_id, s.mastery_req, s.tier, s.locked, s.is_mastery, s.enabled, s.modifier, s.record);
+    out += std::format("  skill {} id={} '{}' lvl {}/{} (ult {}) mastery={} mlvl={} req={} modifies={} tier={} locked={} mastery_skill={} enabled={} modifier={} {}\n", s.p, s.id, s.name, s.level, s.max_level, s.ultimate_level, s.mastery_id, s.mastery_level, s.mastery_req, s.modified_skill_id, s.tier, s.locked, s.is_mastery, s.enabled, s.modifier, s.record);
   return out;
 }
 
@@ -346,15 +451,15 @@ std::vector<Stat> character_sheet() {
     out.push_back({std::string(strings::kSkillPoints), num(g.GetSkillPoints ? g.GetSkillPoints(p) : 0)});
     if (g.GetDevotionPoints) out.push_back({std::string(strings::kDevotionPoints), num(g.GetDevotionPoints(p))});
     if (g.GetTotalCharAttribute) {
-      if (g.GetCurrentLifeInt) out.push_back({localize("tagCharAttributeName04"), std::format("{} of {}", g.GetCurrentLifeInt(p), (int)g.GetTotalCharAttribute(p, 4))});
-      if (g.GetCurrentMana) out.push_back({localize("tagCharAttributeName05"), std::format("{:.0f} of {:.0f}", g.GetCurrentMana(p), g.GetTotalCharAttribute(p, 5))});
-      out.push_back({localize("tagCharAttributeName02"), num(g.GetTotalCharAttribute(p, 1)), 1});   // Physique
-      out.push_back({localize("tagCharAttributeName01"), num(g.GetTotalCharAttribute(p, 2)), 2});   // Cunning
-      out.push_back({localize("tagCharAttributeName03"), num(g.GetTotalCharAttribute(p, 3)), 3});   // Spirit
+      if (g.GetCurrentLifeInt) out.push_back({localize("tagCharAttributeName04"), std::format("{} of {}", g.GetCurrentLifeInt(p), (int)g.GetTotalCharAttribute(p, 4)), 0, localize("tagCharAttributeDescription04")});
+      if (g.GetCurrentMana) out.push_back({localize("tagCharAttributeName05"), std::format("{:.0f} of {:.0f}", g.GetCurrentMana(p), g.GetTotalCharAttribute(p, 5)), 0, localize("tagCharAttributeDescription05")});
+      out.push_back({localize("tagCharAttributeName02"), num(g.GetTotalCharAttribute(p, 1)), 1, localize("tagCharAttributeDescription02")});   // Physique
+      out.push_back({localize("tagCharAttributeName01"), num(g.GetTotalCharAttribute(p, 2)), 2, localize("tagCharAttributeDescription01")});   // Cunning
+      out.push_back({localize("tagCharAttributeName03"), num(g.GetTotalCharAttribute(p, 3)), 3, localize("tagCharAttributeDescription03")});   // Spirit
     }
-    if (g.DesignerCalculateOffensiveAbility) out.push_back({localize("tagCharStatsOA"), num(g.DesignerCalculateOffensiveAbility(p, 0.0f))});
-    if (g.DesignerCalculateDefensiveAbility) out.push_back({localize("tagCharStatsDA"), num(g.DesignerCalculateDefensiveAbility(p, 0.0f))});
-    if (g.CalculateDps) { float dps = 0; g.CalculateDps(p, &dps, 0); out.push_back({std::string(strings::kDps), num(dps)}); }
+    if (g.DesignerCalculateOffensiveAbility) out.push_back({localize("tagCharStatsOA"), num(g.DesignerCalculateOffensiveAbility(p, 0.0f)), 0, localize("tagCharStatsOADescription")});
+    if (g.DesignerCalculateDefensiveAbility) out.push_back({localize("tagCharStatsDA"), num(g.DesignerCalculateDefensiveAbility(p, 0.0f)), 0, localize("tagCharStatsDADescription")});
+    if (g.CalculateDps) { float dps = 0; g.CalculateDps(p, &dps, 0); out.push_back({std::string(strings::kDps), num(dps), 0, localize("tagCharStatsDPSDescription")}); }
     if (g.GetAllDefenseAttributes && g.Acc_ctor && g.Acc_dtor && g.Acc_GetTotalDefenseType) {
       struct R { const char* tag; int type; } rows[] = {{"tagStatsResistance01", 6}, {"tagStatsResistance03", 5}, {"tagStatsResistance02", 8}, {"tagStatsResistance04", 7},
                                                       {"tagStatsResistance05", 4}, {"tagStatsResistance06", 15}, {"tagStatsResistance07", 9}, {"tagStatsResistance08", 11},
@@ -362,7 +467,7 @@ std::vector<Stat> character_sheet() {
       alignas(16) unsigned char acc[1024] = {};
       g.Acc_ctor(acc);
       g.GetAllDefenseAttributes(p, acc);
-      for (const R& r : rows) out.push_back({localize(r.tag), std::format("{:.0f} {}", g.Acc_GetTotalDefenseType(acc, r.type), strings::kPercent)});
+      for (const R& r : rows) out.push_back({localize(r.tag), std::format("{:.0f} {}", g.Acc_GetTotalDefenseType(acc, r.type), strings::kPercent), 0, localize(std::string(r.tag) + "Desc")});
       g.Acc_dtor(acc);
     }
   });

@@ -109,14 +109,21 @@ class InventoryScreen : public WindowScreen, public AssignSource {
     for (const gameapi::Stat& s : rows) {
       MessageBuilder m; strings::push_stat(m, s.label, s.value);
       std::string id = std::format("inventory.stat{}", i++);
-      if (s.spend) {   // Enter spends an attribute point here (the sheet's "+" button)
+      std::string desc = s.desc;   // the game's stat description, read on Space
+      std::function<void()> tip;
+      if (!desc.empty()) tip = [desc] { speech::speak(desc, true); };
+      if (s.spend) {   // Enter spends an attribute point (the sheet's "+" button). Attributes are NEVER refundable
+                       // in Grim Dawn (no attribute reclaim, even at a spirit guide), so no on_secondary is wired
+                       // here -- intentional; Backspace does nothing on a stat row.
         int which = s.spend;
         auto spend = [this, which] {
           if (gameapi::attribute_points() == 0) { speech::speak(strings::kNoPoints, true); return; }
           speech::speak(gameapi::spend_attribute_point(which) ? std::string(strings::kPointSpent) : std::string(strings::kCannot), true);
           invalidate();
         };
-        b.add_item(ControlId::structural(id), row_item(m.build(), {}, spend));
+        b.add_item(ControlId::structural(id), row_item(m.build(), {}, spend, tip));
+      } else if (tip) {
+        b.add_item(ControlId::structural(id), row_item(m.build(), {}, {}, tip));   // read-only stat with a Space tooltip
       } else {
         b.add_item(ControlId::structural(id), line_item(m.build()));
       }

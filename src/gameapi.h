@@ -72,6 +72,7 @@ bool alternate_weapons();                        // the weapon-swap set in use (
 bool can_equip(unsigned item_id, int loc);       // EquipmentCtrl::CanItemBePlaced -- the equip picker's filter
 bool swap_weapon_set();                          // toggle the active weapon set (the two hands); returns new state (true = alternate)
 unsigned money();                                // iron bits
+bool dev_add_money(unsigned bits);               // dev only: Character::AddMoney
 std::string item_name(const void* item);         // Item::GetGameDescription (virtual)
 unsigned item_stack(const void* item);
 std::vector<std::string> item_tooltip(const void* item, bool simple, bool details = false);   // Item::GetUIDisplayText(details = the Ctrl-held form) / GetSimpleUIDisplayText, virtual
@@ -102,6 +103,8 @@ struct SkillInfo {
   void* p; unsigned id; std::string name, record; unsigned level, max_level, ultimate_level, mastery_id, mastery_req, tier;
   bool locked, is_mastery, enabled, modifier;
   bool item_auto = false;   // Skill::IsItemSkillAuto: an auto-triggered item skill (a proc / chance-on-attack) -- not player-assignable
+  unsigned mastery_level = 0;       // Skill::GetMasteryLevel: this skill's mastery bar level (for the requirement gate)
+  unsigned modified_skill_id = 0;   // Skill::GetModifiedSkillId: the base skill a modifier enhances (0 = not a modifier)
 };
 std::vector<SkillInfo> skills();                 // the UI skill list, in the game's order
 unsigned skill_points();
@@ -112,8 +115,12 @@ std::string dump_item_skills();                  // dev: GetItemSkillList vs equ
 unsigned masteries_allowed();
 std::vector<unsigned> mastery_ids();             // the masteries the character has
 std::vector<std::string> skill_tooltip(const void* skill);   // GameEngine::GenerateUISkillText
-bool learn_skill(const void* skill);             // +1 level (a skill point)
-bool refund_skill(const void* skill);            // -1 level (reclamation)
+// "" = the skill can take a point now; otherwise a human reason (no points / mastery rank / base skill).
+std::string can_learn_skill(const void* skill);
+bool learn_skill(const void* skill);             // +1 level (a skill point); refuses unless can_learn_skill is ""
+std::string can_reclaim_skill(const void* skill); // "" = can reclaim now; else the reason (mastery last point / not enough bits)
+bool refund_skill(const void* skill);            // -1 level; only at a spirit guide (exe_ui::skills_reclaim_mode)
+unsigned reclaim_cost();                          // SkillManager::GetCurrentSkillReclamationCost (iron bits for the next reclaim)
 
 // Masteries offered for selection: the six base classes (tagSkillClassName01..06 / tagSkillClassDescription01..06);
 // `enumeration` is the game's mastery index (0 = Soldier), also the pane index for exe_ui::skills_set_pane.
@@ -123,7 +130,7 @@ std::vector<MasteryChoice> mastery_choices();
 const SkillInfo* mastery_skill(const std::vector<SkillInfo>& list, int enumeration);
 
 // ---- the character sheet ----
-struct Stat { std::string label, value; int spend = 0; };   // spend 1..3 = the row takes an attribute point (Physique / Cunning / Spirit)
+struct Stat { std::string label, value; int spend = 0; std::string desc; };   // spend 1..3 = the row takes an attribute point (Physique / Cunning / Spirit); desc = the game's tooltip (Space)
 std::vector<Stat> character_sheet();
 // The attribute "+" buttons (ControllerCharacter::IncrementCharacter*, + the life/energy increments, as the
 // sheet's own handler does): which = 1 Physique, 2 Cunning, 3 Spirit. False when no points are left.
@@ -142,6 +149,7 @@ std::string dump_bags();
 std::string dump_equipment();
 std::string dump_skills();
 bool dev_add_experience(unsigned xp);   // dev only: SkillManager::AddExperience on the main player
+bool dev_open_skill_reclaim();          // dev only: open the skills window in spirit-guide reclaim mode
 std::string dump_sheet();
 std::string dump_object(unsigned id);
 std::string dump_objects_stats();

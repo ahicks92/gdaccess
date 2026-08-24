@@ -35,6 +35,7 @@ struct Api {
   bool (*Ctrl_GetAlternateEquipment)(const void*) = nullptr;   // the active weapon set (A/B) on the controller
   void (*Ctrl_SetAlternateEquipment)(void*, bool) = nullptr;   // swap the active weapon set (only the two hands change)
   unsigned (*GetCurrentMoney)(const void*) = nullptr;
+  void (*AddMoney)(void*, unsigned) = nullptr;   // dev: Character::AddMoney (iron bits)
   void (*SendDropItemRandom)(void*, unsigned) = nullptr;
   void (*PickupItem)(void*, unsigned) = nullptr;               // virtual on the controller; the export is the implementation
   // merchants / caravan
@@ -95,6 +96,7 @@ void load_items() {
   GAPI_LOAD(g, Ctrl_GetAlternateEquipment, ControllerCharacter_GetAlternateEquipment);
   GAPI_LOAD(g, Ctrl_SetAlternateEquipment, ControllerCharacter_SetAlternateEquipment);
   GAPI_LOAD(g, GetCurrentMoney, Character_GetCurrentMoney);
+  GAPI_LOAD(g, AddMoney, Character_AddMoney);
   GAPI_LOAD(g, SendDropItemRandom, ControllerCharacter_SendDropItemRandom);
   GAPI_LOAD(g, PickupItem, ControllerCharacter_PickupItem);
   GAPI_LOAD(g, GetMarketInventorySack, GameEngine_GetMarketInventorySack);
@@ -249,6 +251,7 @@ bool swap_weapon_set() {
   return nv;
 }
 unsigned money() { void* p = player(); unsigned m = 0; load_items(); if (p && g.GetCurrentMoney) guarded("GetCurrentMoney", [&] { m = g.GetCurrentMoney(p); }); return m; }
+bool dev_add_money(unsigned bits) { void* p = player(); load_items(); if (!p || !g.AddMoney) return false; bool ok = guarded("AddMoney", [&] { g.AddMoney(p, bits); }); log::writef("gameapi: dev add money {} ok={}", bits, ok); return ok; }
 
 // The bag's right-click (exe+0x1eb1a0): a consumable goes through PlayerInventoryCtrl::UseItem(id, bag);
 // equipment through SmartAutoInsert + removal from the bag + re-homing whatever got displaced (exe+0x1eb4c6).

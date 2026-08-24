@@ -453,6 +453,11 @@ constexpr uintptr_t kInGameUI_HandleKeyAction = 0x211980;
 typedef void (*SetPaneFn)(void*, int, int);
 constexpr uintptr_t kSkillsWindow_SetPane = 0x27c580;
 constexpr size_t kSkillsWindow_Tab = 0x2630;
+constexpr size_t kSkillsWindow_Reclaim = 0x1f4c;   // nonzero when a spirit guide opened the window in reclaim mode.
+                                                   // The click handler exe+0x248380 branches on [controller+0x1e1c]
+                                                   // where its `this` is the embedded controller at window+0x130, so
+                                                   // the flag is window+0x1f4c (verified live: only DisplaySkill-
+                                                   // ReallocationWindow flips window+0x1f49/+0x1f4c 0->1).
 bool skills_set_pane(int tab, int pane_index) {
   void* ui = ingame_ui();
   if (!ui || !g_available) return false;
@@ -472,6 +477,7 @@ unsigned vendor_market_id(const WindowB& w) {
 }
 int quickbar_page() { void* ui = ingame_ui(); int p = ui ? rd_or<int>(ui, 0x72f0, -1) : -1; return p >= 0 && p < 4 ? p : (ui ? 0 : -1); }
 int skills_tab() { void* ui = ingame_ui(); return ui ? rd_or<int>((char*)ui + ingame::kSkills, kSkillsWindow_Tab, -1) : -1; }
+bool skills_reclaim_mode() { void* ui = ingame_ui(); return ui && g_available && rd_or<uint8_t>((char*)ui + ingame::kSkills, kSkillsWindow_Reclaim, 0) != 0; }
 bool ingame_key_action(int action) {
   void* ui = ingame_ui();
   if (!ui || !g_available) return false;

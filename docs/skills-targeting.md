@@ -81,3 +81,45 @@ stick is an **unlearned** skill (level 0), which the game drops regardless of th
 Caveat: this is the direct API, which the game's own drag-and-drop UI may gate more tightly, and I did not
 click a mouse-slotted self-buff to confirm it actually casts. But for the mod (which assigns through the API),
 every learned skill is mouse-assignable, and the readout reports whatever is there with the right aim.
+
+## Learning requirements, modifiers, and spirit-guide reclamation (RE + live 2026-08-24)
+
+The skills-window click handler (exe+0x248380) branches on a reclaim-mode flag: nonzero -> a click reclaims a
+point (`DecrementSkillLevel` + `SkillManager::UseReclamationPoints`), zero -> it learns (`IncrementSkillLevel` +
+`SubtractSkillPoint`). The **learn branch only checks points>0 and level<max** -- the requirement gate lives in
+the icon-enable logic (the SkillReasons builder exe+0x2492b0), which computes, per skill: byte0 no skill points,
+byte1 `Skill::GetMasteryLevel < GetMasteryLevelRequirement` (mastery bar too low), byte2 modifier's base skill
+not enabled, plus a mastery-slot rule. Driving `IncrementSkillLevel` directly (as the mod does) bypasses that
+gate, which is why learning ignored requirements.
+
+- **`gameapi::can_learn_skill(skill)`** replicates it with exports: points>0, level<max, `GetMasteryLevel >=
+  GetMasteryLevelRequirement`, and (for a modifier) its base skill learned. Returns "" or the spoken reason
+  ("needs mastery N", "requires <base>", "no points"). `learn_skill` refuses on a non-empty reason. The mastery
+  ("class training") skill has req 0 / no base, so it is always learnable (raising the bar); choosing a *new*
+  class stays a separate flow (`skills_set_pane`).
+- **Modifier -> base link.** `Skill::GetModifiedSkillId` (`*(uint*)(this+0x1e0)`) is a *different*
+  (transform/replace) relationship and reads **0** for tree modifiers. The tree link is the base skill's
+  **`Skill::GetModifiers()`** (a `mem::vector<uint>` of its modifier ids); `skills()` reverses it into
+  `SkillInfo::modified_skill_id`, so a modifier reads "modifies Cadence" and the learn gate can name the base.
+- **Reclaim mode = a spirit guide.** The NPC class is `NpcSkillReallocator`; talking to one calls
+  `GameEngine::DisplaySkillReallocationWindow` (forwards through `[GameEngine+0x19b0]` vtable+0x60), which opens
+  the skills window with the reclaim flag set. That flag is **skills window +0x1f4c** (the handler reads it as
+  `[controller+0x1e1c]`, controller = window+0x130; verified live: only that path flips window +0x1f49/+0x1f4c
+  0->1 and writes a controller pointer at +0x2634). `exe_ui::skills_reclaim_mode()` reads +0x1f4c.
+  - `refund_skill` (Backspace) is only wired by the screen in reclaim mode -- outside a guide it does nothing
+    (fixing the old "refund anywhere, silently charging iron bits" bug). Cost is
+    `SkillManager::GetCurrentSkillReclamationCost()` (`gameapi::reclaim_cost()`), the same for every skill and
+    rising as you reclaim; there is **no clear-all**, it is one point at a time.
+  - `gameapi::can_reclaim_skill` gives the refusal reason before trying: **the mastery bar reclaims down to 1
+    like any skill** (base `Skill::DecrementSkillLevel`, the same vtable slot as a normal skill -- verified
+    5->4->...->1 live), but the game blocks its **last** point (can't drop the class to 0 ->
+    `tagDecreaseMasteryError`); reclaiming costs iron bits, so `reclaim_cost() > money()` -> "not enough iron
+    bits" (this was the real cause of an earlier mis-read that "masteries can't be reclaimed"). The remaining
+    refusal is a base skill's final point with modifiers still on it -> the game's `tagReclaimBase`.
+  - Dev: `/reclaim` opens the skills window in reclaim mode without a guide (`gameapi::dev_open_skill_reclaim`);
+    `/cheat?bits=N` (`Character::AddMoney`) tops up iron bits to test affordable reclaims.
+
+Attribute points (Physique/Cunning/Spirit, the character sheet) are **never refundable** in Grim Dawn -- the
+stats-tab rows wire no reclaim path and `ResetAttributePointsConfigCmd` is never called. The stats tab also now
+carries the game's own tooltips (Space): `tagCharAttributeDescription0X`, `tagCharStats{OA,DA,DPS}Description`,
+`tagStatsResistance0XDesc`.

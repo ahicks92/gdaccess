@@ -200,6 +200,18 @@ inline constexpr std::string_view kClassChosen = "chosen; spend a point on the m
 inline constexpr std::string_view kSecondClassAt = "second class available at level";
 inline constexpr std::string_view kPointSpent = "point spent";
 inline constexpr std::string_view kNoPoints = "no points";
+inline constexpr std::string_view kAtMaximum = "at maximum";
+inline constexpr std::string_view kRequires = "requires";        // "requires <base skill>" for a modifier's prerequisite
+inline constexpr std::string_view kModifies = "modifies";        // "modifies <base skill>" for a modifier skill
+// Spirit-guide reclamation (the skills window opened in reclaim mode): a non-interactive hint row at the top of
+// the skill list, and each skill's reclaim cost. The game's own word is "reclaim".
+inline constexpr std::string_view kSpiritGuide = "spirit guide";
+inline constexpr std::string_view kReclaimHint = "Backspace to reclaim a skill point";
+inline constexpr std::string_view kToReclaim = "to reclaim";     // "<N> iron bits to reclaim" on each skill row
+inline constexpr std::string_view kEach = "each";
+inline constexpr std::string_view kReclaimed = "reclaimed";
+inline constexpr std::string_view kNotEnoughBits = "not enough iron bits";
+inline constexpr std::string_view kNothingToReclaim = "nothing to reclaim";
 // "Waking to Misery: Enter the Cave under Burial Hill" -- one open objective of a tracked quest
 gd::core::MessageBuilder& push_quest_objective(gd::core::MessageBuilder& m, std::string_view quest, std::string_view objective);
 // "<name>, x 3" -- a stacked item

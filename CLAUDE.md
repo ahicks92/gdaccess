@@ -330,6 +330,26 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   B=Splintered Club independently, F swaps and each keeps its own; equip picker filters correctly; manager
   assigns learned skills + focus returns to the slot. New gameapi: `can_equip`, `swap_weapon_set`,
   `item_skill_ids`, `assignable_skills` (+ exports GetItemSkillList / Controller Get/SetAlternateEquipment).
+- Skills: spirit-guide reclaim, requirement-gated learning, modifier targets, stat tooltips (2026-08-24,
+  `docs/skills-targeting.md`, all verified live on the test char). **Learning respects requirements**:
+  `gameapi::can_learn_skill` replicates the game's SkillReasons gate (exe+0x2492b0) -- points>0, level<max,
+  `Skill::GetMasteryLevel >= GetMasteryLevelRequirement`, and a modifier's base skill learned -- and `learn_skill`
+  refuses with the spoken reason ("needs mastery N", "requires Cadence", "no points"). **Modifiers name their
+  base**: `Skill::GetModifiedSkillId` reads 0 for tree modifiers, so `skills()` reverses each base's
+  `Skill::GetModifiers()` into `SkillInfo::modified_skill_id` -> "Discord, modifies Cadence". **Refund only at a
+  spirit guide**: talking to an `NpcSkillReallocator` calls `GameEngine::DisplaySkillReallocationWindow`, setting
+  the reclaim flag at **skills window +0x1f4c** (the click handler exe+0x248380 reads it as `[controller+0x1e1c]`,
+  controller = window+0x130); `exe_ui::skills_reclaim_mode()` reads it. In reclaim mode `screens/skills.cpp` shows
+  a hint row + each spent skill's "N iron bits to reclaim" (`SkillManager::GetCurrentSkillReclamationCost`) and
+  Backspace reclaims one point; outside a guide Backspace does nothing (fixing the old refund-anywhere bug that
+  silently charged bits). `can_reclaim_skill` gives the reason: the mastery bar reclaims down to 1 like any skill
+  (base `DecrementSkillLevel`) but its last point is blocked (`tagDecreaseMasteryError`), and a reclaim you can't
+  afford (`reclaim_cost() > money()`) says "not enough iron bits". **Stats
+  tab**: every row now carries the game's own tooltip on Space (`tagCharAttributeDescription0X`,
+  `tagCharStats{OA,DA,DPS}Description`, `tagStatsResistance0XDesc`); attributes remain non-refundable (no reclaim
+  path wired). Dev: `/reclaim` opens reclaim mode without a guide; `/cheat?bits=N` tops up iron bits. New exports:
+  `Skill::GetMasteryLevel`, `Skill::GetModifiers`, `SkillManager::GetCurrentSkillReclamationCost`,
+  `GameEngine::DisplaySkillReallocationWindow`, `Character::AddMoney`.
 - Lua (2026-08-22, `docs/lua.md`): LuaJIT 2.0.4 (`x64\lua51.dll`) behind the LUAGLUE binding layer; one
   state owned by `LuaManager` at `*(gEngine+0x68)`; `LuaManager::RunCode` is exported (dev route `/lua?code=`,
   readback via `Game.AddObjective` -> `/objectives`). Sandboxed (no io/os/ffi/debug/require) but `loadfile`

@@ -196,6 +196,9 @@ unsigned vendor_market_id(const WindowB& vendor_window);
 constexpr int kSkillsClassSelectPane = 0x50;
 bool skills_set_pane(int tab, int pane_index);
 int skills_tab();
+// True while the skills window is in spirit-guide reclaim mode (SkillsWindow +0x1e1c): clicks reclaim instead of
+// learn. Refunding a skill point is only allowed then.
+bool skills_reclaim_mode();
 
 // The NPC conversation window (allocated on demand, pointer at InGameUI+0x8efd0; ctor exe+0x16e9a0): the
 // speaker and speech text, and the response rows, each carrying its display text and the step it selects

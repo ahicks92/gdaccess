@@ -12,8 +12,11 @@ using namespace gd::core;
 // The skill window (N). Tabs = the character's mastery slots (one per allowed mastery): a slot without a class
 // shows the class-selection list (six masteries; Space reads the description, Enter puts that class's tree on
 // the game's tab -- undoable until the mastery takes its first point); a slot with a class shows the skill-points
-// line, the mastery bar, then the class's skills in tier order. Enter spends a point, Backspace refunds one,
-// Space reads the game's skill text. Ctrl+1..0 / Ctrl+J / Ctrl+I assign the focused skill to the quickbar.
+// line, the mastery bar, then the class's skills in tier order. Enter spends a point (refused with the game's
+// reason when requirements -- mastery rank, a modifier's base skill -- aren't met), Space reads the game's skill
+// text. Refunding is only possible AT A SPIRIT GUIDE (the game opens this window in reclaim mode,
+// exe_ui::skills_reclaim_mode): then a hint row appears at the top of the list, each skill shows its iron-bit
+// reclaim cost, and Backspace reclaims one point. Ctrl+1..0 / Ctrl+J / Ctrl+I assign the focused skill to the quickbar.
 class SkillsScreen : public WindowScreen, public AssignSource {
  public:
   SkillsScreen() : WindowScreen("skills", std::string(strings::kSkills), exe_ui::ingame::kSkills, 12) {}
@@ -76,9 +79,15 @@ class SkillsScreen : public WindowScreen, public AssignSource {
   }
 
   void build_tree(GraphBuilder& b, const std::vector<gameapi::SkillInfo>& list, int e, bool committed) {
+    bool reclaim = exe_ui::skills_reclaim_mode();   // a spirit guide opened the window: refunding is allowed
     { MessageBuilder m; strings::push_stat(m, strings::kSkillPointsLeft, std::format("{}", gameapi::skill_points())); b.add_item(ControlId::structural("skills.points"), line_item(m.build())); }
+    if (reclaim) {   // a non-interactive hint row between the tabs and the skill list
+      MessageBuilder m; m.fragment(strings::kSpiritGuide).list_item().fragment(strings::kReclaimHint);
+      m.list_item().fragment(std::format("{}", gameapi::reclaim_cost())).fragment(strings::kIronBits).fragment(strings::kEach);
+      b.add_item(ControlId::structural("skills.reclaim"), line_item(m.build()));
+    }
     const gameapi::SkillInfo* mastery = gameapi::mastery_skill(list, e);
-    if (mastery) add_skill(b, *mastery);
+    if (mastery) add_skill(b, *mastery, list, reclaim);
     if (!committed && mastery && mastery->level == 0) {
       int t = tab();
       auto undo = [this, t] { if (exe_ui::skills_set_pane(t, exe_ui::kSkillsClassSelectPane)) { chosen_[t] = -1; refresh(); } };
@@ -88,30 +97,46 @@ class SkillsScreen : public WindowScreen, public AssignSource {
     std::vector<const gameapi::SkillInfo*> tree;
     for (const gameapi::SkillInfo& s : list) if (!s.is_mastery && mid && s.mastery_id == mid) tree.push_back(&s);
     std::stable_sort(tree.begin(), tree.end(), [](const gameapi::SkillInfo* a, const gameapi::SkillInfo* c) { return a->mastery_req != c->mastery_req ? a->mastery_req < c->mastery_req : a->tier < c->tier; });
-    for (const gameapi::SkillInfo* s : tree) add_skill(b, *s);
+    for (const gameapi::SkillInfo* s : tree) add_skill(b, *s, list, reclaim);
     if (!mastery) b.add_item(ControlId::structural("skills.nomastery"), line_item(std::string(strings::kEmpty)));
   }
 
-  void add_skill(GraphBuilder& b, const gameapi::SkillInfo& s) {
+  void add_skill(GraphBuilder& b, const gameapi::SkillInfo& s, const std::vector<gameapi::SkillInfo>& list, bool reclaim) {
     std::string label = s.name.empty() ? s.record : s.name;
     unsigned level = s.level, max = s.max_level, req = s.mastery_req; bool locked = s.locked, mastery = s.is_mastery, modifier = s.modifier;
-    auto value = [level, max, req, locked, mastery, modifier] {
+    std::string modifies;   // a modifier says which base skill it enhances (Skill::GetModifiedSkillId)
+    if (modifier && s.modified_skill_id) for (const gameapi::SkillInfo& x : list) if (x.id == s.modified_skill_id) { modifies = x.name; break; }
+    unsigned cost = reclaim ? gameapi::reclaim_cost() : 0;
+    auto value = [level, max, req, locked, mastery, modifier, modifies, reclaim, cost] {
       MessageBuilder m;
       strings::push_skill_level(m, level, max);
       if (mastery) m.list_item().fragment(strings::kMastery);
-      if (modifier) m.list_item().fragment(strings::kModifier);
+      if (modifier) { if (!modifies.empty()) m.list_item().fragment(strings::kModifies).fragment(modifies); else m.list_item().fragment(strings::kModifier); }
       if (req) m.list_item().fragment(strings::kRequiresMastery).fragment(std::format("{}", req));
       if (locked) m.list_item().fragment(strings::kLocked);
+      if (reclaim && level > 0 && !mastery) m.list_item().fragment(std::format("{}", cost)).fragment(strings::kIronBits).fragment(strings::kToReclaim);
       return m.build();
     };
     void* p = s.p; unsigned id = s.id;
+    // Enter learns, gated by the game's requirements (mastery rank, modifier base, points); the reason is spoken.
     auto learn = [this, p, id] {
       void* q = gameapi::object_by_id(id); if (!q) q = p;
-      if (gameapi::skill_points() == 0) { speech::speak(strings::kNoPoints, true); return; }
+      std::string why = gameapi::can_learn_skill(q);
+      if (!why.empty()) { speech::speak(why, true); return; }
       speech::speak(gameapi::learn_skill(q) ? std::string(strings::kPointSpent) : std::string(strings::kCannot), true);
       refresh();
     };
-    auto refund = [this, p, id] { void* q = gameapi::object_by_id(id); if (!q) q = p; if (!gameapi::refund_skill(q)) speech::speak(strings::kCannot, true); refresh(); };
+    // Backspace reclaims a point -- ONLY at a spirit guide (reclaim mode); wired only then, so it does nothing otherwise.
+    std::function<void()> refund;
+    if (reclaim) refund = [this, p, id] {
+      void* q = gameapi::object_by_id(id); if (!q) q = p;
+      std::string why = gameapi::can_reclaim_skill(q);   // mastery last point / not enough iron bits / nothing to reclaim
+      if (!why.empty()) { speech::speak(why, true); return; }
+      if (gameapi::refund_skill(q)) { speech::speak(strings::kReclaimed, true); refresh(); return; }
+      // The only remaining refusal is a base skill's final point with modifiers still on it.
+      std::string base = gameapi::localize("tagReclaimBase");
+      speech::speak(base.empty() ? std::string(strings::kCannot) : base, true);
+    };
     auto tooltip = [p] { speak_lines(gameapi::skill_tooltip(p)); };
     auto v = row_item(label, value, learn, tooltip, refund);
     v->state_text = [id] { for (const gameapi::SkillInfo& x : gameapi::skills()) if (x.id == id) { MessageBuilder m; strings::push_skill_level(m, x.level, x.max_level); return m.build(); } return std::string(); };

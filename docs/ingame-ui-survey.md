@@ -288,6 +288,17 @@ Confirmed in disassembly by two further passes and, where marked, live through t
   `tagSkillClassName01..06` / `tagSkillClassDescription01..06`. First mastery allowed at level 1, second at 10
   (`masteryIncrementLevel` in the pc records). The window's only dialog is `tagConfirmSkillChanges` (party 0x16).
   The HUD skills button (`+0x9db0`) is disabled at level 1 (verified live: N shows the "Using Skills" tip instead).
+- **Skills window, reclaim + requirements (2026-08-24, verified live)**: the icon click handler exe+0x248380
+  branches on the reclaim flag at **skills window +0x1f4c** (its `this` is the embedded controller at
+  window+0x130, so the handler reads `[this+0x1e1c]`): set -> reclaim (`DecrementSkillLevel` +
+  `SkillManager::UseReclamationPoints`), clear -> learn. A spirit guide (`NpcSkillReallocator`) sets it via
+  `GameEngine::DisplaySkillReallocationWindow` (forwards through `[GameEngine+0x19b0]` vtable +0x60; the only
+  path that flips window +0x1f49/+0x1f4c 0->1 and writes a controller ptr at +0x2634). The requirement gate is
+  the SkillReasons builder exe+0x2492b0 (byte0 no points, byte1 `GetMasteryLevel < GetMasteryLevelRequirement`,
+  byte2 modifier base not enabled, byte4 mastery-slot, byte8 reclaim cost > money via
+  `GetCurrentSkillReclamationCost`). Modifier -> base uses the base's `Skill::GetModifiers()` reversed
+  (`GetModifiedSkillId` reads 0 for tree modifiers). `dev_open_skill_reclaim` / route `/reclaim` open reclaim
+  mode without a guide.
 - **Character sheet** (pane 1 Update exe+0x13d870): CharAttributeType 1 Physique, 2 Cunning, 3 Spirit, 4 health
   max, 5 energy max (labels `tagCharAttributeName02/01/03/04/05`); OA/DA = `Character::DesignerCalculate
   OffensiveAbility/DefensiveAbility(float)`; resistances by defense type -- Fire 6, Cold 5, Lightning 8,

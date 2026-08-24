@@ -679,6 +679,9 @@ inline constexpr const char* ControllerCharacter_SetAlternateEquipment = "?SetAl
 // public: unsigned int const __cdecl GAME::Character::GetCurrentMoney(void)const __ptr64
 inline constexpr const char* Character_GetCurrentMoney_DLL = "Game.dll";
 inline constexpr const char* Character_GetCurrentMoney = "?GetCurrentMoney@Character@GAME@@QEBA?BIXZ";
+// public: void __cdecl GAME::Character::AddMoney(unsigned int) __ptr64
+inline constexpr const char* Character_AddMoney_DLL = "Game.dll";
+inline constexpr const char* Character_AddMoney = "?AddMoney@Character@GAME@@QEAAXI@Z";
 // public: virtual bool __cdecl GAME::ControllerPlayer::UseItem(unsigned int,enum GAME::ItemSource,bool) __ptr64
 inline constexpr const char* ControllerPlayer_UseItem_DLL = "Game.dll";
 inline constexpr const char* ControllerPlayer_UseItem = "?UseItem@ControllerPlayer@GAME@@UEAA_NIW4ItemSource@2@_N@Z";
@@ -754,6 +757,9 @@ inline constexpr const char* SkillManager_RecalculateSkills = "?RecalculateSkill
 // public: bool __cdecl GAME::SkillManager::UseReclamationPoints(int) __ptr64
 inline constexpr const char* SkillManager_UseReclamationPoints_DLL = "Game.dll";
 inline constexpr const char* SkillManager_UseReclamationPoints = "?UseReclamationPoints@SkillManager@GAME@@QEAA_NH@Z";
+// public: unsigned int __cdecl GAME::SkillManager::GetCurrentSkillReclamationCost(void)const __ptr64
+inline constexpr const char* SkillManager_GetCurrentSkillReclamationCost_DLL = "Game.dll";
+inline constexpr const char* SkillManager_GetCurrentSkillReclamationCost = "?GetCurrentSkillReclamationCost@SkillManager@GAME@@QEBAIXZ";
 // public: unsigned int __cdecl GAME::SkillManager::GetNumMasteryPoints(void)const __ptr64
 inline constexpr const char* SkillManager_GetNumMasteryPoints_DLL = "Game.dll";
 inline constexpr const char* SkillManager_GetNumMasteryPoints = "?GetNumMasteryPoints@SkillManager@GAME@@QEBAIXZ";
@@ -772,9 +778,15 @@ inline constexpr const char* Skill_GetUltimateLevel = "?GetUltimateLevel@Skill@G
 // public: unsigned int const __cdecl GAME::Skill::GetMasteryId(void)const __ptr64
 inline constexpr const char* Skill_GetMasteryId_DLL = "Game.dll";
 inline constexpr const char* Skill_GetMasteryId = "?GetMasteryId@Skill@GAME@@QEBA?BIXZ";
+// public: unsigned int const __cdecl GAME::Skill::GetMasteryLevel(void)const __ptr64
+inline constexpr const char* Skill_GetMasteryLevel_DLL = "Game.dll";
+inline constexpr const char* Skill_GetMasteryLevel = "?GetMasteryLevel@Skill@GAME@@QEBA?BIXZ";
 // public: unsigned int const __cdecl GAME::Skill::GetMasteryLevelRequirement(void)const __ptr64
 inline constexpr const char* Skill_GetMasteryLevelRequirement_DLL = "Game.dll";
 inline constexpr const char* Skill_GetMasteryLevelRequirement = "?GetMasteryLevelRequirement@Skill@GAME@@QEBA?BIXZ";
+// public: class mem::vector<unsigned int> const & __ptr64 __cdecl GAME::Skill::GetModifiers(void)const __ptr64
+inline constexpr const char* Skill_GetModifiers_DLL = "Game.dll";
+inline constexpr const char* Skill_GetModifiers = "?GetModifiers@Skill@GAME@@QEBAAEBV?$vector@I@mem@@XZ";
 // public: bool __cdecl GAME::Skill::IsLocked(void)const __ptr64
 inline constexpr const char* Skill_IsLocked_DLL = "Game.dll";
 inline constexpr const char* Skill_IsLocked = "?IsLocked@Skill@GAME@@QEBA_NXZ";
@@ -976,6 +988,9 @@ inline constexpr const char* CombatAttributeAccumulator_Clear = "?Clear@CombatAt
 // public: void __cdecl GAME::GameEngine::CharacterExperienceOutbound(unsigned int,unsigned int) __ptr64
 inline constexpr const char* GameEngine_CharacterExperienceOutbound_DLL = "Game.dll";
 inline constexpr const char* GameEngine_CharacterExperienceOutbound = "?CharacterExperienceOutbound@GameEngine@GAME@@QEAAXII@Z";
+// public: bool __cdecl GAME::GameEngine::DisplaySkillReallocationWindow(unsigned int) __ptr64
+inline constexpr const char* GameEngine_DisplaySkillReallocationWindow_DLL = "Game.dll";
+inline constexpr const char* GameEngine_DisplaySkillReallocationWindow = "?DisplaySkillReallocationWindow@GameEngine@GAME@@QEAA_NI@Z";
 // public: unsigned int __cdecl GAME::Character::GetCurrentLifeInt(void)const __ptr64
 inline constexpr const char* Character_GetCurrentLifeInt_DLL = "Game.dll";
 inline constexpr const char* Character_GetCurrentLifeInt = "?GetCurrentLifeInt@Character@GAME@@QEBAIXZ";
