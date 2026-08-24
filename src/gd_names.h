@@ -808,6 +808,9 @@ inline constexpr const char* SkillActivated_GetTargetType = "?GetTargetType@Skil
 // public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::SkillActivated::GetStaticClassInfo(void)
 inline constexpr const char* SkillActivated_GetStaticClassInfo_DLL = "Game.dll";
 inline constexpr const char* SkillActivated_GetStaticClassInfo = "?GetStaticClassInfo@SkillActivated@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
+// public: virtual unsigned int __cdecl GAME::SkillManager::GetDefaultSkillId(enum GAME::DefaultSkill)const __ptr64
+inline constexpr const char* SkillManager_GetDefaultSkillId_DLL = "Game.dll";
+inline constexpr const char* SkillManager_GetDefaultSkillId = "?GetDefaultSkillId@SkillManager@GAME@@UEBAIW4DefaultSkill@2@@Z";
 // public: unsigned int const __cdecl GAME::Character::GetSkillPoints(void)const __ptr64
 inline constexpr const char* Character_GetSkillPoints_DLL = "Game.dll";
 inline constexpr const char* Character_GetSkillPoints = "?GetSkillPoints@Character@GAME@@QEBA?BIXZ";

@@ -155,6 +155,7 @@ inline constexpr std::string_view kAimAround = "around you";
 inline constexpr std::string_view kAimPoint = "at a spot";
 inline constexpr std::string_view kAimTarget = "at a target";
 inline constexpr std::string_view kAssigned = "assigned";
+inline constexpr std::string_view kBasicAttack = "basic attack";   // the weapon's default attack (equipment tab -> mouse)
 inline constexpr std::string_view kNothingToAssign = "nothing to assign";
 inline constexpr std::string_view kCannot = "can't";
 inline constexpr std::string_view kClass = "class";

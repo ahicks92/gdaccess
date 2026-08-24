@@ -100,6 +100,7 @@ struct SkillInfo {
 };
 std::vector<SkillInfo> skills();                 // the UI skill list, in the game's order
 unsigned skill_points();
+unsigned default_skill_id(int role);             // SkillManager::GetDefaultSkillId (0 = left mouse basic attack, 1 = right); live, never cache
 unsigned masteries_allowed();
 std::vector<unsigned> mastery_ids();             // the masteries the character has
 std::vector<std::string> skill_tooltip(const void* skill);   // GameEngine::GenerateUISkillText

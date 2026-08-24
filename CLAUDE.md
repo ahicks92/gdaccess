@@ -302,6 +302,16 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   the mouse incl. a self-buff (Overguard -> "left mouse Overguard, self"); the earlier non-stick was UNLEARNED
   skills, not a self-buff rule. Open: confirm real-key Ctrl-chord dispatch on the user's own keyboard (synth
   can't).
+- Recover a basic attack (2026-08-23, verified): the inventory Equipment tab is now an `AssignSource` -- with a
+  weapon hand slot focused (EquipmentCtrlLocation 9 Right Hand / 10 Left Hand) the assign keys (Ctrl+J / Ctrl+I
+  -> left / right mouse, Ctrl+1..0 -> a slot) put the character's **default basic attack** there. The id comes
+  from `gameapi::default_skill_id(0)` = `SkillManager::GetDefaultSkillId(DefaultSkill)`, the game's OWN accessor
+  (Game.dll export, virtual `[SkillManager+0xe0]`): it SEARCHES the live skill list, so the default-attack id is
+  per-character AND weapon-dependent -- NEVER hardcode it (`PlayerHotSlotCtrl::SetToDefaults` calls
+  `GetDefaultSkillId(0)` for the left mouse the same way; there is no integer sentinel). Verified: broke the left
+  mouse (Overguard), focused Right Hand, assign restored "Weapon Attack" on both buttons; a non-weapon slot says
+  "nothing to assign". Deliberate small-scope stand-in for a full hotbar manager. Full reset available via
+  `PlayerHotSlotCtrl::SetToDefaults` if wanted later.
 - Lua (2026-08-22, `docs/lua.md`): LuaJIT 2.0.4 (`x64\lua51.dll`) behind the LUAGLUE binding layer; one
   state owned by `LuaManager` at `*(gEngine+0x68)`; `LuaManager::RunCode` is exported (dev route `/lua?code=`,
   readback via `Game.AddObjective` -> `/objectives`). Sandboxed (no io/os/ffi/debug/require) but `loadfile`

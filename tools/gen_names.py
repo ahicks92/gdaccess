@@ -291,6 +291,10 @@ ENTRIES = [
     # guard with is-a SkillActivated first (passives/modifiers are Skill but not SkillActivated).
     ("SkillActivated_GetTargetType", "Game", r"GAME::SkillActivated::GetTargetType\(void\)"),
     ("SkillActivated_GetStaticClassInfo", "Game", r"GAME::SkillActivated::GetStaticClassInfo\(void\)"),
+    # The game's own default-skill accessor: GetDefaultSkillId(DefaultSkill) searches the character's live
+    # skill list for the default action of a role (0 = left mouse basic attack, 1 = right mouse), so the id is
+    # per-character and weapon-dependent -- never cache it. Used to restore the mouse buttons to basic attack.
+    ("SkillManager_GetDefaultSkillId", "Game", r"GAME::SkillManager::GetDefaultSkillId\(enum GAME::DefaultSkill\)"),
     ("Character_GetSkillPoints", "Game", r"GAME::Character::GetSkillPoints\(void\)"),
     ("Character_SubtractSkillPoint", "Game", r"GAME::Character::SubtractSkillPoint\("),
     ("Character_AddSkillPoints", "Game", r"GAME::Character::AddSkillPoints\("),

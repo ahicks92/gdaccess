@@ -19,6 +19,7 @@ struct Api {
   void (*SM_RecalculateSkills)(void*) = nullptr;
   bool (*SM_UseReclamationPoints)(void*, int) = nullptr;
   unsigned (*SM_GetNumMasteryPoints)(const void*) = nullptr;
+  unsigned (*GetDefaultSkillId)(const void*, int) = nullptr;   // GetDefaultSkillId(DefaultSkill): 0 = left mouse basic attack, 1 = right mouse
   unsigned (*Skill_GetSkillLevel)(const void*) = nullptr;
   unsigned (*Skill_GetMaxLevel)(const void*) = nullptr;
   unsigned (*Skill_GetUltimateLevel)(const void*) = nullptr;
@@ -87,6 +88,7 @@ void load_skills() {
   GAPI_LOAD(g, SM_RecalculateSkills, SkillManager_RecalculateSkills);
   GAPI_LOAD(g, SM_UseReclamationPoints, SkillManager_UseReclamationPoints);
   GAPI_LOAD(g, SM_GetNumMasteryPoints, SkillManager_GetNumMasteryPoints);
+  GAPI_LOAD(g, GetDefaultSkillId, SkillManager_GetDefaultSkillId);
   GAPI_LOAD(g, Skill_GetSkillLevel, Skill_GetSkillLevel);
   GAPI_LOAD(g, Skill_GetMaxLevel, Skill_GetMaxLevel);
   GAPI_LOAD(g, Skill_GetUltimateLevel, Skill_GetUltimateLevel);
@@ -182,6 +184,15 @@ std::vector<SkillInfo> skills() {
   return out;
 }
 unsigned skill_points() { load_skills(); void* p = player(); unsigned n = 0; if (p && g.GetSkillPoints) guarded("GetSkillPoints", [&] { n = g.GetSkillPoints(p); }); return n; }
+// The character's current default skill for a role (0 = left mouse basic attack, 1 = right mouse), via the
+// game's own SkillManager::GetDefaultSkillId -- computed live from the equipped weapon and skills, so it is
+// always the correct instance to put back on a mouse button. Never cache the returned id.
+unsigned default_skill_id(int role) {
+  const void* sm = skill_manager();
+  unsigned id = 0;
+  if (sm && g.GetDefaultSkillId) guarded("GetDefaultSkillId", [&] { id = g.GetDefaultSkillId(sm, role); });
+  return id;
+}
 unsigned masteries_allowed() { load_skills(); void* p = player(); unsigned n = 0; if (p && g.GetSkillMasteriesAllowed) guarded("GetSkillMasteriesAllowed", [&] { n = g.GetSkillMasteriesAllowed(p); }); return n; }
 std::vector<unsigned> mastery_ids() {
   std::vector<unsigned> out;

@@ -1,6 +1,11 @@
 #include "screens/inventory.h"
+#include <cstdlib>
 #include <format>
+#include <optional>
+#include "app.h"
+#include "core/navigator.h"
 #include "gameapi.h"
+#include "screens/skills.h"
 #include "screens/window_base.h"
 
 namespace gd::screens {
@@ -9,9 +14,30 @@ namespace { int g_bag_source = 0; }
 void set_bag_item_source(int s) { g_bag_source = s; }
 int bag_item_source() { return g_bag_source; }
 
-class InventoryScreen : public WindowScreen {
+// The two weapon hands (EquipmentCtrlLocation): 9 = Right Hand (main), 10 = Left Hand (off-hand).
+constexpr int kLocRightHand = 9, kLocLeftHand = 10;
+
+class InventoryScreen : public WindowScreen, public AssignSource {
  public:
   InventoryScreen() : WindowScreen("inventory", std::string(strings::kInventory), exe_ui::ingame::kInventory, 11) {}
+
+  // The equipment tab's weapon is an assign source: with a hand slot focused, the assign keys (Ctrl+J / Ctrl+I
+  // -> left / right mouse, Ctrl+1..0 -> a slot) put the character's DEFAULT basic attack there. This is the
+  // "get back to a basic attack" path -- the id comes from gameapi::default_skill_id (the game's own
+  // GetDefaultSkillId), so it is always the right instance for the equipped weapon.
+  unsigned focused_skill_id() override {
+    if (tab() != 0) return 0;
+    GraphNavigator* nav = app::navigator();
+    std::optional<ControlId> id = nav ? nav->focused_id() : std::nullopt;
+    if (!id || !id->structural_key().is_string()) return 0;
+    const std::string& k = id->structural_key().text();
+    if (k.rfind("inventory.eq", 0) != 0) return 0;
+    int loc = std::atoi(k.c_str() + 12);
+    if (loc != kLocRightHand && loc != kLocLeftHand) return 0;
+    return gameapi::default_skill_id(0);
+  }
+  std::string focused_label() override { return focused_skill_id() ? std::string(strings::kBasicAttack) : std::string(); }
+
   void on_tab_changed(int index) override {
     int nbags = (int)bags_.value.size();
     if (index >= 1 && index <= nbags) gameapi::select_bag(index - 1);   // the game's window shows the same bag
