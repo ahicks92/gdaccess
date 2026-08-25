@@ -182,6 +182,17 @@ class InGameScreen : public Screen {
   bool start_unfocused() const override { return true; }
   std::vector<InputCategory> input_categories() const override { return {InputCategory::InGame}; }
   void build(GraphBuilder&) override {}
+  // A mouse-button key (J/Enter = left, I = right) that was ALREADY held the moment we regained focus is a
+  // carry-over from the screen that just closed (e.g. Enter activated a map-marker row, which closed the map
+  // and re-exposed us with Enter still physically down) -- not a fresh world click. Latch it and ignore it
+  // until it is released once. Protects every close-to-world screen (map, pause menu, conversation), not just
+  // the map. Fresh holds (incl. hold-to-attack) are unaffected.
+  void on_focus() override {
+    Screen::on_focus();
+    const KeySource& ks = hooks::key_source();
+    suppress_left_ = ks.held(0x24) || ks.held(0x1c);   // J or Enter
+    suppress_right_ = ks.held(0x17);                    // I
+  }
   void on_update() override {
     world::pin_camera();
     world::tick();
@@ -197,11 +208,19 @@ class InGameScreen : public Screen {
     constexpr int kJ = 0x24, kI = 0x17, kEnter = 0x1c;
     const KeySource& ks = hooks::key_source();
     bool mods = ks.ctrl() || ks.shift() || ks.alt();
-    world::mouse_key(1, !mods && (ks.held(kJ) || ks.held(kEnter)));
-    world::mouse_key(2, !mods && ks.held(kI));
+    bool left = !mods && (ks.held(kJ) || ks.held(kEnter));
+    bool right = !mods && ks.held(kI);
+    if (suppress_left_) { if (!left) suppress_left_ = false; else left = false; }     // clear on release, else swallow
+    if (suppress_right_) { if (!right) suppress_right_ = false; else right = false; }
+    world::mouse_key(1, left);
+    world::mouse_key(2, right);
   }
   void on_unfocus() override { walltones::silence(); world::mouse_key(1, false); world::mouse_key(2, false); }
   void on_pop() override { walltones::silence(); world::mouse_key(1, false); world::mouse_key(2, false); rooms::reset(); sonar::reset(); quickbar_reset(); }
+
+ private:
+  bool suppress_left_ = false;   // a left-mouse key held over from the screen that just closed
+  bool suppress_right_ = false;
 };
 
 std::unique_ptr<Screen> make_in_game() { return std::make_unique<InGameScreen>(); }

@@ -332,6 +332,13 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     if (q.count("unequip")) return gameapi::unequip(parse_int(q.at("unequip"), 0)) ? "ok\n" : "failed\n";
     if (q.count("equip")) return gameapi::equip((unsigned)parse_int(q.at("equip"), 0), parse_int(q.count("loc") ? q.at("loc") : "0", 0)) ? "ok\n" : "failed\n";
     if (q.count("bag")) return gameapi::select_bag(parse_int(q.at("bag"), 0)) ? "ok\n" : "failed\n";
+    if (q.count("compat")) {   // ?compat=<component id> -> is it a component + the item ids it can attach to (with names)
+      unsigned cid = (unsigned)parse_int(q.at("compat"), 0);
+      std::string out = std::format("component {} is_component={}\n", cid, gameapi::is_component(cid));
+      for (unsigned tid : gameapi::compatible_items(cid)) out += std::format("  target {} '{}'\n", tid, gameapi::item_name(gameapi::object_by_id(tid)));
+      return out;
+    }
+    if (q.count("attach")) return gameapi::attach_component((unsigned)parse_int(q.at("attach"), 0), (unsigned)parse_int(q.count("target") ? q.at("target") : "0", 0), screens::bag_item_source()) ? "ok\n" : "failed\n";   // ?attach=<component>&target=<item>
     return std::format("item source knob {}\n", screens::bag_item_source()) + gameapi::dump_bags() + gameapi::dump_equipment();
   }
   if (path == "/skills") {   // ?tip=<id> | ?learn=<id> | ?refund=<id> | ?attr=1..3 (spend an attribute point) | ?pane=<mastery enum|80>&tab=0|1

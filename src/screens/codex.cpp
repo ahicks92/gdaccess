@@ -86,25 +86,30 @@ class CodexScreen : public WindowScreen {
 
 std::unique_ptr<Screen> make_codex() { return std::make_unique<CodexScreen>(); }
 
-// The tracker: every tracked quest's in-progress tasks and their open objectives ("quest: objective, ...").
-// (GameEngine::GetObjectives is a separate scripted list, empty in the campaign.)
+// The current objectives. Prefer GameEngine::GetObjectives (the game's scripted/HUD list) when it is
+// populated. It comes back empty in a lot of the campaign (verified live: a character with several tracked
+// bounties still reads empty), so fall back to walking the tracked, incomplete quests. The old walk was the
+// bug the user hit: it read EVERY task of every tracked quest, so a quest whose "slay" step is still open ALSO
+// surfaced its "return to the bounty table" turn-in task -- the "return to xyz" noise. Read only each tracked
+// incomplete quest's CURRENT step: the first not-completed task that still has an unsatisfied objective, and
+// that task's open objectives (a later turn-in is not the current step until the steps before it are done).
 void speak_objectives() {
   MessageBuilder m;
-  for (const gameapi::Quest& q : gameapi::quests(gameapi::kQuestsTracked)) {
-    // The in-progress tasks' open objectives; when those are all met, the NEXT available task's (the game's
-    // tracker shows one step at a time).
-    bool any = false;
-    for (int state : {2, 1}) {
+  std::vector<std::string> hud = gameapi::objectives();
+  if (!hud.empty()) {
+    for (const std::string& l : hud) m.list_item().fragment(l);
+  } else {
+    for (const gameapi::Quest& q : gameapi::quests(gameapi::kQuestsTracked)) {
+      if (q.complete) continue;
       for (const gameapi::Task& t : q.tasks) {
-        if (t.state != state) continue;
-        bool here = false;
-        for (const gameapi::Objective& o : t.objectives) if (!o.satisfied) { strings::push_quest_objective(m.list_item(), q.name, o.text); any = here = true; }
-        if (state == 1 && here) break;
+        if (t.state == 3) continue;   // a completed task is not the current step
+        bool any = false;
+        for (const gameapi::Objective& o : t.objectives)
+          if (!o.satisfied) { strings::push_quest_objective(m.list_item(), q.name, o.text); any = true; }
+        if (any) break;               // only the current step of this quest
       }
-      if (any) break;
     }
   }
-  for (const std::string& l : gameapi::objectives()) m.list_item().fragment(l);
   if (m.empty()) { speech::speak(strings::kNoObjectives, true); return; }
   speech::speak(m.build(), true);
 }

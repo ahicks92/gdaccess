@@ -712,6 +712,12 @@ inline constexpr const char* Character_AddMoney = "?AddMoney@Character@GAME@@QEA
 // public: virtual bool __cdecl GAME::ControllerPlayer::UseItem(unsigned int,enum GAME::ItemSource,bool) __ptr64
 inline constexpr const char* ControllerPlayer_UseItem_DLL = "Game.dll";
 inline constexpr const char* ControllerPlayer_UseItem = "?UseItem@ControllerPlayer@GAME@@UEAA_NIW4ItemSource@2@_N@Z";
+// public: void __cdecl GAME::Player::GetCompatibleItems(unsigned int,class mem::vector<unsigned int> & __ptr64) __ptr64
+inline constexpr const char* Player_GetCompatibleItems_DLL = "Game.dll";
+inline constexpr const char* Player_GetCompatibleItems = "?GetCompatibleItems@Player@GAME@@QEAAXIAEAV?$vector@I@mem@@@Z";
+// public: void __cdecl GAME::Character::UseItemOn(unsigned int,unsigned int,enum GAME::ItemSource,unsigned int,unsigned int,bool) __ptr64
+inline constexpr const char* Character_UseItemOn_DLL = "Game.dll";
+inline constexpr const char* Character_UseItemOn = "?UseItemOn@Character@GAME@@QEAAXIIW4ItemSource@2@II_N@Z";
 // public: void __cdecl GAME::ControllerCharacter::SendDropItemRandom(unsigned int) __ptr64
 inline constexpr const char* ControllerCharacter_SendDropItemRandom_DLL = "Game.dll";
 inline constexpr const char* ControllerCharacter_SendDropItemRandom = "?SendDropItemRandom@ControllerCharacter@GAME@@QEAAXI@Z";

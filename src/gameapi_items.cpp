@@ -38,6 +38,8 @@ struct Api {
   void (*AddMoney)(void*, unsigned) = nullptr;   // dev: Character::AddMoney (iron bits)
   void (*SendDropItemRandom)(void*, unsigned) = nullptr;
   void (*PickupItem)(void*, unsigned) = nullptr;               // virtual on the controller; the export is the implementation
+  void (*GetCompatibleItems)(void*, unsigned, MemVec*) = nullptr;   // Player: item ids a component can attach to (bags+equipped+stash)
+  void (*Character_UseItemOn)(void*, unsigned, unsigned, int, unsigned, unsigned, bool) = nullptr;  // attach used->target (ItemSource)
   // merchants / caravan
   const void* (*GetMarketInventorySack)(const void*, unsigned, int) = nullptr;
   bool (*PlayerPurchaseRequest)(void*, unsigned, unsigned) = nullptr;
@@ -99,6 +101,8 @@ void load_items() {
   GAPI_LOAD(g, AddMoney, Character_AddMoney);
   GAPI_LOAD(g, SendDropItemRandom, ControllerCharacter_SendDropItemRandom);
   GAPI_LOAD(g, PickupItem, ControllerCharacter_PickupItem);
+  GAPI_LOAD(g, GetCompatibleItems, Player_GetCompatibleItems);
+  GAPI_LOAD(g, Character_UseItemOn, Character_UseItemOn);
   GAPI_LOAD(g, GetMarketInventorySack, GameEngine_GetMarketInventorySack);
   GAPI_LOAD(g, PlayerPurchaseRequest, GameEngine_PlayerPurchaseRequest);
   GAPI_LOAD(g, PlayerSaleRequest, GameEngine_PlayerSaleRequest);
@@ -273,6 +277,38 @@ bool use_item(unsigned id, int source) {
   if (!equipped && g.UseItem) ok = guarded("PlayerInventoryCtrl::UseItem", [&] { g.UseItem(ic, id, source > 0 ? source : kBagSource); });
   invalidate_objects();
   log::writef("gameapi: use item {} equipped={} ok={}", id, equipped, ok);
+  return ok;
+}
+// A component/augment (records/items/materia -- Class ItemRelic; no ItemRelic ships outside that folder).
+// Activating one opens the attach picker instead of "using" it.
+bool is_component(unsigned id) {
+  void* p = object_by_id(id);
+  if (!p) return false;
+  return object_record(p).find("/items/materia/") != std::string::npos;
+}
+// The item ids this component can attach to (the game's own union of bags + equipped + stash), via
+// Player::GetCompatibleItems -- do not re-implement the per-target type test.
+std::vector<unsigned> compatible_items(unsigned component_id) {
+  load_items();
+  std::vector<unsigned> out;
+  void* p = player();
+  if (!p || !g.GetCompatibleItems || !component_id) return out;
+  VecBuffer<unsigned> buf(256);
+  guarded("Player::GetCompatibleItems", [&] { g.GetCompatibleItems(p, component_id, buf.vec()); });
+  out = buf.take("GetCompatibleItems");
+  return out;
+}
+// Attach the component to the target item. Character::UseItemOn resolves both ids, is-a-checks the used item
+// and applies + consumes it (a pure inventory op, no NPC). source: ItemSource of the component (bag by default).
+bool attach_component(unsigned component_id, unsigned target_id, int source) {
+  load_items();
+  void* p = player();
+  if (!p || !g.Character_UseItemOn || !component_id || !target_id) return false;
+  bool ok = guarded("Character::UseItemOn", [&] {
+    g.Character_UseItemOn(p, component_id, target_id, source > 0 ? source : kBagSource, 0u, 0u, false);
+  });
+  invalidate_objects();
+  log::writef("gameapi: attach component {} -> item {} source {} ok={}", component_id, target_id, source, ok);
   return ok;
 }
 bool drop_item(unsigned id) {

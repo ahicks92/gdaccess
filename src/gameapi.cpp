@@ -245,7 +245,14 @@ std::vector<std::string> objectives() {
   guarded("GetObjectives", [&] {
     const MemVec* v = g.GetObjectives(e);
     std::vector<MsvcStringA> items = vec_items<MsvcStringA>(v, 256);
-    for (const MsvcStringA& s : items) { std::string t = textcap::speakable(a_text(&s)); if (!t.empty()) out.push_back(t); }
+    // Entries the game feeds its HUD tracker to LocalizationManager::Localize: a tag ("tag...") must be
+    // resolved, already-resolved text passes through verbatim.
+    for (const MsvcStringA& s : items) {
+      std::string raw = a_text(&s);
+      std::string t = raw.rfind("tag", 0) == 0 ? localize(raw) : std::string{};
+      if (t.empty()) t = textcap::speakable(raw);
+      if (!t.empty()) out.push_back(t);
+    }
   });
   return out;
 }

@@ -60,6 +60,25 @@ class InventoryScreen : public WindowScreen, public AssignSource {
 
  private:
   void invalidate() { bags_.invalidate(); equipment_.invalidate(); sheet_.invalidate(); }
+  // Activating a component in a bag opens the attach picker: every item (across bags + equipped) it fits,
+  // from the game's own Player::GetCompatibleItems. Picking one attaches + consumes the component (no
+  // blacksmith needed). Space reads the target item's tooltip.
+  void open_component_picker(unsigned comp_id) {
+    std::string comp_name = gameapi::item_name(gameapi::object_by_id(comp_id));
+    std::vector<PickerItem> items;
+    for (unsigned tid : gameapi::compatible_items(comp_id)) {
+      std::string name = gameapi::item_name(gameapi::object_by_id(tid));
+      items.push_back({tid, name.empty() ? std::format("item {}", tid) : name, {}});
+    }
+    if (items.empty()) { speech::speak(strings::kNoCompatibleItems, true); return; }
+    MessageBuilder title; title.fragment(strings::kAttach).fragment(comp_name.empty() ? std::string(strings::kComponent) : comp_name);
+    open_picker(title.build(), std::move(items),
+                [this, comp_id](unsigned tid) {
+                  if (!gameapi::attach_component(comp_id, tid, g_bag_source)) speech::speak(strings::kCannot, true);
+                  invalidate();
+                },
+                [](unsigned tid, bool detail) { item_tip(tid, detail)(); });
+  }
   void build_equipment(GraphBuilder& b) {
     const std::vector<gameapi::EquipSlot>& eq = equipment_.get([] { return gameapi::equipment(); }, 30);
     for (const gameapi::EquipSlot& s : eq) {
@@ -95,6 +114,7 @@ class InventoryScreen : public WindowScreen, public AssignSource {
       MessageBuilder m; strings::push_stack(m, it.name.empty() ? std::format("item {}", it.id) : it.name, it.stack);
       unsigned id = it.id;
       auto activate = [this, id] {
+        if (gameapi::is_component(id)) { open_component_picker(id); return; }   // components attach; they aren't "used"
         void* p = gameapi::object_by_id(id);
         if (p && !gameapi::item_requirements_met(p)) { speech::speak(strings::kRequirementsNotMet, true); return; }
         gameapi::use_item(id, g_bag_source);

@@ -9,27 +9,25 @@ using namespace gd::core;
 
 // Ctrl+M injects the game's M, which opens the local aerial map; this screen becomes current while that map
 // is open (exe_ui::aerial_map_open) and reads the map's own icon set (world::map_markers, filled live while
-// the map is shown). Two tabs split the icons the way the design calls for: quest markers vs everything else
-// (merchants, riftgate, spirit guide, NPCs, ...). Activating a row picks it as the follow target and closes
-// the map; the ' key then pings it with distance and heading.
+// the map is shown). One flat list, nearest-first (merchants, riftgate, spirit guide, NPCs, quest markers,
+// ...). Activating a row picks it as the follow target and closes the map; the ' key then pings it with
+// distance and heading. (No quest/non-quest tab split: world::map_markers does not classify quest markers
+// yet -- every marker's `quest` is false -- so the split was vacuous. Reintroduce a per-row annotation, not
+// tabs, if that classification ever lands.)
 class MapMarkersScreen : public WindowScreen {
  public:
   MapMarkersScreen() : WindowScreen("mapmarkers", std::string(strings::kMapMarkers), exe_ui::ingame::kMiniMap, 13) {}
   bool is_active() override { return exe_ui::aerial_map_open(); }
   void close() override { exe_ui::aerial_map_close(); }
-  void on_tab_changed(int) override { markers_.invalidate(); }
 
   void build(GraphBuilder& b) override {
-    add_tabs(b, {std::string(strings::kQuestMarkers), std::string(strings::kMapPoints)});
     const std::vector<world::MapMarker>& all = markers_.get([] { return world::map_markers(); }, 15);
-    bool want_quest = tab() == 0;
     world::Vec3 me{};
     bool have_me = world::player_position(me);
     b.begin_stop("list");
     size_t shown = 0;
     for (size_t i = 0; i < all.size(); ++i) {
       const world::MapMarker& mk = all[i];
-      if (mk.quest != want_quest) continue;
       ++shown;
       std::string label = mk.label.empty() ? std::string(strings::kMapPoints) : mk.label;
       std::function<std::string()> value;
@@ -50,8 +48,7 @@ class MapMarkersScreen : public WindowScreen {
                  }));
     }
     if (shown == 0)
-      b.add_item(ControlId::structural("marker.none"),
-                 line_item(std::string(want_quest ? strings::kNoQuestMarkers : strings::kNoMarkersHere)));
+      b.add_item(ControlId::structural("marker.none"), line_item(std::string(strings::kNoMarkersHere)));
   }
 
  private:

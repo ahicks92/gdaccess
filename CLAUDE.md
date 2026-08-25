@@ -468,9 +468,40 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   resolves nothing (sighted players click its floating label): J on a reviewed Item issues
   `ControllerPlayer::ItemAction` after `SetCommandRepeated(false)` (docs/re_pickup.md; verified walking 16 units
   to a note). `/jkey?down=1|0` presses J without the game seeing a J key (synthetic /key goes to both).
-- Next (needs the user's hands): player-facing targeting keys (nearest enemy / cycle / announce name,
-  distance, direction -- the hover name arrives as `box_font` HUD text), an attack key that clicks the locked
-  target, wall-tone tuning by ear, hover sounds, the Delete-character screen, the main menu icon buttons.
+- Release-prep pass (2026-08-25, all verified live except where noted): (1) **q objectives fixed**
+  (`screens/codex.cpp speak_objectives`): the old walk read every tracked quest's every task and surfaced
+  their "return to X" turn-ins (the user's "arbitrary / return to xyz" bug). Now prefers
+  `GameEngine::GetObjectives` (the game's HUD list, localized) and, when it is empty -- which it is across much
+  of the campaign; the old code comment was right, the disasm claim that the HUD renders from it does not hold
+  live -- falls back to each tracked incomplete quest's CURRENT step (first not-complete task with an
+  unsatisfied objective). Verified: a char with "Something For Nothing" (kills done) reads "Return to Harmond",
+  not the whole tree. (2) **Map picker merged to one flat nearest-first list** (`screens/map_markers.cpp`): the
+  quest/non-quest tab split was vacuous (`world::map_markers` hardcodes `quest=false`). Verified live (1 of 23).
+  (3) **Enter no longer leaks a world click** (`screens/in_game.cpp`): a close-on-pick screen (map, pause
+  "Return to Game", conversation close) re-exposed `InGameScreen` with Enter still physically held, and its raw
+  poll turned that into a left-click. Fix: `on_focus` latches a left/right mouse key already held on entry and
+  swallows it until released once (built; needs a real keyboard to feel). (4) **Component/augment attach**
+  (`gameapi_items.cpp is_component/compatible_items/attach_component`, `screens/inventory.cpp`): activating a
+  component (records/items/materia = `ItemRelic`; none ship outside that folder) in a bag opens a picker of
+  every item it fits via the game's own `Player::GetCompatibleItems` (bags + equipped + stash); picking one
+  calls `Character::UseItemOn(player, comp, target, ItemSource, 0,0,false)` -- a pure inventory op, NO
+  blacksmith (the NPC path is removal only). Verified live: Chilled Steel 3->2, target's tooltip shows it
+  attached. Arg order confirmed. Dev: `/inv?compat=<id>`, `/inv?attach=<id>&target=<id>`. (5) **Evade
+  understood, left as-is** (docs/evade.md): evade aims by the WASD movement vector while moving, else a
+  standing-still fallback that reads the cursor -- and the mod already parks the virtual cursor on the locked
+  review target, so evade lands on a good scheme with NO mod: WASD held -> dodge that direction, standing ->
+  dodge toward the locked target (confirmed by the user in play). A diagnostic hook on the exported
+  `ControllerPlayer::EvadeAction` forwarder was tried and removed -- it never fired (the exe calls the state's
+  `RequestEvadeAction`/`DefaultRequestEvadeAction` directly; that is the seam if we ever force the direction).
+- Settings for a shipping user (audited 2026-08-25): only ONE mandatory options.txt change, `movementType = 1`
+  (Controls -> Keyboard); nothing in the repo sets it (NOT auto-forcing it: the engine rewrites options.txt on
+  exit and the in-memory Options setter is unconfirmed). Plus keep default keybindings and `displayDamage` on.
+  inactiveUpdateRate / windowed / 1600x900 / targetLock are dev-loop artifacts, irrelevant to a focused player.
+  Game-free CI is feasible (nothing links a game file; `gd_names.h` + `rooms.db` are committed; only prism must
+  be fetched). Runnable-by-others gaps: a non-CLI injector/launcher, and gating the dev HTTP server out of release.
+- Next (needs the user's hands): player-facing targeting keys
+  (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
+  an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.
 
 ## Build / run
 - Toolchain: VS 2022 Community (MSVC 14.44), Ninja (from VS), CMake. `tools\vsdev.cmd <cmd>` runs a command

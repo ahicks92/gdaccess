@@ -83,6 +83,10 @@ bool drop_item(unsigned id);                     // ControllerCharacter::SendDro
 bool unequip(int loc);                           // EquipmentCtrl::RemoveItem on the slot's item
 bool equip(unsigned id, int loc);                // EquipmentCtrl::PlaceItem(loc, id, ...)
 bool pickup_item(unsigned id);                   // ControllerCharacter::PickupItem (the game's pickup command; no range check)
+// Components/augments (records/items/materia): activating one in a bag opens the attach picker.
+bool is_component(unsigned id);                                    // is this bag item a component/augment?
+std::vector<unsigned> compatible_items(unsigned component_id);     // Player::GetCompatibleItems -- item ids it fits (bags+equipped+stash)
+bool attach_component(unsigned component_id, unsigned target_id, int source);   // Character::UseItemOn (attach + consume)
 
 // ---- merchants and the caravan ----
 struct MarketTab { int type; std::string name; std::vector<BagItem> items; };   // one per Market_TypeEnum the merchant stocks (probed 0..7)
