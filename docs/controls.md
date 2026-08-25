@@ -133,11 +133,11 @@ screen, so the game hovers and targets it itself. (Decided 2026-08-22, deviating
 always embodied here, perception and interaction are what the camera shows; the camera is the player's.) The review cursor remembers an object ID, never a pointer: each
 step rebuilds the nearest-first list live and continues from that ID, or enters at the nearest if it is gone.
 
-## Keys the mod must not take from the game in the world
-(Historical, 2026-08-21: since the Ctrl lifts every game function the mod does not pass through is
-reachable as Ctrl+key, and the plain letters are the mod's -- X and V are the rooms keys now.)
-WASD, 1-0, Q N C I M O K G H J V, E R L B U X Z Y P, Space, Enter, Tab (push-to-talk, harmless),
-Alt/Ctrl/Shift (modifiers the game reads while clicking), Backspace, \, ], `.` and `,` (review; the camera is
-locked so its rotate keys are inert), F2-F7. The mod's review/inspect keys are `.` `,` `;` `'` `/` and V/X.
-Free on the keyboard: F1, F8, T, the bracket keys, Insert/Delete/Home/End/PgUp/PgDn, the arrow keys, numpad.
-Ctrl+letter chords arrive with flags and are unused by the game.
+## Which plain keys are whose in the world
+Passed straight to the game (src/screens/in_game.cpp `passes_key`): WASD, 1-0, Y, Space, E, R, U, Escape,
+Alt/Right Alt (held: show items), F2-F7. Every other game function is reachable only as Ctrl + its default
+key (the `game.*` lifts in src/app.cpp: C/I N Q M O K G H J V L B X Z P, Backspace, \, ], Enter, Tab, `,` `.`).
+The mod's plain keys: `.` `,` N B M V (review groups; Shift = back, Alt = nearest), `;` `'` `/` `\`, J I G F,
+K H Q X T, and Ctrl+1..0, Ctrl+- Ctrl+=, Ctrl+`, Ctrl+Shift+P. Still free: F1, F8, the bracket keys,
+Insert/Delete/Home/End/PgUp/PgDn, the arrow keys, numpad. Ctrl+letter chords arrive with flags and are unused
+by the game.

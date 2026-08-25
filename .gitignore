@@ -8,8 +8,28 @@ build/
 # reference clones of other projects (have their own git history)
 reference/
 
-# prebuilt prism SDK (1.1 GB; see third_party/README.md for where it comes from)
-third_party/prism-bin/
+# prebuilt prism SDK: only the parts the build uses are committed (headers, x64 import lib + dll, licenses);
+# the rest of the 1.1 GB release stays ignored. See third_party/README.md.
+third_party/prism-bin/*
+!third_party/prism-bin/prism-sdk-v0.18.1/
+third_party/prism-bin/prism-sdk-v0.18.1/*
+!third_party/prism-bin/prism-sdk-v0.18.1/include/
+!third_party/prism-bin/prism-sdk-v0.18.1/LICENSES/
+!third_party/prism-bin/prism-sdk-v0.18.1/NOTICE
+!third_party/prism-bin/prism-sdk-v0.18.1/windows/
+third_party/prism-bin/prism-sdk-v0.18.1/windows/*
+!third_party/prism-bin/prism-sdk-v0.18.1/windows/x64/
+third_party/prism-bin/prism-sdk-v0.18.1/windows/x64/*
+!third_party/prism-bin/prism-sdk-v0.18.1/windows/x64/dynamic/
+third_party/prism-bin/prism-sdk-v0.18.1/windows/x64/dynamic/*
+!third_party/prism-bin/prism-sdk-v0.18.1/windows/x64/dynamic/release/
+third_party/prism-bin/prism-sdk-v0.18.1/windows/x64/dynamic/release/*
+!third_party/prism-bin/prism-sdk-v0.18.1/windows/x64/dynamic/release/lib/
+third_party/prism-bin/prism-sdk-v0.18.1/windows/x64/dynamic/release/lib/*
+!third_party/prism-bin/prism-sdk-v0.18.1/windows/x64/dynamic/release/lib/prism.lib
+!third_party/prism-bin/prism-sdk-v0.18.1/windows/x64/dynamic/release/bin/
+third_party/prism-bin/prism-sdk-v0.18.1/windows/x64/dynamic/release/bin/*
+!third_party/prism-bin/prism-sdk-v0.18.1/windows/x64/dynamic/release/bin/prism.dll
 third_party/prism/
 
 # editor / OS noise
