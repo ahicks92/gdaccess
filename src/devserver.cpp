@@ -225,6 +225,13 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     if (q.count("group")) world::cycle_review((world::ScanGroup)parse_int(q.at("group"), 0), 0, true);
     return world::probe_timing(q.count("n") ? parse_int(q.at("n"), 200) : 200);
   }
+  if (path == "/wallcmp")   // dev: A/B flat vs terrain-following wall probe -- /wallcmp?dirs=16&max=15&step=0.5
+    return world::wall_compare(q.count("dirs") ? parse_int(q.at("dirs"), 16) : 16,
+                               q.count("max") ? (float)atof(q.at("max").c_str()) : 15.0f,
+                               q.count("step") ? (float)atof(q.at("step").c_str()) : 0.5f);
+  if (path == "/vwindow")   // dev: PutOnFloor vertical window at the feet -- /vwindow?span=20&step=0.5
+    return world::nav_vwindow(q.count("span") ? (float)atof(q.at("span").c_str()) : 20.0f,
+                              q.count("step") ? (float)atof(q.at("step").c_str()) : 0.5f);
   if (path == "/where") { screens::speak_where(); return "ok\n"; }
   if (path == "/blocks") return world::blocks_dump();
   if (path == "/room") {      // the rooms feature: current place + exits; ?dwell=ms ?untitled=0|1 ?say=1 (re-announce) ?reload=1

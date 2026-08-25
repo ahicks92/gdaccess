@@ -539,7 +539,10 @@ float camera_yaw() {
   return cam && g_api.GetCameraYaw ? g_api.GetCameraYaw(cam) : 0.0f;
 }
 
-bool on_navmesh(const Vec3& world_point) {
+// Snap `world_point` to the floor (PutOnFloor) and test it against the path mesh. `floored`, when non-null, is
+// filled with the snapped world point regardless of the result -- so a caller can carry the floor height
+// forward and keep a straight ray hugging the terrain instead of holding a flat y (see free_distance).
+bool navmesh_probe(const Vec3& world_point, Vec3* floored) {
   void* nav = g_api.NavManager_Get ? g_api.NavManager_Get() : nullptr;
   Buf base; void* region = nullptr;
   if (!nav || !g_api.IsPointOnPathMesh || !player_world_vec(base, &region)) return false;
@@ -550,8 +553,11 @@ bool on_navmesh(const Vec3& world_point) {
   Buf wv{};
   g_api.WorldVec3_ctor(&wv, region, &rel);
   if (g_api.WorldVec3_PutOnFloor) g_api.WorldVec3_PutOnFloor(&wv);
-  return g_api.IsPointOnPathMesh(nav, &wv);
+  bool ok = g_api.IsPointOnPathMesh(nav, &wv);
+  if (floored) *floored = world_pos_of(wv);
+  return ok;
 }
+bool on_navmesh(const Vec3& world_point) { return navmesh_probe(world_point, nullptr); }
 
 // dev only: run the game's own pathfinder (Player::FindPath) from the player to a world point. Returns the raw
 // PathResult enum (calibrate live) and, in out_world, the reachable endpoint the pathfinder resolved. Used to
@@ -820,14 +826,65 @@ std::string navprobe(float x0, float z0, float x1, float z1, float step) {
   return out;
 }
 
-float free_distance(float dir_x, float dir_z, float max_dist, float step) {
+// Free walkable distance along a straight horizontal ray. The ray HUGS THE TERRAIN: each sample's start y is
+// the floor height snapped at the previous sample, not a flat player-height y. PutOnFloor only searches a fixed
+// window above the sample's start (World::PutOnFloor raises y by a constant, then casts down), so a flat-y ray
+// loses the floor once a slope climbs past that window and reports a phantom wall on any real incline; carrying
+// the floor forward keeps every step within one slope-delta of the true floor. `follow=false` restores the old
+// flat-y behaviour (kept for the A/B probe, /wallcmp).
+float free_distance_ex(float dir_x, float dir_z, float max_dist, float step, bool follow) {
   Vec3 p;
   if (!player_position(p) || step <= 0) return 0;
+  float y = p.y;
   for (float d = step; d <= max_dist + 1e-4f; d += step) {
-    Vec3 q{p.x + dir_x * d, p.y, p.z + dir_z * d};
-    if (!on_navmesh(q)) return d - step;
+    Vec3 q{p.x + dir_x * d, y, p.z + dir_z * d}, floored;
+    if (!navmesh_probe(q, &floored)) return d - step;
+    if (follow) y = floored.y;
   }
   return max_dist;
+}
+float free_distance(float dir_x, float dir_z, float max_dist, float step) {
+  return free_distance_ex(dir_x, dir_z, max_dist, step, true);
+}
+
+// dev: the vertical window PutOnFloor+IsPointOnPathMesh accepts at the player's feet -- sweep on_navmesh at
+// (x, foot_y + dy, z) and report the dy range that still reads on-mesh. How far a flat-y ray can be off before
+// it loses the floor.
+std::string nav_vwindow(float span, float step) {
+  Vec3 p; if (!player_position(p)) return "no player\n";
+  if (step < 0.05f) step = 0.5f;
+  float lo = 1e9f, hi = -1e9f;
+  std::string hits;
+  for (float dy = -span; dy <= span + 1e-4f; dy += step) {
+    bool ok = on_navmesh(Vec3{p.x, p.y + dy, p.z});
+    if (ok) { lo = std::min(lo, dy); hi = std::max(hi, dy); }
+  }
+  if (hi < lo) return std::format("foot=({:.2f},{:.2f},{:.2f}) NO on-mesh dy in +-{:.0f}\n", p.x, p.y, p.z, span);
+  return std::format("foot=({:.2f},{:.2f},{:.2f}) on-mesh dy in [{:+.1f}, {:+.1f}] (window {:.1f} up, {:.1f} down)\n",
+                     p.x, p.y, p.z, lo, hi, hi, -lo);
+}
+
+// dev: A/B the flat-y vs terrain-following ray in `dirs` directions around the compass. Prints per-direction
+// flat and follow free distance and flags where they diverge (the phantom-wall spots the fix cures).
+std::string wall_compare(int dirs, float max_dist, float step) {
+  Vec3 p; if (!player_position(p)) return "no player\n";
+  if (dirs < 4) dirs = 16;
+  float yaw = camera_yaw();
+  std::string out = std::format("at ({:.1f},{:.1f},{:.1f}) yaw={:.3f} region '{}' max={:.0f} step={:.2f}\n",
+                                p.x, p.y, p.z, yaw, region_name(), max_dist, step);
+  int diffs = 0;
+  for (int i = 0; i < dirs; ++i) {
+    float a = 6.2831853f * i / dirs;
+    float dx = std::sin(a), dz = std::cos(a);   // bearing 0 = +z, clockwise; absolute (not camera-relative)
+    float flat = free_distance_ex(dx, dz, max_dist, step, false);
+    float follow = free_distance_ex(dx, dz, max_dist, step, true);
+    bool diff = std::fabs(flat - follow) > step * 0.5f;
+    if (diff) ++diffs;
+    out += std::format("  {:3.0f} deg (dx={:+.2f},dz={:+.2f}): flat={:5.1f} follow={:5.1f}{}\n",
+                       a * 57.2958f, dx, dz, flat, follow, diff ? "   <-- DIFF" : "");
+  }
+  out += std::format("{} of {} directions differ\n", diffs, dirs);
+  return out;
 }
 
 // Dev: the layout of RTTI_ClassInfo beyond the name -- is there a parent pointer? Dumps the static infos.
@@ -1503,8 +1560,12 @@ static std::string reviewed_route(Vec3& me, Vec3& target) {
   Vec3 near_target{target.x - (dist > 0.5f ? dx / dist * 0.5f : 0), target.y, target.z - (dist > 0.5f ? dz / dist * 0.5f : 0)};
   if (on_navmesh(near_target) || on_navmesh(target)) {
     bool straight = true;
-    for (float d = 0.5f; d < dist - 0.5f; d += 0.5f)
-      if (!on_navmesh(Vec3{me.x + dx / dist * d, me.y, me.z + dz / dist * d})) { straight = false; break; }
+    float y = me.y;   // hug the terrain (PutOnFloor's ~4.8u down-window loses a rise otherwise; see free_distance)
+    for (float d = 0.5f; d < dist - 0.5f; d += 0.5f) {
+      Vec3 s{me.x + dx / dist * d, y, me.z + dz / dist * d}, floored;
+      if (!navmesh_probe(s, &floored)) { straight = false; break; }
+      y = floored.y;
+    }
     kind = straight ? "straight" : "path";
   }
   return kind;

@@ -29,7 +29,14 @@ float camera_yaw();              // the game camera's yaw, as reported (units lo
 // game's world units. free_distance walks from the player along dir and returns how far the path mesh stays
 // walkable (max_dist when nothing blocks). on_navmesh tests one world-space point near the player.
 bool on_navmesh(const Vec3& world_point);
+// Snap a point to the floor and test it; `floored` (optional) receives the snapped world point either way.
+bool navmesh_probe(const Vec3& world_point, Vec3* floored);
+// free_distance follows the terrain (each sample starts at the previous sample's floor height); `free_distance_ex`
+// with follow=false is the old flat-y ray, kept only for the A/B probe.
 float free_distance(float dir_x, float dir_z, float max_dist, float step);
+float free_distance_ex(float dir_x, float dir_z, float max_dist, float step, bool follow);
+std::string nav_vwindow(float span, float step);              // dev: PutOnFloor's accepted vertical window at the feet
+std::string wall_compare(int dirs, float max_dist, float step);  // dev: A/B flat vs terrain-following rays around the compass
 
 std::string debug_dump();        // for the dev server: pointers, raw coordinate bytes, probes
 std::string classinfo_dump();    // dev: the game's RTTI_ClassInfo layout (parent pointer?)
