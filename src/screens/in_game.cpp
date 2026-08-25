@@ -162,6 +162,7 @@ class InGameScreen : public Screen {
     rooms::tick();
     quickbar_tick();
     weapon_swap_tick();
+    world::reping_tick();   // re-sound the review ping when the target's route (straight/path/unreachable) changes
     sonar::tick();
     walltones::tick();
     // The mouse buttons as keys, with real hold semantics: J (or Enter) = left, I = right, for as long as the

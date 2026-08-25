@@ -1480,9 +1480,11 @@ bool world_point(const void* worldvec3, Vec3& out) {
   return true;
 }
 
-std::string ping_reviewed() {
+// The route kind for the reviewed target ("straight" / "path" / "unreachable") and its world position, or ""
+// when nothing is reviewed (or the target's position can't be read this frame). No sound -- reping_tick
+// compares this frame to frame and ping_reviewed turns it into a played cue.
+static std::string reviewed_route(Vec3& me, Vec3& target) {
   if (!g_reviewed_id) return {};
-  Vec3 me, target;
   if (!player_position(me)) return {};
   if (is_point_id(g_reviewed_id)) {
     target = g_reviewed_point;
@@ -1505,9 +1507,37 @@ std::string ping_reviewed() {
       if (!on_navmesh(Vec3{me.x + dx / dist * d, me.y, me.z + dz / dist * d})) { straight = false; break; }
     kind = straight ? "straight" : "path";
   }
+  return kind;
+}
+
+static std::string g_last_ping_kind;   // the kind reping_tick last sounded, for g_last_ping_id
+static unsigned g_last_ping_id = 0;
+static void play_ping(const std::string& kind, const Vec3& target) {
   float pan, vol, ahead; ear_frame(target, pan, vol, &ahead);
   gd::audio::play_sample(gd::audio::module_dir() + "assets\\audio\\review_" + kind + ".wav", vol, pan, rear_shelf_db(ahead));
+  g_last_ping_kind = kind;
+  g_last_ping_id = g_reviewed_id;
+}
+
+std::string ping_reviewed() {
+  Vec3 me, target;
+  std::string kind = reviewed_route(me, target);
+  if (kind.empty()) return {};
+  play_ping(kind, target);
   return kind;
+}
+
+void reping_tick() {
+  if (!g_reviewed_id) { g_last_ping_kind.clear(); g_last_ping_id = 0; return; }
+  static ULONGLONG last_ms = 0;              // pay the navmesh line probe a few times a second, not every frame
+  ULONGLONG now = GetTickCount64();
+  if (now - last_ms < 150) return;
+  last_ms = now;
+  Vec3 me, target;
+  std::string kind = reviewed_route(me, target);
+  if (kind.empty()) return;
+  if (g_reviewed_id == g_last_ping_id && kind == g_last_ping_kind) return;  // route unchanged since the last ping
+  play_ping(kind, target);
 }
 
 bool on_screen(unsigned id) {

@@ -112,6 +112,10 @@ bool world_point(const void* worldvec3, Vec3& out);
 // from the player to the reviewed thing -- straight walk, path around, unreachable -- positioned toward it
 // (pan by bearing, volume ref/(ref+distance)). Returns the kind for the log; empty = nothing reviewed.
 std::string ping_reviewed();
+// Per-frame (self-throttled): while a thing is under review, re-sound the ping the moment its route KIND
+// changes (path becomes straight, becomes unreachable, ...) so the player hears the change without pressing ;.
+// Only the kind triggers it; pan/volume move every frame and are left to the manual ping.
+void reping_tick();
 
 // ---- conversations (structured, from hooks on Conversation::GetText / GetSteps) ----
 // The UI asks the conversation for each step's text as it draws the dialog; we keep what it asked for

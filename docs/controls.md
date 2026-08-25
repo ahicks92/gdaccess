@@ -80,7 +80,7 @@ stationary attack, Ctrl pet targeting) and typing into the game's chat field.
 | I | Right mouse button, same rules (the right-slot skill; hold to hold) |
 | U | The game's own Interact: uses the nearest usable object (door, chest, shrine ...) or NPC within 10 units of the character, no aiming, walks there if needed |
 | (camera) | Locked by the mod: zoom at the far end of its range, north up (yaw 0); the game's wheel/rotate inputs are re-pinned every frame. Zoom was found not to change what you hear (2026-08-22) |
-| ; (semicolon) | Ping the reviewed thing again: one of three sounds for the route from you to it (straight walk / path around / unreachable), panned toward it, fading with distance; also played on every landing |
+| ; (semicolon) | Ping the reviewed thing again: one of three sounds for the route from you to it (straight walk / path around / unreachable), panned toward it, fading with distance; also played on every landing, and re-sounded automatically whenever the route kind changes while a thing is under review (walk into line of it, an obstacle clears, it goes unreachable) -- no key needed |
 | K, Ctrl+Shift+P | Where am I (position, life, region) |
 | H | Health and energy in full ("health 250 of 250, energy 100 of 120") through the screen reader |
 | (automatic) | Hits you or your pets land: the number the game draws over the enemy ("17", "45 crit", "Miss", "Dodge", "Block"), spoken by Mark panned to where it happened, as many at once as there are hits. Needs the game's "Display damage numbers" option (`displayDamage`, default on). Health: "health N percent" in Zira each time it crosses a 10 % step, down or up |
