@@ -248,8 +248,11 @@ def terrain_facts(region_key: str, room: dict, grid) -> dict:
     bx0, bz0, bx1, bz1 = json.loads(room["bbox"])
     out = {}
     for lvl in chunks:
-        name = lvl.rsplit("/", 1)[-1].replace("\\", "/").removeprefix("Region").removesuffix(".lvl")
-        r = wm.by_name[name]
+        # normalize backslashes BEFORE splitting (Windows .lvl paths use '\'); skip a chunk not in the map
+        name = lvl.replace("\\", "/").rsplit("/", 1)[-1].removeprefix("Region").removesuffix(".lvl")
+        r = wm.by_name.get(name)
+        if r is None:
+            continue
         ox, oz = r.world_offset[0], r.world_offset[2]
         if bx1 < ox or bx0 > ox + 128 or bz1 < oz or bz0 > oz + 128:
             continue
