@@ -9,6 +9,17 @@ Status: pre-release. It is playable through character creation, the first quests
 and it is developed and tested against one exact game build. There is no installer yet; this README covers
 building it from the repo and running it the way the author does. Everything here is Windows-only.
 
+## Disclaimer
+
+This is a hobby project, done well before AI can really do it indefinitely, and it is a mod of a closed-source
+C++ game. Whether it runs on other machines is an open question, let alone whether it runs without crashing.
+Any game update could break it forever. It is a low priority for me, so bugs are not going to get fixed
+promptly; you will have to wait until whenever I have time. Whether this can ever be properly released is
+itself an open question, and you may wake up one day to find I have redone how everything works.
+
+In other words, do not think of this as a Factorio Access. I am not treating it like that. You get what you
+get; hopefully you have fun, but it might also explode on you in ways no one can fix.
+
 ## What you need
 
 - Grim Dawn **v1.3.0.8, 64-bit, Steam build**, at its default install path
@@ -20,153 +31,192 @@ building it from the repo and running it the way the author does. Everything her
 - The Windows OneCore voices "Mark" and "Zira" (Settings -> Time & Language -> Speech -> Manage voices,
   English (United States)). These carry the in-world speech: Mark speaks at the enemy's position, Zira is the
   player and the room announcer. If they are missing the default OneCore voice is used for both.
+- Visual Studio 2022 to build it (see Building, at the end).
 
-### Build tools
+## Setup
 
-- Visual Studio 2022 Community with the "Desktop development with C++" workload (MSVC 14.44 is what the
-  author uses; the game's ABI is MSVC, so no other compiler will do). CMake and Ninja are installed by that
-  workload and `tools/vsdev.cmd` finds them at the Community edition's default path. Another edition or
-  path: edit the two paths in `tools/vsdev.cmd`.
-- [uv](https://docs.astral.sh/uv/) for the Python tooling (`uv run` installs Python 3.12+ and the
-  dependencies from `pyproject.toml` on first use). Only needed for the dev-loop client and the offline tools,
-  not for building or playing.
+I do not know whether this works with the DLC. The DLC may well break everything, it is expensive, and there
+is a lot of game before you would benefit from it. We will find out eventually.
 
-No other downloads: the prism speech SDK (the x64 headers, import library and `prism.dll` of release
-v0.18.1), Detours, miniaudio, SQLite, doctest, the room database and the audio assets are all in the repo.
+Do not launch the game directly (from Steam or the exe). If you do, you will need to restart your screen
+reader: the game uses very old APIs in very odd ways, the net effect of which is to break the JAWS / NVDA key.
+The mod fixes this, but only when it is injected at launch as described below.
 
-## Building
+On first launch, set Options -> Controls -> Movement Type to **Keyboard**. This is the game's own WASD mode
+and the mod's movement design assumes it. Keep the default key bindings (the mod's key scheme is built on
+them) and leave "Display Damage" on (combat speech reads the floating numbers).
 
-From the repo root, in any shell:
+## Launching
 
-```
-tools\build.cmd
-```
-
-The first run configures a Ninja RelWithDebInfo build in `build\ninja\`; later runs just build. Output:
-
-- `build\ninja\gdaccess.dll` -- the mod
-- `build\ninja\gdinject.exe` -- the injector
-- `build\ninja\prism.dll` and `build\ninja\assets\` -- copied next to the DLL at build time; the DLL loads
-  them from its own directory, so keep the folder together.
-- `build\ninja\gdcore_tests.exe` -- unit tests for the engine-free core; run with
-  `cmake --build build/ninja --target check` (inside `tools\vsdev.cmd`, or any VS developer prompt).
-
-Note that on success MSVC and Ninja print very little; check the exit code.
-
-## Running
-
-### One-time game setting
-
-In the game: Options -> Controls -> Movement Type = **Keyboard** (`movementType = 1` in
-`%USERPROFILE%\Documents\My Games\Grim Dawn\Settings\options.txt`). This is the game's own WASD mode and
-the mod's movement design assumes it. Keep the default key bindings (the mod's chords are built on the
-defaults) and leave "Display Damage" on (combat speech reads the floating numbers).
-
-### Playing
-
-With the game NOT running:
+Set up to build (see Building, at the end). Then, with the game NOT running:
 
 ```
 powershell -File tools\inject.ps1 -Launch -Speak
 ```
 
-This builds, starts the game with the DLL injected before it initializes, and waits for the mod to come up
-(it prints a health line). The window comes up unfocused -- alt-tab to it. `-NoBuild` skips the build,
-`-GameExe <path>` points at a non-default install. Two things it does to your settings: it sets
+This builds the mod if needed, starts the game with the DLL injected before it initializes, and waits for the
+mod to come up (it prints a health line). The window comes up unfocused -- alt-tab to it. `-NoBuild` skips
+the build, `-GameExe <path>` points at a non-default install. Two things it does to your settings: it sets
 `inactiveUpdateRate` to 30 in options.txt if it is 0 (so the engine keeps running while the window is not in
-front), and the injected DLL keeps the game from grabbing the foreground on its own (`GDACCESS_NOFOCUS`), so
-the game never steals focus from your screen reader.
+front), and the injected DLL keeps the game from grabbing the foreground on its own, so the game never steals
+focus from your screen reader. Both are development conveniences and will go away if this ever gets a proper
+release.
 
 Log: `%LOCALAPPDATA%\gdaccess\gdaccess.log`, truncated on each load; every spoken line appears as `[speak]`.
 
+## Getting Started
+
+The control scheme is a hybrid of a standard ARPG's and a few others. The game here is that you run around
+and hit stuff. The mod mainly does a few things for you:
+
+- Emulates mouse clicks on enemies, loot and so on.
+- Makes the menus speak.
+- Adds sonar and wall tones (not really optional).
+- Tags the level data with GPS-like information that is announced as you run around (currently through
+  act 1, and nowhere near fully hand-checked).
+
+The basic flow: `.` cycles through enemies, `Alt+.` jumps to the closest one, and holding `J` attacks (`J`
+and `Enter` are left clicks, `I` is a right click; in menus `Backspace` is the right-click equivalent). To explore, `V` cycles through the exits of the current
+room. The game's "rooms" are more like map patches, each a few seconds to cross; a room does not imply
+walls.
+
+The sound scheme is Wrath of the Righteous's for now; a sound glossary will come eventually.
+
+The mod is quite playable but buggy around the edges. In particular it is not good at range or line of
+sight: if you cannot click something the mod tells you, but it can, for example, fire a spell at something
+still out of range. This is probably infeasible to fix, but it has not been much of a problem in practice;
+walk closer.
+
+Combat events are spoken by Mark and Zira. Mark is things happening to enemies; Zira is things happening to
+you.
+
+The game assumes you already know what you are getting into, so a few things are worth knowing:
+
+- `Ctrl+L` opens a rift. `N` to target it, `J` to interact, and you can return to town temporarily.
+- Saving is automatic, but restarting the game reloads you at the last major riftgate and drops any rifts
+  you opened -- so no returning to town, closing the game and coming back.
+- To choose a class, reach level 2, press `Ctrl+N`, pick a mastery, Tab over, and select the mastery to
+  spend a skill point on it. Every other build choice can be undone except this first mastery point:
+  classes are permanent, skills are not. You get a second class at level 10 if you want one.
+- Levelling up is not announced because it is already obvious: the big loud clonky scare chord.
+- Health and energy potions are `R` and `E`. They are not items in your inventory; they are modelled as
+  skills every character has, with a cooldown, so you never run out.
+- `Space` reads tooltips in menus and evades in the world. You will not really need evade for a long time,
+  if ever, but to dodge:
+  - Space while holding WASD dodges in that direction.
+  - Space while targeting something, but not holding WASD, dodges toward it.
+  - Space while not targeting anything and not holding WASD dodges toward wherever the mod last hovered
+    your cursor.
+
 ## Controls
 
-The control scheme is a hybrid: in menus and windows the mod owns the keyboard entirely and presents each
-screen as a list; in the world the frequent game keys go straight to the game, every other game function is
-moved to **Ctrl + its default key**, and the freed plain keys are the mod's. The game's own key bindings must
-stay at their defaults (the mod's chords are built on them). `docs/controls.md` has the full detail and the
-game's default map.
+The scheme is not vanilla Grim Dawn: menus and windows are presented as lists, and in the world the keys are
+arranged around a review cursor. The game's own bindings must stay at their defaults.
 
 ### Menus and windows
 
-- Up / Down: previous / next item. Home / End: first / last. Shift+Up / Shift+Down: previous / next group.
-- Left / Right: adjust (sliders, drop-downs) or move along a tab row / expand a tree group.
-- Tab / Shift+Tab: next / previous panel (e.g. the tab row and the column of a window). Ctrl+Tab /
-  Ctrl+Shift+Tab: switch tabs from anywhere.
-- Enter: activate. Backspace: secondary action (unequip an item, reclaim a skill point at a spirit guide).
-- Space or F1: the game's tooltip for the item; Shift+Space: the detailed one.
-- Escape: back / close.
-- Type-ahead: letters jump to matching items where a screen allows it.
-- Main menu: three Tab stops -- the general buttons, the character list (when there is more than one
-  character; Enter selects), then Start / difficulty / game mode / Delete.
-- In-world windows: Ctrl+C or Ctrl+I inventory (Equipment, one tab per bag, Stats), Ctrl+N skills, Ctrl+Q
-  codex (quests, completed, lore), Ctrl+J factions, Ctrl+M map (a flat nearest-first list of the map's
-  markers; Enter picks one to follow), Ctrl+L personal riftgate. NPC windows (vendor, stash, quest reward,
-  shrine, riftgate travel, conversations) open when the NPC opens them. Inside inventory / skills: Ctrl+1..0
-  put the focused skill (or a weapon slot's basic attack) on quickbar slot 1..10, Ctrl+J / Ctrl+I on the
-  left / right mouse button.
+| Key | Description |
+|---|---|
+| Up / Down | Previous / next item |
+| Home / End | First / last item |
+| Shift+Up / Shift+Down | Previous / next group |
+| Left / Right | Adjust a slider or drop-down; move along a tab row; expand or collapse a tree group |
+| Tab / Shift+Tab | Next / previous panel (for example a window's tab row and its column) |
+| Ctrl+Tab / Ctrl+Shift+Tab | Switch tabs from anywhere in a window |
+| Enter | Activate |
+| Backspace | Secondary action: unequip an item; reclaim a skill point at a spirit guide |
+| Space or F1 | The game's tooltip for the item; Shift+Space the detailed one |
+| Escape | Back / close |
+| Letters | Type-ahead to a matching item, where the screen allows it |
 
-### In the world -- passed straight to the game
+The main menu has three Tab stops: the general buttons; the character list (only when there is more than one
+character; Enter selects); then Start / difficulty / game mode / Delete.
 
-W A S D move; 1..9 0 quickbar slots; Y quickbar switch (the mod announces the new bar); Space evade;
-E energy potion; R health potion; U interact (the game's own: nearest usable thing within 10 units);
-Escape game menu; Alt (held) show items; F2..F7 pets.
+### Moving and interacting
 
-### In the world -- the mod's keys
+| Key | Description |
+|---|---|
+| W A S D | Move |
+| Space | Evade (in the movement direction while moving, toward the reviewed target when standing) |
+| J or Enter | Left mouse button at the reviewed thing: attack / talk / open / move, whatever a click does. Hold to hold (sustained attack). On a reviewed ground item, the game's walk-and-pick-up instead. "Too far away" when the camera does not show the thing |
+| I | Right mouse button at the reviewed thing (the right-hand skill), same rules |
+| U | Interact with the nearest usable thing within 10 units (door, chest, shrine, NPC), no aiming |
+| G | Pick up the nearest item on the ground |
+| E / R | Energy / health potion |
+| F | Swap weapon set (announces "weapon set N" and the two hands) |
+| Escape | Game menu |
 
-Review cursor (each landing says "name, distance, clock bearing, i of n", parks the game's cursor on the
-thing so the game itself hovers and targets it, and plays a route ping):
+The camera is fixed by the mod (far zoom, north up); there are no camera keys.
 
-- . / Shift+. -- next / previous enemy, nearest first ("name level N", plus champion / hero / boss when it is one).
-- , / Shift+, -- next / previous among only the highest-rarity enemies nearby (find the boss).
-- N / Shift+N -- next / previous person or object (NPCs you can talk to; rifts, shrines, doors, levers).
-- B / Shift+B -- next / previous bystander (NPCs without a conversation).
-- M / Shift+M -- next / previous loot (items on the ground, containers).
-- V / Shift+V -- next / previous exit of the current room ("blocked" if the way is shut).
-- Alt + . , N B M V -- the NEAREST of that group, whatever is reviewed now.
-- ; -- ping the reviewed thing again (three sounds: straight walk / path around / unreachable, panned, fading
-  with distance; also replayed automatically when the route kind changes).
-- / -- inspect the target: health percent and status effects.
+### Finding things: the review cursor
 
-Acting on it:
+Each landing says "name, distance, clock bearing, i of n", parks the game's cursor on the thing so the game
+itself hovers and targets it, and plays a route ping. Shift reverses; Alt jumps to the nearest of the group.
 
-- J or Enter -- left mouse button at the reviewed thing (attack / talk / open / move, whatever a click does);
-  hold to hold. On a reviewed ground item it is the game's walk-and-pick-up command instead. "Too far away"
-  when the camera does not show the thing.
-- I -- right mouse button, same rules.
-- G -- pick up the nearest item on the ground (the game's own Pickup).
-- F -- swap weapon set (announces "weapon set N" and the two hands).
-- ' -- follow the marker picked in the map (Ctrl+M): route ping plus "name, distance, bearing".
+| Key | Description |
+|---|---|
+| . / Shift+. | Next / previous enemy, nearest first ("name level N", plus champion / hero / boss when it is one) |
+| , / Shift+, | Next / previous among only the highest-rarity enemies nearby (find the boss) |
+| N / Shift+N | Next / previous person or object: NPCs you can talk to; rifts, shrines, doors, levers |
+| B / Shift+B | Next / previous bystander (NPCs without a conversation) |
+| M / Shift+M | Next / previous loot: items on the ground, containers |
+| V / Shift+V | Next / previous exit of the current room ("blocked" if the way is shut) |
+| Alt + . , N B M V | The nearest of that group, whatever is reviewed now |
+| ; | Ping the reviewed thing again: one of three sounds (straight walk / path around / unreachable), panned, fading with distance. Also replayed automatically when the route kind changes |
+| / | Inspect the target: health percent and status effects |
+| \ | Sonar on / off: every nearby enemy, loot drop and dungeon entrance repeats its own ping, faster as it nears and panned to its side |
+| Ctrl+M | The map as a flat nearest-first list of its markers (merchants, riftgate, spirit guide, quest markers); Enter picks one to follow |
+| ' | Follow the picked map marker: route ping plus "name, distance, bearing" |
 
-Information (through the screen reader unless noted):
+### Information
 
-- K or Ctrl+Shift+P -- where am I. H -- health and energy in full. Q -- objectives of the tracked quests.
-- X -- the current room: title and description. T -- note this place to `untagged_rooms.txt` (authoring aid).
-- Ctrl+1..0 -- read quickbar slot 1..10 of the displayed bar (skill and how it aims). Ctrl+- / Ctrl+= -- the
-  left / right mouse skill.
-- Ctrl+` -- the hotbar manager: both bars and the mouse buttons of the current weapon set; activate a slot
-  to pick a learned skill (or clear / default).
-- \ -- sonar on / off: every nearby enemy, loot drop and dungeon entrance repeats its own ping, faster as it
-  nears and panned to its side.
-- Automatic (positional voices): damage numbers, misses, dodges and blocks from where they happen; your
-  health every 10 %; debuffs put on you; kills and experience; place changes ("Devil's Crossing, the
-  prison, cell block corridor"). The game's banners and "skill not ready" popups are read once each.
+| Key | Description |
+|---|---|
+| K or Ctrl+Shift+P | Where am I: position, life, region |
+| H | Health and energy in full |
+| X | The current room: title and description |
+| Q | Objectives of the tracked quests |
+| T | Note this place to `untagged_rooms.txt` (authoring aid) |
 
-The camera is locked by the mod (far zoom, north up), so the game's camera keys do nothing.
+Spoken automatically, by position: damage numbers, misses, dodges and blocks from where they happen; your
+health at every 10 % step; debuffs put on you; kills and experience; place changes ("Devil's Crossing, the
+prison, cell block corridor"). The game's banners (level up, quest updated) and its "skill not ready" style
+popups are read once each.
 
-### In the world -- the game's remaining functions, on Ctrl
+### Skills and the quickbar
 
-Ctrl+C / Ctrl+I character, Ctrl+N skills, Ctrl+Q codex, Ctrl+M map, Ctrl+O loot filter, Ctrl+K group,
-Ctrl+G game menu, Ctrl+H help, Ctrl+J factions, Ctrl+V achievements, Ctrl+L personal riftgate, Ctrl+B drop
-item, Ctrl+X item tooltips, Ctrl+Z show items, Ctrl+P pause, Ctrl+Backspace pet display, Ctrl+\ party
-display, Ctrl+] toggle UI, Ctrl+Enter chat, Ctrl+, / Ctrl+. camera rotate (inert while the camera is
-locked).
+| Key | Description |
+|---|---|
+| 1..9, 0 | Quickbar slots |
+| Y | Switch quickbar (announces "quickbar N") |
+| Ctrl+1..0 | Read quickbar slot 1..10 of the displayed bar: the skill and how it aims ("Cadence, at a target", "War Cry, around you", "Overguard, self") |
+| Ctrl+- / Ctrl+= | Read the left / right mouse skill |
+| Ctrl+` | Hotbar manager: both bars and the mouse buttons of the current weapon set; activate a slot to pick a learned skill, or clear / default |
+| Alt (held) | Show item labels |
+| F2..F7 | Pet commands |
+
+### Windows
+
+| Key | Description |
+|---|---|
+| Ctrl+C or Ctrl+I | Inventory: Equipment, one tab per bag, Stats. On an equipment slot Enter opens a picker of everything that fits, Backspace unequips. In a bag Enter is the game's right-click (equip / drink / read); on a component it opens a picker of the items it can be attached to. In Stats, Enter on Physique / Cunning / Spirit spends a point |
+| Ctrl+N | Skills: masteries, then each mastery's tree; Enter spends a point (refuses with the reason if the game would). Refunding only at a spirit guide (Backspace) |
+| Ctrl+Q | Codex: quests (Enter toggles tracking; expand for tasks, objectives, rewards), completed quests, lore |
+| Ctrl+J | Factions |
+| Ctrl+L | Personal riftgate |
+| Ctrl+1..0, Ctrl+J, Ctrl+I | Inside inventory / skills: put the focused skill (or, on a weapon slot, the weapon's basic attack) on quickbar slot 1..10 / the left mouse / the right mouse |
+| Ctrl+O, Ctrl+K, Ctrl+G, Ctrl+H, Ctrl+V, Ctrl+B, Ctrl+X, Ctrl+Z, Ctrl+P, Ctrl+], Ctrl+\, Ctrl+Enter, Ctrl+Backspace | The game's own loot filter, group, game menu, help, achievements, drop item, item tooltips, show items, pause, toggle UI, party display, chat, pet display |
+
+NPC windows (vendor, stash, quest reward, shrine, riftgate travel, conversations) open when the NPC opens them
+and follow the menu keys above.
 
 ## The dev loop (how the author iterates)
 
 For development the game runs **visible but never focused, with game audio and speech muted**, and it is
 driven over a local HTTP dev server inside the DLL (port 8791, `GDACCESS_PORT` to change) -- so iterating on
-the mod never fights the developer's screen reader. Requires the game NOT to be running already:
+the mod never fights the developer's screen reader. Requires the game NOT to be running already, and
+[uv](https://docs.astral.sh/uv/) for the Python tooling (`uv run` installs Python 3.12+ and the dependencies
+from `pyproject.toml` on first use):
 
 ```
 uv run tools/gd.py launch            # build, launch unfocused + muted with the DLL injected before init, wait for /health
@@ -178,34 +228,42 @@ uv run tools/gd.py log --since 0
 uv run tools/gd.py kill
 ```
 
-`launch` is `powershell -File tools\inject.ps1 -Launch`, which also patches `inactiveUpdateRate` to 30 in
-options.txt (the engine stops ticking while unfocused at 0 -- harmless for normal play). Do not restore or
-click the game window during a dev session: it activates itself and takes the keyboard. `gd.py` without
-arguments lists every command; the dev routes themselves (`/text`, `/ui`, `/entities`, `/room`, `/hotbar`,
-...) are documented in `CLAUDE.md` alongside the implementation notes. `tools/stacks.py` dumps native stacks
-of a crashed instance; `tools/gen_exports.py` + `tools/gen_names.py` regenerate the export tables and
-`src/gd_names.h` after a game patch.
+Do not restore or click the game window during a dev session: it activates itself and takes the keyboard.
+`gd.py` without arguments lists every command; the dev routes, the hot-reload loop and the implementation
+notes are in `CLAUDE.md`.
 
 Environment variables read by the DLL: `GDACCESS_PORT` (dev server port), `GDACCESS_MUTE=1` (mute game audio
 and speech), `GDACCESS_NOFOCUS=1` (block the game's own focus grabs, dev only), `GDACCESS_HOOK_WIDGETS=1`
 (experimental, crashes the game -- leave unset).
 
-## Repository map
+## Building
 
-- `src/` -- the DLL. `src/core/` is engine-free and unit-tested (`tests/`); `src/screens/` is one class per
-  game screen; `src/exe_ui.cpp` reads the exe's private widget frameworks; `src/gameapi*.cpp` wraps Game.dll
-  exports; `src/inject/` is the injector.
-- `assets/` -- audio loops/pings and `rooms.db` (the authored room map, generated offline by `tools/rooms.py`).
-- `docs/` -- design notes and reverse-engineering references (`controls.md` is the player-facing one;
-  `rooms.md`, `exe-ui-layout.md`, `skills-targeting.md`, `lua.md` are the engineering ones).
-- `tools/` -- build scripts, injector driver, the dev-loop client, offline readers for the game's archives
-  and database (`arz.py`, `arc_unpack.py`, `gdmap/`), disassembly helpers (`dll_dis.py`, `exe_dis.py`) and
-  the room-authoring pipeline.
-- `third_party/` -- vendored dependencies and their provenance (`third_party/README.md`).
-- `CLAUDE.md` -- the running engineering log: game facts, measured layouts, what is verified and what is not.
+- Visual Studio 2022 Community with the "Desktop development with C++" workload (MSVC 14.44 is what the
+  author uses; the game's ABI is MSVC, so no other compiler will do). CMake and Ninja are installed by that
+  workload and `tools/vsdev.cmd` finds them at the Community edition's default path. Another edition or
+  path: edit the two paths in `tools/vsdev.cmd`.
+- No other downloads: the prism speech SDK (the x64 headers, import library and `prism.dll` of release
+  v0.18.1), Detours, miniaudio, SQLite, doctest, the room database and the audio assets are all in the repo.
 
-## License and provenance
+From the repo root, in any shell:
 
-The mod's own code is by Austin Hicks, under the zlib license (`LICENSE`). Third-party components and their licenses are listed in
-`third_party/README.md`. `tools/exports/` holds the game's DLL export tables (symbol names only), generated
-from the installed game.
+```
+tools\build.cmd
+```
+
+The first run configures a Ninja RelWithDebInfo build in `build\ninja\`; later runs just build. Output:
+
+- `build\ninja\gdaccess.dll` -- the mod
+- `build\ninja\gdinject.exe` -- the injector
+- `build\ninja\prism.dll` (the screen-reader speech library) and `build\ninja\assets\` -- copied next to
+  the DLL at build time; the DLL loads them from its own directory, so keep the folder together.
+- `build\ninja\gdcore_tests.exe` -- unit tests for the engine-free core; run with
+  `cmake --build build/ninja --target check` (inside `tools\vsdev.cmd`, or any VS developer prompt).
+
+On success MSVC and Ninja print very little; check the exit code.
+
+## License
+
+The mod's own code is by Austin Hicks, under the zlib license (`LICENSE`). Third-party components and their
+licenses are listed in `third_party/README.md`. `tools/exports/` holds the game's DLL export tables (symbol
+names only), generated from the installed game.
