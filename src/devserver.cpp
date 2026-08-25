@@ -206,6 +206,7 @@ static std::string handle(const std::string& path, const std::map<std::string, s
         } else { status = 400; return "trim=off | trim=default | trim=<1|2>,<n|e|s|w>,<dB>\n"; }
       }
     }
+    if (q.count("time")) return screens::walltones::probe_timing(parse_int(q.at("time"), 500));  // dev: time the tick's probing
     return screens::walltones::status();
   }
   if (path == "/jkey") { world::mouse_key(1, q.count("down") ? parse_int(q.at("down"), 1) != 0 : true); return "ok\n"; }   // dev: J (left button at the reviewed thing) down/up without the game seeing a J key

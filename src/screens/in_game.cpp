@@ -112,6 +112,33 @@ static void tick() {
     audio::set_loop_volume(kObstacleToneId + i, obstacle ? vol : 0.0f);
   }
 }
+std::string probe_timing(int iters) {   // dev: time the navmesh probing part of one tick (no audio writes)
+  if (iters < 1) iters = 1;
+  if (!world::in_world()) return "not in world\n";
+  float yaw = world::camera_yaw();
+  float fx, fz, rx, rz; forward_vec(yaw, fx, fz); right_vec(yaw, rx, rz);
+  const float dirs[4][2] = {{fx, fz}, {rx, rz}, {-fx, -fz}, {-rx, -rz}};
+  world::Vec3 me; world::player_position(me);
+  int probes = 0;   // count on_navmesh calls this pass (free_distance stops at the first block, so it varies)
+  LARGE_INTEGER freq, t0, t1;
+  QueryPerformanceFrequency(&freq);
+  QueryPerformanceCounter(&t0);
+  for (int n = 0; n < iters; ++n) {
+    for (int i = 0; i < 4; ++i) {
+      float d = world::free_distance(dirs[i][0], dirs[i][1], g_range, kStep);
+      if (n == 0) probes += (d >= g_range ? (int)(g_range / kStep) : (int)(d / kStep) + 1);
+      if (d < g_range) {
+        world::Vec3 stop{me.x + dirs[i][0] * (d + kStep * 0.5f), me.y, me.z + dirs[i][1] * (d + kStep * 0.5f)};
+        world::classify_block(stop, dirs[i][0], dirs[i][1]);
+        if (n == 0) probes += 2;
+      }
+    }
+  }
+  QueryPerformanceCounter(&t1);
+  double us = (double)(t1.QuadPart - t0.QuadPart) * 1e6 / (double)freq.QuadPart / iters;
+  return std::format("range={:.1f} step={:.2f} on_navmesh_calls~{} iters={} avg={:.1f} us/tick ({:.3f} ms)\n",
+                     g_range, kStep, probes, iters, us, us / 1000.0);
+}
 std::string status() {
   return std::format("enabled={} range={:.2f} vol={:.2f} forward={:.1f} right={:.1f} back={:.1f} left={:.1f}\n"
                      "trim dB (north east south west): walls {:+.1f} {:+.1f} {:+.1f} {:+.1f}; obstacles {:+.1f} {:+.1f} {:+.1f} {:+.1f}\n",

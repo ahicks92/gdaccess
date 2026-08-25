@@ -16,5 +16,6 @@ void set_range(float units);  // wotr default 15 ft = 4.57 units
 void set_gain(float gain);    // 0..1
 void set_trim(int bank, int dir, float db);   // loudness trims: bank 1|2 + dir 0..3 (north east south west) in dB; bank 0 = all off, -1 = defaults
 std::string status();
+std::string probe_timing(int iters);  // dev: time one tick's navmesh probing (4 free_distance rays + classify)
 }  // namespace walltones
 }  // namespace gd::screens
