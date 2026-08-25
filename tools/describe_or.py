@@ -56,8 +56,27 @@ def data_url(path):
         return "data:image/png;base64," + base64.b64encode(f.read()).decode()
 
 
+class CreditsExhausted(Exception):
+    """OpenRouter is out of credit -- stop the whole run (the user must add credit; no workarounds)."""
+
+
+class SafetyBlocked(Exception):
+    """The model's safety filter refused (Gemini false-flags innocuous scenery). Record + skip the room."""
+
+
+def _is_credits(code, msg):
+    m = msg.lower()
+    return code == 402 or "insufficient" in m or "requires more credit" in m or ("credit" in m and "add" in m)
+
+
+def _is_safety(code, msg):
+    m = msg.lower()
+    return any(w in m for w in ("safety", "blocklist", "prohibited", "csam", "content_filter", "content policy", "blocked"))
+
+
 def or_chat(model, messages, schema=None, max_tokens=800, retries=5):
-    """One chat completion. Returns (content_str, usage_dict). Retries on 429/5xx with backoff."""
+    """One chat completion. Returns (content_str, usage_dict). Retries 429/5xx with backoff. Raises
+    CreditsExhausted on a 402/credit error (stop the run) and SafetyBlocked on a content-filter refusal (skip)."""
     body = {"model": model, "messages": messages, "max_tokens": max_tokens, "temperature": 0.4}
     if schema:
         body["response_format"] = {"type": "json_schema", "json_schema": {"name": "out", "strict": True, "schema": schema}}
@@ -69,14 +88,24 @@ def or_chat(model, messages, schema=None, max_tokens=800, retries=5):
         try:
             with urllib.request.urlopen(req, timeout=120) as r:
                 o = json.load(r)
+            if isinstance(o.get("error"), dict):   # OpenRouter can return 200 with an error body
+                em = str(o["error"].get("message", "")); ec = o["error"].get("code", 0)
+                if _is_credits(ec, em): raise CreditsExhausted(em)
+                if _is_safety(ec, em): raise SafetyBlocked(em)
+                raise RuntimeError(f"OpenRouter error: {em[:200]}")
             u = o.get("usage", {}) or {}
             with _cost_lock:
                 _cost["in"] += u.get("prompt_tokens", 0); _cost["out"] += u.get("completion_tokens", 0); _cost["calls"] += 1
-            return o["choices"][0]["message"]["content"], u
+            ch = (o.get("choices") or [{}])[0]
+            fr = ch.get("finish_reason") or ch.get("native_finish_reason")
+            if fr in ("content_filter", "safety") or _is_safety(0, str(o.get("prompt_feedback", ""))):
+                raise SafetyBlocked(f"finish_reason={fr}")
+            return (ch.get("message", {}) or {}).get("content"), u
         except urllib.error.HTTPError as e:
-            code = e.code; msg = e.read().decode(errors="replace")[:200]
+            code = e.code; msg = e.read().decode(errors="replace")[:300]
+            if _is_credits(code, msg): raise CreditsExhausted(msg)
+            if _is_safety(code, msg): raise SafetyBlocked(msg)
             if code in (429, 500, 502, 503, 529) and attempt < retries - 1:
-                # honour Retry-After on a rate limit, else exponential backoff; jitter so 8 workers don't retry in lockstep
                 ra = e.headers.get("Retry-After") if e.headers else None
                 wait = float(ra) if (ra and ra.isdigit()) else 2 ** attempt
                 time.sleep(wait + random.uniform(0, 1.5)); continue
@@ -88,6 +117,17 @@ def or_chat(model, messages, schema=None, max_tokens=800, retries=5):
                 time.sleep(2 ** attempt); continue
             raise RuntimeError(f"network: {e}")
     raise RuntimeError("exhausted retries")
+
+
+def credits_remaining():
+    """(remaining, total) OpenRouter credit in $, or (None, None) if the endpoint is unavailable."""
+    try:
+        req = urllib.request.Request("https://openrouter.ai/api/v1/credits", headers={"Authorization": f"Bearer {KEY}"})
+        d = json.load(urllib.request.urlopen(req, timeout=30)).get("data", {})
+        tot = float(d.get("total_credits", 0)); used = float(d.get("total_usage", 0))
+        return tot - used, tot
+    except Exception:   # noqa: BLE001
+        return None, None
 
 
 def parse_json(content):
@@ -135,6 +175,14 @@ def describe_room(key, model):
             if not out or not out.strip():
                 problem = "empty response"; continue          # retry: some responses come back with null content
             d = parse_json(out)
+        except CreditsExhausted:
+            raise                                              # stop the whole run -- never worked around
+        except SafetyBlocked as e:
+            db.c.execute("UPDATE rooms SET status='blocked' WHERE key=?", (key,)); db.c.commit()
+            with _cost_lock:
+                with open(os.path.join(ROOT, "build", "rooms", "safety_skips.txt"), "a", encoding="utf-8") as fh:
+                    fh.write(f"{key}\t{e}\n")
+            return {"key": key, "passed": False, "blocked": True, "problem": f"safety: {e}", "attempts": attempt + 1}
         except Exception as e:                                    # noqa: BLE001
             problem = f"call/parse: {e}"; continue              # retry (a truncated/garbled JSON often succeeds next try)
         title, body = str(d.get("title") or "").strip(), str(d.get("body") or "").strip()
@@ -157,32 +205,48 @@ def cmd_room(a):
 
 def cmd_describe(a):
     db = RoomsDb(DB)
-    # Default: every room that is not yet verified (shot OR a described-but-failed leftover), so a re-run after a
-    # crash or rate-limit failure retries the stragglers instead of skipping them. --status pins one exact status.
+    # Default: every room not verified AND not blocked (a shot room, or a described-but-failed leftover), so a
+    # re-run retries stragglers but never re-hits a safety-blocked room. --status pins one exact status.
     keys = [r["key"] for r in db.rooms(a.region)
-            if (r["status"] == a.status if a.status else r["status"] != "verified")]
+            if (r["status"] == a.status if a.status else r["status"] not in ("verified", "blocked"))]
     if a.limit:
         keys = keys[:a.limit]
     if not keys:
-        print(f"nothing to describe in {a.region} ({'status=' + a.status if a.status else 'all verified'})"); return
+        print(f"nothing to describe in {a.region} ({'status=' + a.status if a.status else 'all verified/blocked'})"); return
+    rem, tot = credits_remaining()
+    if rem is not None:
+        print(f"OpenRouter credit: ${rem:.2f} remaining of ${tot:.2f}")
+        if rem <= 0.5:
+            print("STOP: OpenRouter credit exhausted (<=$0.50). Add credit and re-run; not working around it."); sys.exit(42)
     print(f"describing {len(keys)} rooms in {a.region} with {a.model}, {a.workers} workers")
-    t0 = time.time(); done = []
+    t0 = time.time(); done = []; stopped = False
     with ThreadPoolExecutor(max_workers=a.workers) as ex:
         futs = {ex.submit(describe_room, k, a.model): k for k in keys}
-        for i, fut in enumerate(as_completed(futs), 1):
-            r = fut.result(); done.append(r)
-            if i % 10 == 0 or not r["passed"]:
-                tag = "ok" if r["passed"] else f"FAIL({r.get('problem','')[:60]})"
-                print(f"  [{i}/{len(keys)}] {r['key']}: {tag}")
+        try:
+            for i, fut in enumerate(as_completed(futs), 1):
+                r = fut.result(); done.append(r)
+                if i % 10 == 0 or not r["passed"]:
+                    tag = "ok" if r["passed"] else ("BLOCKED" if r.get("blocked") else f"FAIL({r.get('problem','')[:60]})")
+                    print(f"  [{i}/{len(keys)}] {r['key']}: {tag}")
+        except CreditsExhausted as e:
+            stopped = True
+            print(f"\nSTOP: OpenRouter credit exhausted ({e}). {sum(1 for r in done if r['passed'])} done this run; "
+                  f"the rest stay resumable. Add credit and re-run; not working around it.")
+            for f in futs: f.cancel()
     passed = sum(1 for r in done if r["passed"])
     price = MODEL_PRICES.get(a.model, (0, 0))
     dollars = (_cost["in"] * price[0] + _cost["out"] * price[1]) / 1e6
     print(f"\n{passed}/{len(keys)} passed in {time.time()-t0:.0f}s; {len(keys)-passed} failed")
     print(f"tokens in={_cost['in']:,} out={_cost['out']:,} calls={_cost['calls']}; "
           f"~${dollars:.3f} total = ${dollars/max(len(keys),1):.5f}/room")
-    fails = [r for r in done if not r["passed"]]
+    blocked = [r for r in done if r.get("blocked")]
+    fails = [r for r in done if not r["passed"] and not r.get("blocked")]
+    if blocked:
+        print(f"safety-blocked (skipped, logged to build/rooms/safety_skips.txt): {len(blocked)}")
     if fails:
         print("failures:", [f"{r['key']}: {r.get('problem','')[:50]}" for r in fails[:10]])
+    if stopped:
+        sys.exit(42)   # credit exhaustion -> the overnight driver stops here
 
 
 SUB_SCHEMA = {"type": "object", "properties": {
@@ -210,7 +274,12 @@ def cmd_subregions(a):
               f"Exits (room_a,room_b):\n{json.dumps(exits)}\n"
               f"Return JSON: subregions=[{{key(lowercase slug),name,summary(one sentence)}}], "
               f"assignments={{room_key: subregion_key}} covering all {n} rooms.")
-    out, _ = or_chat(a.model, [{"role": "user", "content": prompt}], schema=SUB_SCHEMA, max_tokens=8000)
+    try:
+        out, _ = or_chat(a.model, [{"role": "user", "content": prompt}], schema=SUB_SCHEMA, max_tokens=8000)
+    except CreditsExhausted as e:
+        print(f"STOP: OpenRouter credit exhausted ({e})."); sys.exit(42)
+    except SafetyBlocked as e:
+        print(f"sub-regions safety-blocked ({e}); leaving unassigned (describe still works)."); return
     d = parse_json(out)
     for s in d["subregions"]:
         db.c.execute("INSERT INTO subregions(key,region_key,name,summary) VALUES(?,?,?,?) "
