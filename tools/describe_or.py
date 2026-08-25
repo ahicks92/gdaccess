@@ -16,6 +16,7 @@ import argparse
 import base64
 import json
 import os
+import random
 import sys
 import threading
 import time
@@ -75,7 +76,10 @@ def or_chat(model, messages, schema=None, max_tokens=800, retries=5):
         except urllib.error.HTTPError as e:
             code = e.code; msg = e.read().decode(errors="replace")[:200]
             if code in (429, 500, 502, 503, 529) and attempt < retries - 1:
-                time.sleep(2 ** attempt); continue
+                # honour Retry-After on a rate limit, else exponential backoff; jitter so 8 workers don't retry in lockstep
+                ra = e.headers.get("Retry-After") if e.headers else None
+                wait = float(ra) if (ra and ra.isdigit()) else 2 ** attempt
+                time.sleep(wait + random.uniform(0, 1.5)); continue
             if schema and code == 400 and attempt == 0:   # model may not support json_schema -> fall back
                 body.pop("response_format", None); data = json.dumps(body).encode(); continue
             raise RuntimeError(f"OpenRouter {code}: {msg}")
@@ -124,14 +128,16 @@ def describe_room(key, model):
         if os.path.exists(p):
             content.append({"type": "image_url", "image_url": {"url": data_url(p)}})
     messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": content}]
-    problem = ""
-    for attempt in range(3):
+    d = None; problem = ""
+    for attempt in range(4):
         try:
-            out, _ = or_chat(model, messages, schema=DESC_SCHEMA)
+            out, _ = or_chat(model, messages, schema=DESC_SCHEMA, max_tokens=2048)
+            if not out or not out.strip():
+                problem = "empty response"; continue          # retry: some responses come back with null content
             d = parse_json(out)
         except Exception as e:                                    # noqa: BLE001
-            problem = f"call/parse: {e}"; break
-        title, body = str(d.get("title", "")).strip(), str(d.get("body", "")).strip()
+            problem = f"call/parse: {e}"; continue              # retry (a truncated/garbled JSON often succeeds next try)
+        title, body = str(d.get("title") or "").strip(), str(d.get("body") or "").strip()
         save_final = author.save_description(db, key, title, body)
         problems = author.check_room(db, key)
         if not problems:
@@ -140,7 +146,7 @@ def describe_room(key, model):
         problem = "; ".join(problems)
         messages += [{"role": "assistant", "content": json.dumps({"title": title, "body": body})},
                      {"role": "user", "content": f"That failed the check: {problem}. Fix exactly those and return corrected JSON."}]
-    return {"key": key, "title": d.get("title") if "d" in dir() else None, "body": None, "passed": False, "problem": problem, "attempts": 3}
+    return {"key": key, "title": (d or {}).get("title"), "body": None, "passed": False, "problem": problem, "attempts": 4}
 
 
 def cmd_room(a):
@@ -151,11 +157,14 @@ def cmd_room(a):
 
 def cmd_describe(a):
     db = RoomsDb(DB)
-    keys = [r["key"] for r in db.rooms(a.region) if r["status"] == a.status]
+    # Default: every room that is not yet verified (shot OR a described-but-failed leftover), so a re-run after a
+    # crash or rate-limit failure retries the stragglers instead of skipping them. --status pins one exact status.
+    keys = [r["key"] for r in db.rooms(a.region)
+            if (r["status"] == a.status if a.status else r["status"] != "verified")]
     if a.limit:
         keys = keys[:a.limit]
     if not keys:
-        print(f"no '{a.status}' rooms in {a.region}"); return
+        print(f"nothing to describe in {a.region} ({'status=' + a.status if a.status else 'all verified'})"); return
     print(f"describing {len(keys)} rooms in {a.region} with {a.model}, {a.workers} workers")
     t0 = time.time(); done = []
     with ThreadPoolExecutor(max_workers=a.workers) as ex:
@@ -226,7 +235,7 @@ def main():
         s = sub.add_parser(cmd); s.add_argument("region")
         s.add_argument("--model", default="google/gemini-3.7-flash")
         if cmd == "describe":
-            s.add_argument("--status", default="shot"); s.add_argument("--limit", type=int, default=0); s.add_argument("--workers", type=int, default=8)
+            s.add_argument("--status", default=None, help="exact status to process; default = all non-verified (resumable)"); s.add_argument("--limit", type=int, default=0); s.add_argument("--workers", type=int, default=8)
         s.set_defaults(fn={"describe": cmd_describe, "subregions": cmd_subregions}[cmd])
     s = sub.add_parser("room"); s.add_argument("key"); s.add_argument("--model", default="google/gemini-3.7-flash"); s.set_defaults(fn=cmd_room)
     a = ap.parse_args()
