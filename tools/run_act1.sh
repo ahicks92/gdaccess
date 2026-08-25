@@ -8,7 +8,7 @@
 cd /d/projects/in_progress/gdaccess || exit 1
 DEV=http://127.0.0.1:8791
 WORKERS=32
-regions=$(uv run python -c "import json;print('\n'.join(json.load(open('build/rooms/worklist.json'))))")
+regions=$(uv run python -c "import json;print('\n'.join(json.load(open('build/rooms/worklist.json'))))" | tr -d '\r')   # Python stdout is CRLF on Windows; a trailing \r would break every region-key match
 
 inworld_test(){ p=$(curl -s --max-time 8 "$DEV/player"); echo "$p" | grep -q "name='test'" && ! echo "$p" | grep -q "world=0x0"; }
 # region passed as argv[1] (never interpolated into the SQL) to avoid quote clashes with `python -c "..."`
