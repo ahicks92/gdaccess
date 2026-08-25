@@ -220,6 +220,10 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     for (const char* k : {"radius", "vol", "ref", "floor", "pnear", "pfar", "dnear", "dfar", "force"}) if (q.count(k)) sonar::set_knob(k, (float)atof(q.at(k).c_str()));
     return sonar::status();
   }
+  if (path == "/pingtime") {  // dev: time the reping navmesh line probe; ?group=0..5 first lands the review cursor
+    if (q.count("group")) world::cycle_review((world::ScanGroup)parse_int(q.at("group"), 0), 0, true);
+    return world::probe_timing(q.count("n") ? parse_int(q.at("n"), 200) : 200);
+  }
   if (path == "/where") { screens::speak_where(); return "ok\n"; }
   if (path == "/blocks") return world::blocks_dump();
   if (path == "/room") {      // the rooms feature: current place + exits; ?dwell=ms ?untitled=0|1 ?say=1 (re-announce) ?reload=1

@@ -116,6 +116,8 @@ std::string ping_reviewed();
 // changes (path becomes straight, becomes unreachable, ...) so the player hears the change without pressing ;.
 // Only the kind triggers it; pan/volume move every frame and are left to the manual ping.
 void reping_tick();
+// dev: average microseconds for one reviewed_route() navmesh line probe (needs a target under review).
+std::string probe_timing(int iters);
 
 // ---- conversations (structured, from hooks on Conversation::GetText / GetSteps) ----
 // The UI asks the conversation for each step's text as it draws the dialog; we keep what it asked for

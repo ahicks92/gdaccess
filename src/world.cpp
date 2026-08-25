@@ -1527,12 +1527,28 @@ std::string ping_reviewed() {
   return kind;
 }
 
+std::string probe_timing(int iters) {   // dev: time one reviewed_route() call (the navmesh line probe)
+  if (iters < 1) iters = 1;
+  Vec3 me, target;
+  std::string kind = reviewed_route(me, target);  // warm + report the shape
+  if (kind.empty()) return "no target under review\n";
+  float dx = target.x - me.x, dz = target.z - me.z;
+  float dist = std::sqrt(dx * dx + dz * dz);
+  LARGE_INTEGER freq, t0, t1;
+  QueryPerformanceFrequency(&freq);
+  QueryPerformanceCounter(&t0);
+  for (int i = 0; i < iters; ++i) { Vec3 a, b; reviewed_route(a, b); }
+  QueryPerformanceCounter(&t1);
+  double us = (double)(t1.QuadPart - t0.QuadPart) * 1e6 / (double)freq.QuadPart / iters;
+  int steps = dist > 1.0f ? (int)((dist - 0.5f) / 0.5f) : 0;
+  return std::format("kind={} dist={:.1f} line_steps~{} iters={} avg={:.1f} us/call ({:.3f} ms)\n",
+                     kind, dist, steps, iters, us, us / 1000.0);
+}
+
 void reping_tick() {
+  // Every frame -- the probe is 36-44 us at close range, ~2.7 us per half-unit step, so ~0.25 ms even at the
+  // 40-unit scan radius (walltones already runs ~80 such probes per frame). Any throttle was audible as lag.
   if (!g_reviewed_id) { g_last_ping_kind.clear(); g_last_ping_id = 0; return; }
-  static ULONGLONG last_ms = 0;              // pay the navmesh line probe a few times a second, not every frame
-  ULONGLONG now = GetTickCount64();
-  if (now - last_ms < 150) return;
-  last_ms = now;
   Vec3 me, target;
   std::string kind = reviewed_route(me, target);
   if (kind.empty()) return;
