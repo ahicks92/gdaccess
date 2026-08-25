@@ -64,7 +64,8 @@ def rle_decode(blob: bytes, h: int, w: int) -> np.ndarray:
 class RoomsDb:
     def __init__(self, path: str = "assets/rooms.db"):
         self.path = path
-        self.c = sqlite3.connect(path)
+        self.c = sqlite3.connect(path, timeout=30.0)
+        self.c.execute("PRAGMA busy_timeout=30000")   # concurrent shots + authoring writers wait, not error
         self.c.executescript(SCHEMA)
         cols = {row[1] for row in self.c.execute("PRAGMA table_info(grids)")}
         for col in ("heights", "overlays"):   # v1 -> v2 (CREATE IF NOT EXISTS does not add columns)

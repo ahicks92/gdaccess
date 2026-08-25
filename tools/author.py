@@ -37,6 +37,8 @@ def cmd_list(db, a):
             continue
         if a.subregion and r["subregion_key"] != a.subregion:
             continue
+        if getattr(a, "keys_only", False):
+            print(r["key"]); continue
         print(f"{r['key']:32s} {r['status']:10s} {r['cls']:8s} {r['area']:6.0f} m2  sub={r['subregion_key'] or '-':18s} title={r['title'] or '-'}")
 
 
@@ -222,7 +224,7 @@ def cmd_status(db, a):
 def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
-    s = sub.add_parser("list"); s.add_argument("region"); s.add_argument("--status"); s.add_argument("--subregion"); s.set_defaults(fn=cmd_list)
+    s = sub.add_parser("list"); s.add_argument("region"); s.add_argument("--status"); s.add_argument("--subregion"); s.add_argument("--keys-only", action="store_true"); s.set_defaults(fn=cmd_list)
     s = sub.add_parser("facts"); s.add_argument("key"); s.set_defaults(fn=cmd_facts)
     s = sub.add_parser("export"); s.add_argument("region"); s.set_defaults(fn=cmd_export)
     s = sub.add_parser("subregion"); s.add_argument("region"); s.add_argument("key"); s.add_argument("--name", required=True); s.add_argument("--summary"); s.set_defaults(fn=cmd_subregion)

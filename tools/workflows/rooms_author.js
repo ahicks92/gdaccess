@@ -154,9 +154,23 @@ and fix until it prints ok. Return subregion, the list of rooms you rewrote (key
   if (!rooms.length) return { rewritten: changed, notes: cons.filter(Boolean).map(c => `${c.subregion}: ${c.notes || ''}`) }
 }
 
+// Auto-list the region's shot rooms when no explicit `rooms` were passed (so a whole region is just
+// {region, subregions:true}). Self-healing: any keys the lister misses stay status 'shot' and are picked up
+// on a re-run. --keys-only prints one key per line for a clean parse.
+let roomKeys = rooms
+if (!roomKeys.length && region) {
+  const lister = await agent(`${COMMON}
+Run EXACTLY this one command and nothing else: ${CLI} list ${region} --status shot --keys-only
+Return every line it prints (each is a room key like ${region}:-703:-1184) as the "keys" array, in order,
+omitting none. Do not invent, reformat, or drop any.`,
+    { model: 'opus', effort: 'low', label: 'list-shot', schema: { type: 'object', properties: { keys: { type: 'array', items: { type: 'string' } } }, required: ['keys'] } })
+  roomKeys = (lister && lister.keys) || []
+  log(`auto-listed ${roomKeys.length} shot rooms for ${region}`)
+}
+
 phase('Describe')
 const results = await pipeline(
-  rooms,
+  roomKeys,
   key => agent(describePrompt(key), { model: 'opus', effort: 'low', label: `describe:${key.split(':').slice(1).join(':')}`, phase: 'Describe', schema: DESC_SCHEMA }),
   async (d, key, index) => {
     if (!d) return { key, passed: false, problem: 'describer failed' }
@@ -168,7 +182,7 @@ const results = await pipeline(
   },
 )
 const done = results.filter(Boolean)
-log(`${done.filter(r => r.passed).length}/${rooms.length} rooms passed the check; ${done.filter(r => r.shots_suspect).length} flagged suspect shots`)
+log(`${done.filter(r => r.passed).length}/${roomKeys.length} rooms passed the check; ${done.filter(r => r.shots_suspect).length} flagged suspect shots`)
 return {
   passed: done.filter(r => r.passed).map(r => `${r.key}: ${r.title} -- ${r.body}`),
   failed: done.filter(r => !r.passed).map(r => `${r.key}: ${r.problem || ''}`),
