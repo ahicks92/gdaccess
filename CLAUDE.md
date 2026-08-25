@@ -493,6 +493,11 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   dodge toward the locked target (confirmed by the user in play). A diagnostic hook on the exported
   `ControllerPlayer::EvadeAction` forwarder was tried and removed -- it never fired (the exe calls the state's
   `RequestEvadeAction`/`DefaultRequestEvadeAction` directly; that is the seam if we ever force the direction).
+- Options from the pause menu (2026-08-25, verified by the user): the exit window's Options Menu builds the SAME
+  Options screen class under a host window at `[InGameUI+0x4def8]` (+0x90; details in docs/exe-ui-layout.md),
+  never entering app state 5, so `options_screen()` missed it in the world. It now resolves through the host;
+  the options screen is layer 20. So `movementType` is set through the mod (pause -> Options -> Controls tab ->
+  Movement Type -> Apply); the README says so, and options.txt is NOT to be hand-edited (Steam cloud sync).
 - Settings for a shipping user (audited 2026-08-25): only ONE mandatory options.txt change, `movementType = 1`
   (Controls -> Keyboard); nothing in the repo sets it (NOT auto-forcing it: the engine rewrites options.txt on
   exit and the in-memory Options setter is unconfirmed). Plus keep default keybindings and `displayDamage` on.

@@ -42,8 +42,10 @@ Do not launch the game directly (from Steam or the exe). If you do, you will nee
 reader: the game uses very old APIs in very odd ways, the net effect of which is to break the JAWS / NVDA key.
 The mod fixes this, but only when it is injected at launch as described below.
 
-On first launch, set Options -> Controls -> Movement Type to **Keyboard**. This is the game's own WASD mode
-and the mod's movement design assumes it. Keep the default key bindings (the mod's key scheme is built on
+On first launch, set Options -> Controls -> Movement Type to **Keyboard**: in the world press Escape, choose
+Options Menu, Tab to the tab row and go Right to Controls, Tab into the page, arrow to Movement Type, Right
+to Keyboard, then Apply. This is the game's own WASD mode and the mod's movement design assumes it. Do not
+edit options.txt by hand; Steam cloud sync fights it. Keep the default key bindings (the mod's key scheme is built on
 them) and leave "Display Damage" on (combat speech reads the floating numbers).
 
 ## Launching
