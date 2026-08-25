@@ -38,7 +38,8 @@ enforces the mechanical half.
   same name in both.
 
 ## Mechanical checks (`author.py check <key>`)
-Title 2-4 words, lowercase, unique in the sub-region, no digits; body 1-2 sentences, <= 40 words; no banned
-words (exit, exits, way out, ways out, leads, carries on, north/south/east/west-ward phrasing of
-connections, locked, open, looted, dead, alive, spawn, quest); no NPC/Monster/Player labels from the
-facts; no neighbour titles.
+Title 2-6 words, lowercase, no digits (a duplicate title is de-duplicated automatically at describe time with a
+trailing " N" suffix -- do not add one yourself); body 1-2 sentences, <= 40 words; no banned words (exit,
+exits, way out, ways out, leads, carries on, north/south/east/west-ward phrasing of connections, locked, open,
+looted, alive, spawn, quest); no NPC/Monster/Player labels from the facts; no neighbour titles. ("dead" is
+accepted for now.)

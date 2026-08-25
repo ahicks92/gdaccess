@@ -75,11 +75,12 @@ and the number of unassigned rooms (must be 0).`,
 function describePrompt(key) {
   return `${COMMON}
 Task: write the TITLE and BODY for room ${key}, then make the mechanical check pass.
-1. Run "${CLI} facts ${key}": region and sub-region names, terrain fractions under the room, nearby
-   decoration/decal records per sample point (e.g. Decoration gibbetsuspended_1a), the shot paths.
+1. Run "${CLI} facts ${key}": region and sub-region names, terrain fractions under the room, "nearby" =
+   the fixtures under/around the room (decoration/decal record names + any NPC/monster label), deduped and
+   nearest-first (e.g. gibbetsuspended_1a), and the shot paths.
 2. Look at each shot with the Read tool (yellow dots = this room's outline, red dots = exits, cyan box =
    the character). Only what is inside the outline counts.
-3. Write per the rules: title 2-4 lowercase words; body ONE sentence, two at most, under 40 words, plain
+3. Write per the rules: title 2-6 lowercase words; body ONE sentence, two at most, under 40 words, plain
    nouns and verbs, the ground plus the one or two fixtures you would recognise the place by. NO exits, NO
    neighbours, NO "ways out", no adjective soup, no units, no lifecycle state.
    Examples of the wanted size: "A rutted gravel road under the prison wall, gibbets along its south side."
@@ -115,6 +116,10 @@ const CONS_SCHEMA = {
   },
   required: ['subregion', 'rewritten'],
 }
+// DEFERRED by default (decided 2026-08-24): the consistency pass was ~21% of authoring cost and ~79% of its
+// output was extended thinking over a whole sub-region. We accept less-distinct titles now (duplicates get a
+// mechanical " N" suffix at describe time) and polish confusable names later. Only run with consistency:true
+// for a deliberate late polish pass on a finished region.
 if (args.consistency) {
   phase('Consistency')
   const subs = args.subregion_keys || []
@@ -131,7 +136,7 @@ Find and fix, in this order:
    word or are synonyms ("fern grass slope" / "open grass slope" / "fern slope"; "cobbled wagon track" /
    "rutted cart track"; "cattail mud pocket" / "cattail mud lane"). Rename so each title names what is distinct
    about THAT room (a fixture, a structure, a position: "the gap between the outcrops", "store back room"). Keep
-   the sub-region's naming convention (e.g. "<thing> floor" for house interiors) and the rules' 2-4 lowercase words.
+   the sub-region's naming convention (e.g. "<thing> floor" for house interiors) and the rules' 2-6 lowercase words.
 2. Bodies that name a fixture belonging to a neighbour (the next room's shack, the well that is the identifying
    feature of the room next door) or that duplicate the neighbour's body. Replace with something inside the room.
    When unsure what is inside, run "${CLI} facts <key>" and look at ONE shot with the Read tool (only what is
@@ -152,7 +157,7 @@ and fix until it prints ok. Return subregion, the list of rooms you rewrote (key
 phase('Describe')
 const results = await pipeline(
   rooms,
-  key => agent(describePrompt(key), { model: 'opus', label: `describe:${key.split(':').slice(1).join(':')}`, phase: 'Describe', schema: DESC_SCHEMA }),
+  key => agent(describePrompt(key), { model: 'opus', effort: 'low', label: `describe:${key.split(':').slice(1).join(':')}`, phase: 'Describe', schema: DESC_SCHEMA }),
   async (d, key, index) => {
     if (!d) return { key, passed: false, problem: 'describer failed' }
     if (d.passed && index % 10 === 0) {

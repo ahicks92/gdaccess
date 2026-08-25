@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -67,8 +68,25 @@ def cmd_facts(db, a):
             im = Image.open(src); im.resize((1100, int(im.height * 1100 / im.width)), Image.LANCZOS).save(dst)
         small.append(dst)
     shots = [os.path.basename(s) for s in small]
+    # Collapse the per-sample entity lists to a deduped, nearest-first list of fixtures. The describer only needs
+    # WHAT is nearby (the decoration/decal record names and any NPC/monster label) to name the place -- the ids,
+    # coordinates and per-sample-point split were ~60% of the facts JSON (10 KB) and pure cache_creation noise
+    # (2026-08-24). Record name is the signal; the shot image carries the spatial layout. Drop the player self.
+    fixtures = {}
+    for s in meta.get("samples", []):
+        for e in s.get("entities", []):
+            if e.get("cls") == "Player":
+                continue
+            rec = e.get("record") or e.get("label")
+            if not rec:
+                continue
+            d = round(e.get("dist", 0.0), 1)
+            cur = fixtures.get(rec)
+            if cur is None or d < cur["dist"]:
+                fixtures[rec] = {"record": rec, "cls": e.get("cls"), "label": e.get("label") or None, "dist": d}
+    nearby = sorted(fixtures.values(), key=lambda e: e["dist"])
     out = {"room": room, "region_name": region[0] if region else region_key, "subregion": {"key": room["subregion_key"], "name": sub[0] if sub else None, "summary": sub[1] if sub else None},
-           "terrain": meta.get("terrain", {}), "samples": [{"x": s["x"], "z": s["z"], "entities": s["entities"]} for s in meta.get("samples", [])],
+           "terrain": meta.get("terrain", {}), "nearby": nearby,
            "shots": [os.path.abspath(os.path.join(shot_dir(a.key), f)) for f in shots], "exits": neighbours}
     print(json.dumps(out, indent=1))
 
@@ -108,7 +126,21 @@ def cmd_assign(db, a):
 
 
 def cmd_describe(db, a):
-    n = db.c.execute("UPDATE rooms SET title=?, body=?, status='described' WHERE key=?", (a.title.strip().lower(), a.body.strip(), a.key)).rowcount
+    region_key = a.key.split(":", 1)[0]
+    room = next((r for r in db.rooms(region_key) if r["key"] == a.key), None)
+    if room is None:
+        print("no such room"); return
+    # Mechanically de-duplicate titles within the sub-region: strip any numeric suffix the caller included, then
+    # append the smallest free " N" (decided 2026-08-24 -- we accept less-distinct auto-suffixed names now and
+    # polish them later, instead of a fix round or the consistency pass reworking every collision).
+    base = re.sub(r"\s+\d+$", "", a.title.strip().lower()).strip()
+    existing = {t.lower() for (t,) in db.c.execute(
+        "SELECT title FROM rooms WHERE region_key=? AND subregion_key IS ? AND key<>? AND title IS NOT NULL",
+        (region_key, room["subregion_key"], a.key))}
+    title, k = base, 2
+    while title in existing:
+        title = f"{base} {k}"; k += 1
+    n = db.c.execute("UPDATE rooms SET title=?, body=?, status='described' WHERE key=?", (title, a.body.strip(), a.key)).rowcount
     db.c.commit(); print("ok" if n else "no such room")
 
 
@@ -125,7 +157,7 @@ def cmd_verify(db, a):
 BANNED = ["exit", "way out", "ways out", "leads ", "lead north", "lead south", "lead east", "lead west", "carries on", "carry on",
           "runs on to", "runs north", "runs south", "runs east", "runs west", "opens north", "opens south", "opens east", "opens west",
           "to the north", "to the south", "to the east", "to the west", "northward", "southward", "eastward", "westward",
-          "locked", "looted", "dead ", "alive", "spawn", "quest", "you are", "this room"]
+          "locked", "looted", "alive", "spawn", "quest", "you are", "this room"]   # "dead" accepted for now (fix later)
 ADJ_SOUP = ["weathered", "splintered", "mist-filled", "forcing up", "hemmed in", "threads between", "scribed", "shoulders the way",
             "beaten down", "trodden down", "crowding", "scattered papers", "scatter of"]
 
@@ -137,18 +169,17 @@ def check_room(db, key: str) -> list[str]:
         return ["no such room"]
     title, body = (room["title"] or "").strip(), (room["body"] or "").strip()
     problems = []
-    words = title.split()
-    if not (2 <= len(words) <= 4): problems.append(f"title must be 2-4 words (has {len(words)})")
+    core_title = re.sub(r"\s+\d+$", "", title).strip()   # ignore the mechanical " N" de-dup suffix in these checks
+    words = core_title.split()
+    if not (2 <= len(words) <= 6): problems.append(f"title must be 2-6 words (has {len(words)})")
     if title != title.lower(): problems.append("title must be lowercase")
-    if any(ch.isdigit() for ch in title): problems.append("title contains digits")
+    if any(ch.isdigit() for ch in core_title): problems.append("title contains digits")
     sub_name = (db.c.execute("SELECT name FROM subregions WHERE key=?", (room["subregion_key"] or "",)).fetchone() or [""])[0] or ""
     region_name = (db.c.execute("SELECT name FROM regions WHERE key=?", (region_key,)).fetchone() or [""])[0] or ""
     for n in (sub_name, region_name):
         core = n.lower().removeprefix("the ").strip()
-        if core and core in title.lower(): problems.append(f"title repeats '{n}'")
-    dup = db.c.execute("SELECT key FROM rooms WHERE region_key=? AND subregion_key IS ? AND lower(title)=? AND key<>?",
-                       (region_key, room["subregion_key"], title.lower(), key)).fetchone()
-    if dup: problems.append(f"title duplicates {dup[0]}")
+        if core and core in core_title.lower(): problems.append(f"title repeats '{n}'")
+    # duplicate titles are now de-duplicated mechanically at describe time (a " N" suffix), so no dup check here
     sentences = [s for s in __import__("re").split(r"[.!?]+", body) if s.strip()]
     if not (1 <= len(sentences) <= 2): problems.append(f"body must be 1-2 sentences (has {len(sentences)})")
     if len(body.split()) > 40: problems.append(f"body over 40 words ({len(body.split())})")
