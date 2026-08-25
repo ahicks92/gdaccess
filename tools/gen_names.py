@@ -189,6 +189,7 @@ ENTRIES = [
     ("Quest2Objective_GetText", "Game", r"GAME::Quest2Objective::GetText\("),
     ("Quest2Objective_IsSatisfied", "Game", r"GAME::Quest2Objective::IsSatisfied\(void\)"),
     ("Quest2Event_GetText", "Game", r"GAME::Quest2Event::GetText\("),
+    ("Player_GetMarkerUIDs", "Game", r"GAME::Player::GetMarkerUIDs\(void\)"),
     ("Character_GetFactionPack", "Game", r"GAME::Character::GetFactionPack\(void\)const"),
     ("FactionPack_GetFactionTag", "Game", r"GAME::FactionPack::GetFactionTag\("),
     ("FactionPack_GetValue", "Game", r"GAME::FactionPack::GetValue\(enum GAME::FactionType\)"),

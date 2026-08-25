@@ -520,6 +520,9 @@ inline constexpr const char* Quest2Objective_IsSatisfied = "?IsSatisfied@Quest2O
 // public: void __cdecl GAME::Quest2Event::GetText(class std::basic_string<unsigned short,struct std::char_traits<unsigned short>,class std::allocator<unsigned short> > & __ptr64)const __ptr64
 inline constexpr const char* Quest2Event_GetText_DLL = "Game.dll";
 inline constexpr const char* Quest2Event_GetText = "?GetText@Quest2Event@GAME@@QEBAXAEAV?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@@Z";
+// public: class mem::vector<class GAME::UniqueId> const & __ptr64 __cdecl GAME::Player::GetMarkerUIDs(void)const __ptr64
+inline constexpr const char* Player_GetMarkerUIDs_DLL = "Game.dll";
+inline constexpr const char* Player_GetMarkerUIDs = "?GetMarkerUIDs@Player@GAME@@QEBAAEBV?$vector@VUniqueId@GAME@@@mem@@XZ";
 // public: class GAME::FactionPack const & __ptr64 __cdecl GAME::Character::GetFactionPack(void)const __ptr64
 inline constexpr const char* Character_GetFactionPack_DLL = "Game.dll";
 inline constexpr const char* Character_GetFactionPack = "?GetFactionPack@Character@GAME@@QEBAAEBVFactionPack@2@XZ";

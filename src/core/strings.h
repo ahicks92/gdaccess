@@ -134,6 +134,14 @@ inline constexpr std::string_view kFactions = "factions";
 inline constexpr std::string_view kRiftgates = "riftgate travel";
 inline constexpr std::string_view kNoRiftgates = "no riftgates discovered";
 inline constexpr std::string_view kYouAreHere = "you are here";
+// The map-marker picker (Ctrl+M) and the follow key (').
+inline constexpr std::string_view kMapMarkers = "map";
+inline constexpr std::string_view kQuestMarkers = "quest markers";
+inline constexpr std::string_view kMapPoints = "points of interest";
+inline constexpr std::string_view kNoMarkersHere = "nothing on the map here";
+inline constexpr std::string_view kNoQuestMarkers = "no quest markers";
+inline constexpr std::string_view kFollowing = "following";
+inline constexpr std::string_view kNotFollowing = "not following anything";
 inline constexpr std::string_view kNoFactions = "no factions known";
 inline constexpr std::string_view kInventory = "inventory";
 inline constexpr std::string_view kEquipment = "equipment";

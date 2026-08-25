@@ -18,6 +18,7 @@
 #include "screens/in_game.h"
 #include "screens/loading.h"
 #include "screens/main_menu.h"
+#include "screens/map_markers.h"
 #include "screens/message_box.h"
 #include "screens/pause_menu.h"
 #include "screens/tip.h"
@@ -150,6 +151,11 @@ static void register_actions() {
   }).bind(keys::Backslash);
   m.register_action("scan.ping", "Ping the reviewed thing", InputCategory::InGame,
                     [] { if (world::ping_reviewed().empty()) speech::speak(strings::kNoTarget, true); }).bind(0x27);  // Semicolon
+  // The follow key: ping the map marker picked in the Ctrl+M window, with its distance and heading.
+  m.register_action("follow.ping", "Follow the quest marker", InputCategory::InGame, [] {
+    std::string line = world::follow_ping();
+    speech::speak(line.empty() ? std::string(strings::kNotFollowing) : line, true);
+  }).bind(0x28);  // Apostrophe
   // Rooms (docs/rooms.md): X = the current room's title and description; its exits are the scanner's Exits
   // group (V above). Place changes are announced automatically in the player's voice.
   m.register_action("rooms.describe", "Describe the room", InputCategory::InGame, [] { rooms::speak_description(); }).bind(0x2d);   // X
@@ -219,6 +225,7 @@ void init() {
   g_screens.register_screen(screens::make_codex());
   g_screens.register_screen(screens::make_factions());
   g_screens.register_screen(screens::make_riftgate());
+  g_screens.register_screen(screens::make_map_markers());
   g_screens.register_screen(screens::make_inventory());
   g_screens.register_screen(screens::make_skills());
   g_screens.register_screen(screens::make_quest_reward());

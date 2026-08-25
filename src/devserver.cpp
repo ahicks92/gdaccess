@@ -216,6 +216,8 @@ static std::string handle(const std::string& path, const std::map<std::string, s
       out += std::format("  '{}' at ({}, {}, {}) obj={} owner={} uid={:#x}:{:#x}:{:#x}:{:#x} current={}\n", g.name, g.pos[0], g.pos[1], g.pos[2], g.object_id, g.owner, (unsigned)g.uid[0], (unsigned)g.uid[1], (unsigned)g.uid[2], (unsigned)g.uid[3], g.current);
     return out;
   }
+  if (path == "/mapnuggets") return exe_ui::map_nuggets_dump(parse_int(q.count("max") ? q.at("max") : "80", 80));   // the aerial map's cached icon nuggets (dev)
+  if (path == "/mapmarkers") return world::map_markers_dump();   // the aerial map's icons, named + nearest-first (dev)
   if (path == "/sonar") {   // the sonar field: ?on=0|1 &radius= &vol= &ref= &floor= &pnear= &pfar= &dnear= &dfar= &force=
     if (q.count("on")) sonar::set_enabled(truthy(q.at("on")));
     for (const char* k : {"radius", "vol", "ref", "floor", "pnear", "pfar", "dnear", "dfar", "force"}) if (q.count(k)) sonar::set_knob(k, (float)atof(q.at(k).c_str()));
@@ -244,6 +246,7 @@ static std::string handle(const std::string& path, const std::map<std::string, s
   }
   if (path == "/regions") return world::regions_dump(parse_int(q.count("max") ? q.at("max") : "40", 40));   // engine Regions (chunks): name, offset, loaded, portals; ?max=
   if (path == "/portals") return world::portals_dump();   // the player's chunk's portals
+  if (path == "/markers") return world::markers_dump();   // Player::GetMarkerUIDs (quest-marker UID list)
   if (path == "/pause") return world::set_paused(q.count("set") ? atoi(q.at("set").c_str()) : -1);   // /pause[?set=0|1]: game time
   if (path == "/teleport") {  // /teleport?x=&z= -- the player, floored (authoring; docs/rooms.md M4)
     if (!q.count("x") || !q.count("z")) { status = 400; return "need x and z\n"; }

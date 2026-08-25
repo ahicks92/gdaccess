@@ -371,6 +371,18 @@ bool riftgate_map_open() {
   WindowB mm{(char*)ui + ingame::kMiniMap};
   return mm.visible() && rd_or<uint8_t>(mm.p, kMM_Shown, 0) != 0 && rd_or<uint8_t>(mm.p, kMM_Mode, 1) == 0;
 }
+// The local aerial map (the M / Ctrl+M window): MiniMap shown with mode byte 1. This is the map whose nugget
+// cache (aerial_nugget_span) the marker picker reads.
+bool aerial_map_open() {
+  void* ui = ingame_ui();
+  if (!ui || !available()) return false;
+  WindowB mm{(char*)ui + ingame::kMiniMap};
+  return mm.visible() && rd_or<uint8_t>(mm.p, kMM_Shown, 0) != 0 && rd_or<uint8_t>(mm.p, kMM_Mode, 0) == 1;
+}
+void aerial_map_close() {
+  WindowB mm = ingame_window(ingame::kMiniMap);
+  if (mm) mm.show(false);
+}
 std::vector<Riftgate> riftgates() {
   std::vector<Riftgate> out;
   void* wm = worldmap();
@@ -416,6 +428,112 @@ bool riftgate_travel(const Riftgate& g) {
   return true;
 }
 void riftgate_map_close() { WindowB mm = ingame_window(ingame::kMiniMap); if (mm) mm.show(false); }
+
+// dev: the aerial map's cached MinimapGameNugget vector (built by the map-update method exe+0x174e80 via
+// GameEngine::GetDetailMapData; struct = 0xA0 stride, type/class int at +0x08, WorldVec3 position at +0x58).
+// Tries both candidate object bases (the MiniMap itself and its aerialMap sub at +0xb08).
+// POD, SEH-guarded: read region-relative fields (no world_point on unvalidated memory). WorldVec3 at
+// nugget+0x58 = Region*(+0x58) then Vec3(+0x60). Returns elems read (<= maxn), -1 on fault.
+struct NugRaw { int type; void* region; float x, y, z; };
+static int read_nuggets_raw(void* begin, size_t n, NugRaw* out, int maxn) {
+  int got = 0;
+  __try {
+    for (size_t i = 0; i < n && got < maxn; ++i) {
+      char* nug = (char*)begin + i * 0xA0;
+      NugRaw r;
+      r.type = *(int*)(nug + 0x08);
+      r.region = *(void**)(nug + 0x58);
+      r.x = *(float*)(nug + 0x60);
+      r.y = *(float*)(nug + 0x64);
+      r.z = *(float*)(nug + 0x68);
+      out[got++] = r;
+    }
+  } __except (EXCEPTION_EXECUTE_HANDLER) { return -1; }
+  return got;
+}
+static bool finite_coord(float v) { return v == v && v > -2e4f && v < 2e4f; }
+static bool heap_ptr(void* p) { uintptr_t a = (uintptr_t)p; return (a & 7) == 0 && a >= 0x10000000000ull && a < 0x20000000000000ull; }
+static bool good_nug(const NugRaw& r) { return heap_ptr(r.region) && finite_coord(r.x) && finite_coord(r.y) && finite_coord(r.z) && !(r.x == 0 && r.z == 0); }
+// Scan one object's fields for a mem::vector<0xA0> that looks like the nugget list (finite region-relative coords).
+static std::string scan_for_nuggets(const char* who, void* obj, int maxn) {
+  if (!obj) return std::format("{}: null\n", who);
+  std::string out;
+  for (size_t off = 0x10; off <= 0x1200; off += 8) {
+    void* begin = rdp(obj, off);
+    void* end = rdp(obj, off + 8);
+    if (!begin || !end || (uintptr_t)end <= (uintptr_t)begin) continue;
+    size_t bytes = (char*)end - (char*)begin;
+    if (bytes % 0xA0 != 0 || bytes == 0 || bytes > 0xA0 * 8192) continue;
+    size_t n = bytes / 0xA0;
+    static NugRaw buf[256];
+    int sample = (int)(n < 8 ? n : 8);
+    NugRaw sbuf[8];
+    int got = read_nuggets_raw(begin, n, sbuf, sample);
+    if (got < sample) continue;
+    int good = 0;
+    for (int i = 0; i < got; ++i) if (good_nug(sbuf[i])) ++good;
+    if (good < got) continue;   // require ALL sampled elements valid
+    got = read_nuggets_raw(begin, n, buf, maxn < 256 ? maxn : 256);
+    if (got <= 0) continue;
+    out += std::format("{} +{:#x}: {} nuggets\n", who, off, n);
+    for (int i = 0; i < got; ++i)
+      out += std::format("  [{}] type={} region={} relpos=({:.1f},{:.1f},{:.1f})\n", i, buf[i].type, buf[i].region, buf[i].x, buf[i].y, buf[i].z);
+  }
+  if (out.empty()) return std::format("{}: no plausible 0xA0-stride vector\n", who);
+  return out;
+}
+static bool hexdump_nugget(void* nug, char* buf16[10], std::string& out) {
+  (void)buf16;
+  unsigned char b[0xA0];
+  bool ok = read_mem(nug, b, sizeof b);
+  if (!ok) return false;
+  for (int r = 0; r < 0xA0; r += 16) {
+    out += std::format("  +{:#04x}:", r);
+    for (int c = 0; c < 16; ++c) out += std::format(" {:02x}", b[r + c]);
+    // also interpret this row as ints/floats
+    out += "   |";
+    for (int c = 0; c < 16; c += 4) { int iv; memcpy(&iv, b + r + c, 4); float fv; memcpy(&fv, b + r + c, 4); out += std::format(" {}={}/{:.1f}", r + c, iv, fv); }
+    out += "\n";
+  }
+  return true;
+}
+// The aerial map's live nugget vector: MiniMap+0xdb0 = {begin, end} of MinimapGameNugget (0xA0 stride),
+// filled by the map-update method (exe+0x174e80 via GameEngine::GetDetailMapData) while the map is open.
+bool aerial_nugget_span(void*& begin, size_t& count) {
+  begin = nullptr;
+  count = 0;
+  void* ui = ingame_ui();
+  if (!ui || !g_available) return false;
+  void* mm = (char*)ui + ingame::kMiniMap;
+  void* b = rdp(mm, 0xdb0);
+  void* e = rdp(mm, 0xdb8);
+  if (!b || !e || (uintptr_t)e <= (uintptr_t)b) return false;
+  size_t bytes = (char*)e - (char*)b;
+  if (bytes % 0xA0 != 0 || bytes > 0xA0 * 8192) return false;
+  begin = b;
+  count = bytes / 0xA0;
+  return true;
+}
+std::string map_nuggets_dump(int maxn) {
+  void* ui = ingame_ui();
+  if (!ui) return "no InGameUI\n";
+  void* mm = (char*)ui + ingame::kMiniMap;
+  // The live cache is at MiniMap+0xdb0 (found by scan). If maxn is negative, hexdump nugget[-maxn-1].
+  void* begin = rdp(mm, 0xdb0);
+  void* end = rdp(mm, 0xdb8);
+  if (maxn < 0 && begin && end) {
+    int idx = -maxn - 1;
+    size_t n = ((char*)end - (char*)begin) / 0xA0;
+    if (idx < 0 || (size_t)idx >= n) return std::format("index out of range (n={})\n", n);
+    std::string out = std::format("nugget[{}] hexdump:\n", idx);
+    char* dummy[10] = {};
+    hexdump_nugget((char*)begin + (size_t)idx * 0xA0, dummy, out);
+    return out;
+  }
+  std::string out;
+  out += scan_for_nuggets("MiniMap(inline)", mm, maxn);
+  return out;
+}
 void WindowB::show(bool on) const { if (p) call_void_bool(p, off::kVt_Show, on); }
 WindowB ingame_window(unsigned o) { void* ui = ingame_ui(); return ui ? WindowB{(char*)ui + o} : WindowB{}; }
 uintptr_t WidgetB::vtable_rva() const { return vtable_rva_of(p); }

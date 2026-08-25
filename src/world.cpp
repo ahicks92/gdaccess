@@ -9,6 +9,7 @@
 #include <mutex>
 #include <vector>
 #include "gd_names.h"
+#include "exe_ui.h"
 #include "hooks.h"
 #include "speech.h"
 #include "audio.h"
@@ -156,6 +157,7 @@ std::vector<gd::hooks::Hook> g_hooks;
 // Class-by-value returns (WorldCoords, Coords, Vec3) use the hidden return pointer as the 2nd argument.
 struct Api {
   void* (*GetMainPlayer)(const void*) = nullptr;
+  const MemVec* (*GetMarkerUIDs)(const void*) = nullptr;   // Player::GetMarkerUIDs -> mem::vector<UniqueId> (16 bytes each)
   void* (*GetCamera)(void*) = nullptr;
   void* (*Entity_GetCoords)(const void*, void*) = nullptr;
   void* (*Entity_GetRegion)(const void*) = nullptr;
@@ -270,6 +272,7 @@ void load_api() {
   g_api.field = fn<decltype(g_api.field)>(ID##_DLL, ID); \
   if (!g_api.field) log::writef("world: export {} not found", #ID)
   LOAD(GetMainPlayer, GameEngine_GetMainPlayer);
+  LOAD(GetMarkerUIDs, Player_GetMarkerUIDs);
   LOAD(GetCamera, GameEngine_GetCamera);
   LOAD(Entity_GetCoords, Entity_GetCoords);
   LOAD(Entity_GetRegion, Entity_GetRegion);
@@ -684,6 +687,34 @@ std::string regions_dump(int max) {
   }
   return out;
 }
+// SEH-guarded raw read (no C++ objects with destructors here). Returns the real UID count (>=0),
+// copying up to max_uids*4 ints into buf; negative = fault/implausible.
+static int read_marker_uids_raw(void* p, int* buf, int max_uids) {
+  __try {
+    const MemVec* v = g_api.GetMarkerUIDs(p);
+    if (!v || !v->begin || !v->end || (uintptr_t)v->end < (uintptr_t)v->begin) return 0;
+    size_t bytes = (char*)v->end - (char*)v->begin;
+    if (bytes > (1u << 20)) return -2;
+    int n = (int)(bytes / 16);   // UniqueId = 4 ints (matches the WorldMapWindow icon uid[4])
+    int take = n < max_uids ? n : max_uids;
+    memcpy(buf, v->begin, (size_t)take * 16);
+    return n;
+  } __except (EXCEPTION_EXECUTE_HANDLER) { return -3; }
+}
+std::string markers_dump() {
+  load_api();
+  void* p = player();
+  if (!p || !g_api.GetMarkerUIDs) return "no player / export\n";
+  constexpr int kMax = 512;
+  static int buf[kMax * 4];
+  int n = read_marker_uids_raw(p, buf, kMax);
+  if (n < 0) return std::format("read failed ({})\n", n);
+  std::string out = std::format("Player::GetMarkerUIDs: {} marker UIDs\n", n);
+  int shown = n < kMax ? n : kMax;
+  for (int i = 0; i < shown; ++i)
+    out += std::format("  [{}] {} {} {} {}\n", i, buf[i * 4], buf[i * 4 + 1], buf[i * 4 + 2], buf[i * 4 + 3]);
+  return out;
+}
 std::string portals_dump() {
   load_api();
   void* p = player();
@@ -994,6 +1025,106 @@ std::string entities_dump(float max_dist) {
   std::string s = std::format("ok={} rendered={} within {:.0f}: {}\n", ok, n, max_dist, rows.size());
   for (auto& r : rows) s += r.text + "\n";
   return s;  // the vector's storage is leaked on purpose (dev route; the game's allocator owns it)
+}
+
+// ---- the aerial map's icons (map_markers) ----
+namespace {
+const char* nugget_type_label(int t) {
+  switch (t) {
+    case 3: return "riftgate";
+    case 7: return "merchant";
+    case 10: return "spirit guide";
+    case 13: return "caravan";
+    case 2: return "person";
+    default: return "marker";
+  }
+}
+bool read_nugget_type(void* nug, int& type) {
+  __try { type = *(const int*)((const char*)nug + 0x08); return true; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+}  // namespace
+
+std::vector<MapMarker> map_markers() {
+  load_api();
+  std::vector<MapMarker> out;
+  Vec3 me;
+  if (!player_position(me)) return out;
+  void* begin = nullptr;
+  size_t count = 0;
+  if (!gd::exe_ui::aerial_nugget_span(begin, count)) return out;   // the aerial map is not open / not populated
+
+  // First pass: read the nuggets (type + world position), dropping the hero marker.
+  struct Raw { int type; Vec3 pos; float dist; };
+  std::vector<Raw> raws;
+  float maxd = 0;
+  for (size_t i = 0; i < count; ++i) {
+    char* nug = (char*)begin + i * 0xA0;
+    int type = -1;
+    if (!read_nugget_type(nug, type) || type == 0) continue;   // 0 = the hero (player) marker
+    Vec3 pos;
+    if (!world_point(nug + 0x58, pos)) continue;
+    float d = std::sqrt((pos.x - me.x) * (pos.x - me.x) + (pos.z - me.z) * (pos.z - me.z));
+    raws.push_back({type, pos, d});
+    if (d > maxd) maxd = d;
+  }
+
+  // Index nearby entities so each icon can be named (the nugget carries no id/name; the icon sits on its
+  // entity). Use the region sphere query (entities_dump's primary source), sized to reach the icons.
+  struct Ent { Vec3 pos; unsigned id; std::string label; };
+  std::vector<Ent> ents;
+  {
+    Buf base;
+    void* region = nullptr;
+    if (g_api.Region_GetEntitiesInSphere && g_api.WorldVec3_GetRegionPosition && player_world_vec(base, &region)) {
+      float radius = maxd + 15.0f;
+      if (radius < 60.0f) radius = 60.0f;
+      if (radius > 220.0f) radius = 220.0f;
+      const Vec3* rp = g_api.WorldVec3_GetRegionPosition(&base);
+      struct { Vec3 c; float r; } sphere{*rp, radius};
+      alignas(16) unsigned char vb[64] = {};
+      MemVec* v = (MemVec*)vb;
+      g_api.Region_GetEntitiesInSphere(region, v, &sphere, false, 0);
+      size_t n = 0;
+      if (v->begin && v->end && (uintptr_t)v->end > (uintptr_t)v->begin && (uintptr_t)v->end - (uintptr_t)v->begin < (1u << 20))
+        n = (size_t)((char*)v->end - (char*)v->begin) / sizeof(void*);
+      for (size_t i = 0; i < n && i < 4096; ++i) {
+        void* e;
+        memcpy(&e, (char*)v->begin + i * sizeof(void*), sizeof e);
+        if (!e) continue;
+        EntityRaw r{};
+        if (!read_entity(e, r) || !r.has_pos) continue;
+        std::string lbl = entity_label(e, r.ci, rtti_name(r.ci));
+        if (!lbl.empty()) ents.push_back({r.pos, r.id, std::move(lbl)});
+      }
+    }
+  }
+
+  for (const Raw& rw : raws) {
+    const Vec3& pos = rw.pos;
+    MapMarker m{};
+    m.type = rw.type;
+    m.pos = pos;
+    m.dist = rw.dist;
+    float best = 4.0f;
+    const Ent* he = nullptr;
+    for (const Ent& e : ents) {
+      float d = std::sqrt((e.pos.x - pos.x) * (e.pos.x - pos.x) + (e.pos.z - pos.z) * (e.pos.z - pos.z));
+      if (d < best) { best = d; he = &e; }
+    }
+    if (he) { m.id = he->id; m.label = he->label; } else { m.label = nugget_type_label(rw.type); }
+    m.quest = false;   // quest-marker types not yet observed; the objective overlay is GetMarkerUIDs (see markers_dump)
+    out.push_back(std::move(m));
+  }
+  std::sort(out.begin(), out.end(), [](const MapMarker& a, const MapMarker& b) { return a.dist < b.dist; });
+  return out;
+}
+
+std::string map_markers_dump() {
+  std::vector<MapMarker> ms = map_markers();
+  std::string s = std::format("{} map markers\n", ms.size());
+  for (const MapMarker& m : ms)
+    s += std::format("  {:6.1f}  type={:<3} {:<12} '{}' id={} at ({:.1f},{:.1f},{:.1f}){}\n", m.dist, m.type, nugget_type_label(m.type), m.label, m.id, m.pos.x, m.pos.y, m.pos.z, m.quest ? " [quest]" : "");
+  return s;
 }
 bool set_target(unsigned id) {
   if (!g_controller || !g_api.SetCombatEnemy) return false;
@@ -1540,22 +1671,12 @@ bool world_point(const void* worldvec3, Vec3& out) {
 // The route kind for the reviewed target ("straight" / "path" / "unreachable") and its world position, or ""
 // when nothing is reviewed (or the target's position can't be read this frame). No sound -- reping_tick
 // compares this frame to frame and ping_reviewed turns it into a played cue.
-static std::string reviewed_route(Vec3& me, Vec3& target) {
-  if (!g_reviewed_id) return {};
-  if (!player_position(me)) return {};
-  if (is_point_id(g_reviewed_id)) {
-    target = g_reviewed_point;
-  } else {
-    void* e = find_entity(g_reviewed_id);
-    Buf wv;
-    if (!e || !entity_world_vec(e, wv)) return {};
-    target = world_pos_of(wv);
-  }
+// Route kind from the player to an arbitrary target point: every half unit of the straight line on the
+// navmesh = straight walk; the target's own spot walkable but the line not = path around; the target off the
+// mesh = unreachable (a cliff, water, inside a wall). Shared by the review cursor and the follow target.
+static std::string route_kind_to(const Vec3& me, const Vec3& target) {
   float dx = target.x - me.x, dz = target.z - me.z;
   float dist = std::sqrt(dx * dx + dz * dz);
-  // Route kind: every half unit of the straight line on the navmesh = straight walk; the target's own
-  // spot walkable but the line not = path around; the target off the mesh = unreachable (a cliff, water,
-  // inside a wall). Sight rays are a later refinement.
   const char* kind = "unreachable";
   Vec3 near_target{target.x - (dist > 0.5f ? dx / dist * 0.5f : 0), target.y, target.z - (dist > 0.5f ? dz / dist * 0.5f : 0)};
   if (on_navmesh(near_target) || on_navmesh(target)) {
@@ -1569,6 +1690,19 @@ static std::string reviewed_route(Vec3& me, Vec3& target) {
     kind = straight ? "straight" : "path";
   }
   return kind;
+}
+static std::string reviewed_route(Vec3& me, Vec3& target) {
+  if (!g_reviewed_id) return {};
+  if (!player_position(me)) return {};
+  if (is_point_id(g_reviewed_id)) {
+    target = g_reviewed_point;
+  } else {
+    void* e = find_entity(g_reviewed_id);
+    Buf wv;
+    if (!e || !entity_world_vec(e, wv)) return {};
+    target = world_pos_of(wv);
+  }
+  return route_kind_to(me, target);
 }
 
 static std::string g_last_ping_kind;   // the kind reping_tick last sounded, for g_last_ping_id
@@ -1586,6 +1720,49 @@ std::string ping_reviewed() {
   if (kind.empty()) return {};
   play_ping(kind, target);
   return kind;
+}
+
+// ---- the follow target (the quest-following key ') ----
+// A destination the player chose from the map picker: an entity id (re-resolved each ping so it tracks a
+// moving NPC) or a fixed world point. Independent of the review cursor. The ' key plays the route ping
+// toward it and speaks "label, N away, H o'clock" (plus a note when it can't be reached directly).
+static bool g_follow_active = false;
+static unsigned g_follow_id = 0;   // 0 = a fixed point (g_follow_pos)
+static Vec3 g_follow_pos{};
+static std::string g_follow_label;
+
+void set_follow_target(unsigned id, const Vec3& pos, const std::string& label) {
+  g_follow_active = true;
+  g_follow_id = id;
+  g_follow_pos = pos;
+  g_follow_label = label;
+}
+void clear_follow_target() { g_follow_active = false; g_follow_id = 0; g_follow_label.clear(); }
+bool has_follow_target() { return g_follow_active; }
+std::string follow_target_label() { return g_follow_label; }
+
+std::string follow_ping() {
+  if (!g_follow_active) return {};
+  Vec3 me;
+  if (!player_position(me)) return {};
+  Vec3 target = g_follow_pos;
+  if (g_follow_id && !is_point_id(g_follow_id)) {   // a live entity: track its current position, else keep the last known
+    void* e = find_entity(g_follow_id);
+    Buf wv;
+    if (e && entity_world_vec(e, wv)) { target = world_pos_of(wv); g_follow_pos = target; }
+  }
+  std::string kind = route_kind_to(me, target);
+  float pan, vol, ahead;
+  ear_frame(target, pan, vol, &ahead);
+  gd::audio::play_sample(gd::audio::module_dir() + "assets\\audio\\review_" + kind + ".wav", vol, pan, rear_shelf_db(ahead));
+  float dx = target.x - me.x, dz = target.z - me.z;
+  float dist = std::sqrt(dx * dx + dz * dz);
+  int hour = clock_hour(target);
+  gd::core::MessageBuilder m;
+  m.list_item().fragment(g_follow_label);   // label must be a list item for "label, N away" (see push_scan_item)
+  if (kind == "unreachable") m.list_item().fragment(gd::strings::kBlocked);
+  gd::strings::push_distance_bearing(m, dist, hour);
+  return m.build();
 }
 
 std::string probe_timing(int iters) {   // dev: time one reviewed_route() call (the navmesh line probe)

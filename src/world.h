@@ -38,6 +38,14 @@ float free_distance_ex(float dir_x, float dir_z, float max_dist, float step, boo
 std::string nav_vwindow(float span, float step);              // dev: PutOnFloor's accepted vertical window at the feet
 std::string wall_compare(int dirs, float max_dist, float step);  // dev: A/B flat vs terrain-following rays around the compass
 
+// The aerial map's icons -- the game's own map-marker set, read live from the open map (empty when the map
+// is not open). type = the nugget's icon category (state-aware: 0 hero (dropped), 2 person, 3 riftgate,
+// 7 merchant, 10 spirit guide, 13 caravan, ...); label/id come from matching the icon to a rendered entity.
+// quest markers (the objective overlay, GetMarkerUIDs/StaticMarker) are not yet folded in -- see markers_dump.
+struct MapMarker { unsigned id = 0; int type = 0; bool quest = false; std::string label; Vec3 pos; float dist = 0; };
+std::vector<MapMarker> map_markers();   // nearest first; needs the aerial map open
+std::string map_markers_dump();         // dev: /mapmarkers
+
 std::string debug_dump();        // for the dev server: pointers, raw coordinate bytes, probes
 std::string classinfo_dump();    // dev: the game's RTTI_ClassInfo layout (parent pointer?)
 
@@ -49,6 +57,7 @@ BlockKind classify_block(const Vec3& stop_world, float dir_x, float dir_z);
 std::string blocks_dump();       // the four probe stops with their blockers (dev)
 std::string regions_dump(int max);  // engine Regions (chunks) 0..max-1: index, name, offset from world, loaded, portals (dev)
 std::string portals_dump();      // the player's chunk's portals: connected chunk, choke point, open (dev)
+std::string markers_dump();      // dev: Player::GetMarkerUIDs (the accumulating quest-marker UID list)
 std::string navprobe(float x0, float z0, float x1, float z1, float step);  // IsPointOnPathMesh over a grid (dev)
 int find_path(const Vec3& dest_world, float f1, float f2, Vec3* out_world);  // Player::FindPath -> raw PathResult (dev)
 // NavManager::FindPath -> the navmesh straight-path corridor from the player to dest, as absolute world points
@@ -119,6 +128,16 @@ bool world_point(const void* worldvec3, Vec3& out);
 // from the player to the reviewed thing -- straight walk, path around, unreachable -- positioned toward it
 // (pan by bearing, volume ref/(ref+distance)). Returns the kind for the log; empty = nothing reviewed.
 std::string ping_reviewed();
+// The follow target (the quest-following key '): a destination chosen from the map picker -- an entity id
+// (re-resolved each ping so it tracks a moving NPC) or a fixed world point. Independent of the review cursor.
+void set_follow_target(unsigned id, const Vec3& pos, const std::string& label);
+void clear_follow_target();
+bool has_follow_target();
+std::string follow_target_label();
+// The ' key: play the route ping toward the follow target and return "label, N away, H o'clock" (with a
+// "blocked" note when it can't be reached directly). Empty when nothing is being followed.
+std::string follow_ping();
+
 // Per-frame (self-throttled): while a thing is under review, re-sound the ping the moment its route KIND
 // changes (path becomes straight, becomes unreachable, ...) so the player hears the change without pressing ;.
 // Only the kind triggers it; pan/volume move every frame and are left to the manual ping.

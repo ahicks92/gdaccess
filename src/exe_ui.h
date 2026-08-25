@@ -143,6 +143,10 @@ bool riftgate_map_open();                  // MiniMap visible + shown + mode byt
 std::vector<Riftgate> riftgates();         // the discovered gates the map draws, in its section order
 bool riftgate_travel(const Riftgate& g);   // what the click does: SetLastUsedTeleportId + the map's travel call (exe+0x291520)
 void riftgate_map_close();                 // the close button: MiniMap Show(false)
+std::string map_nuggets_dump(int maxn);    // dev: the aerial map's cached MinimapGameNugget vector
+bool aerial_nugget_span(void*& begin, size_t& count);   // the live nugget vector (0xA0 stride); false when the map has not populated it
+bool aerial_map_open();                    // the local aerial map (M / Ctrl+M): MiniMap shown, mode 1
+void aerial_map_close();                   // MiniMap Show(false)
 namespace ingame {
 constexpr unsigned kPromptBox = 0x7378, kCharacter = 0x52258 /*the multiplayer Inspect twin*/, kInventory = 0xbbf0 /*the C/I window*/,  // (+0xb138/+0xb158 are record-path strings)
                    kQuest = 0x285a0, kSkills = 0x3fc20, kMiniMap = 0x42260, kExit = 0x4a300, kParty = 0x4b540,
