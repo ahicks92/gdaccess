@@ -11,9 +11,11 @@ WORKERS=32
 regions=$(uv run python -c "import json;print('\n'.join(json.load(open('build/rooms/worklist.json'))))")
 
 inworld_test(){ p=$(curl -s --max-time 8 "$DEV/player"); echo "$p" | grep -q "name='test'" && ! echo "$p" | grep -q "world=0x0"; }
-todo_count(){ uv run python -c "import sqlite3;c=sqlite3.connect('assets/rooms.db');print(sum(1 for r in c.execute(\"SELECT status FROM rooms WHERE region_key='$1'\") if r[0] not in ('verified','blocked')))"; }
-unseen_count(){ uv run python -c "import sqlite3;c=sqlite3.connect('assets/rooms.db');print(sum(1 for r in c.execute(\"SELECT status FROM rooms WHERE region_key='$1'\") if r[0]=='unseen'))"; }
-has_sub(){ uv run python -c "import sqlite3;c=sqlite3.connect('assets/rooms.db');print(c.execute(\"SELECT COUNT(*) FROM subregions WHERE region_key='$1'\").fetchone()[0])"; }
+# region passed as argv[1] (never interpolated into the SQL) to avoid quote clashes with `python -c "..."`
+todo_count(){ uv run python -c "import sqlite3,sys;c=sqlite3.connect('assets/rooms.db');print(sum(1 for r in c.execute('SELECT status FROM rooms WHERE region_key=?',(sys.argv[1],)) if r[0] not in ('verified','blocked')))" "$1"; }
+unseen_count(){ uv run python -c "import sqlite3,sys;c=sqlite3.connect('assets/rooms.db');print(sum(1 for r in c.execute('SELECT status FROM rooms WHERE region_key=?',(sys.argv[1],)) if r[0]=='unseen'))" "$1"; }
+has_sub(){ uv run python -c "import sqlite3,sys;c=sqlite3.connect('assets/rooms.db');print(c.execute('SELECT COUNT(*) FROM subregions WHERE region_key=?',(sys.argv[1],)).fetchone()[0])" "$1"; }
+status_line(){ uv run python -c "import sqlite3,sys;c=sqlite3.connect('assets/rooms.db');print(dict(c.execute('SELECT status,COUNT(*) FROM rooms WHERE region_key=? GROUP BY status',(sys.argv[1],)).fetchall()))" "$1"; }
 
 echo "=== ACT1 RUN START $(date) ==="
 for rk in $regions; do
@@ -32,6 +34,6 @@ for rk in $regions; do
   uv run tools/describe_or.py describe "$rk" --workers "$WORKERS" 2>&1 | tail -5
   code=${PIPESTATUS[0]}
   [ "$code" = "42" ] && { echo "STOP: OpenRouter credits exhausted at $rk. $(date)"; break; }
-  echo "=== DONE $rk : $(uv run python -c "import sqlite3;c=sqlite3.connect('assets/rooms.db');print(dict(c.execute(\"SELECT status,COUNT(*) FROM rooms WHERE region_key='$rk' GROUP BY status\").fetchall()))") $(date) ==="
+  echo "=== DONE $rk : $(status_line "$rk") $(date) ==="
 done
 echo "=== ACT1 RUN ENDED $(date) ==="
