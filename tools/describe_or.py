@@ -158,15 +158,20 @@ def describe_room(key, model):
     facts = author.build_facts(db, key)
     if "error" in facts:
         return {"key": key, "passed": False, "problem": facts["error"], "attempts": 0}
+    imgs = [p for p in facts.get("shots", []) if os.path.exists(p)]
+    if not imgs:
+        # No screenshot -> refuse to author blind. Leave the room's status untouched (unseen) so a re-run,
+        # after its shots are fixed, describes it properly. (Prevents facts-only "blind" descriptions when a
+        # region's shoot failed, e.g. the coastroad KeyError, 2026-08-24.)
+        return {"key": key, "passed": False, "noshot": True, "problem": "no shots (skipped, not blind-authored)", "attempts": 0}
     slim = {k: facts[k] for k in ("room", "region_name", "subregion", "terrain", "nearby") if k in facts}
     slim["room"] = {kk: facts["room"].get(kk) for kk in ("cls", "area")}
     content = [{"type": "text", "text":
                 f"Room {key}.\nFacts (terrain fractions, and 'nearby' = fixtures under/around the room):\n"
                 f"{json.dumps(slim)}\n\nLook at the shot(s): yellow dots outline THIS room, red dots are exits, "
                 f"the cyan box is the character. Only what is inside the yellow outline counts. Write the title and body."}]
-    for p in facts.get("shots", [])[:2]:
-        if os.path.exists(p):
-            content.append({"type": "image_url", "image_url": {"url": data_url(p)}})
+    for p in imgs[:2]:
+        content.append({"type": "image_url", "image_url": {"url": data_url(p)}})
     messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": content}]
     d = None; problem = ""
     for attempt in range(4):
@@ -249,48 +254,52 @@ def cmd_describe(a):
         sys.exit(42)   # credit exhaustion -> the overnight driver stops here
 
 
+# The model returns sub-regions each with a representative CENTRE (cx, cz); rooms are assigned to the nearest
+# centre in Python. This keeps the model output tiny (N sub-regions, not a per-room map), so it scales to any
+# region size -- the old per-room `assignments` blew past the output limit on big regions and truncated the JSON,
+# leaving ~26 regions ungrouped (2026-08-25).
 SUB_SCHEMA = {"type": "object", "properties": {
     "subregions": {"type": "array", "items": {"type": "object", "properties": {
-        "key": {"type": "string"}, "name": {"type": "string"}, "summary": {"type": "string"}},
-        "required": ["key", "name", "summary"], "additionalProperties": False}},
-    "assignments": {"type": "object", "additionalProperties": {"type": "string"}}},
-    "required": ["subregions", "assignments"], "additionalProperties": False}
+        "key": {"type": "string"}, "name": {"type": "string"}, "summary": {"type": "string"},
+        "cx": {"type": "number"}, "cz": {"type": "number"}},
+        "required": ["key", "name", "summary", "cx", "cz"], "additionalProperties": False}}},
+    "required": ["subregions"], "additionalProperties": False}
 
 
 def cmd_subregions(a):
     db = RoomsDb(DB)
     rooms = db.rooms(a.region)
     name = (db.c.execute("SELECT name FROM regions WHERE key=?", (a.region,)).fetchone() or [a.region])[0]
-    slim = [{"key": r["key"], "x": round(r["anchor_x"]), "z": round(r["anchor_z"]), "cls": r["cls"], "area": round(r["area"])}
+    slim = [{"x": round(r["anchor_x"]), "z": round(r["anchor_z"]), "cls": r["cls"], "area": round(r["area"])}
             for r in rooms]
-    exits = [(ra, rb) for ra, rb, in db.c.execute(
-        "SELECT room_a, room_b FROM exits WHERE region_key=? AND room_b LIKE ?", (a.region, a.region + ":%"))]
     n = len(rooms)
     target = "2-4" if n < 60 else ("4-8" if n < 200 else "8-15")
-    prompt = (f"Region \"{name}\" has {n} rooms. Divide it into {target} named SUB-REGIONS (a player-without-a-map "
-              f"level of place: 'the upper galleries', 'the main cavern') and assign EVERY room to one, grouping by "
-              f"geography (anchor x,z; z grows south) and connectivity (exits). Names: short noun phrases, unique, "
-              f"consistent in voice, no room ids or coordinates. Rooms (key,x,z,cls,area):\n{json.dumps(slim)}\n"
-              f"Exits (room_a,room_b):\n{json.dumps(exits)}\n"
-              f"Return JSON: subregions=[{{key(lowercase slug),name,summary(one sentence)}}], "
-              f"assignments={{room_key: subregion_key}} covering all {n} rooms.")
+    prompt = (f"Region \"{name}\" has {n} rooms at these (x,z) anchors (z grows south). Divide it into {target} "
+              f"named SUB-REGIONS -- the level of place a player without a map plans a route by ('the upper "
+              f"galleries', 'the north road', 'the graveyard') -- grouped by geography. For each, give a lowercase "
+              f"slug key, a short noun-phrase name (unique, consistent in voice, no ids/coordinates), a one-sentence "
+              f"summary, and cx,cz = a representative CENTRE point of that sub-region (rooms are assigned to the "
+              f"nearest centre). Cover the whole region so every room is near some centre.\n"
+              f"Room anchors (x,z,cls,area):\n{json.dumps(slim)}")
     try:
-        out, _ = or_chat(a.model, [{"role": "user", "content": prompt}], schema=SUB_SCHEMA, max_tokens=8000)
+        out, _ = or_chat(a.model, [{"role": "user", "content": prompt}], schema=SUB_SCHEMA, max_tokens=4000)
     except CreditsExhausted as e:
         print(f"STOP: OpenRouter credit exhausted ({e})."); sys.exit(42)
     except SafetyBlocked as e:
         print(f"sub-regions safety-blocked ({e}); leaving unassigned (describe still works)."); return
-    d = parse_json(out)
-    for s in d["subregions"]:
+    subs = parse_json(out)["subregions"]
+    if not subs:
+        print(f"{a.region}: model returned no sub-regions"); return
+    for s in subs:
         db.c.execute("INSERT INTO subregions(key,region_key,name,summary) VALUES(?,?,?,?) "
                      "ON CONFLICT(key) DO UPDATE SET name=excluded.name, summary=excluded.summary",
                      (s["key"], a.region, s["name"], s.get("summary")))
     assigned = 0
-    for rk, sk in d["assignments"].items():
-        assigned += db.c.execute("UPDATE rooms SET subregion_key=? WHERE key=?", (sk, rk)).rowcount
+    for r in rooms:   # assign each room to the nearest sub-region centre
+        sk = min(subs, key=lambda s: (r["anchor_x"] - s["cx"]) ** 2 + (r["anchor_z"] - s["cz"]) ** 2)["key"]
+        assigned += db.c.execute("UPDATE rooms SET subregion_key=? WHERE key=?", (sk, r["key"])).rowcount
     db.c.commit()
-    print(f"{len(d['subregions'])} sub-regions, assigned {assigned}/{n} rooms:",
-          ", ".join(f"{s['name']}" for s in d["subregions"]))
+    print(f"{len(subs)} sub-regions, assigned {assigned}/{n} rooms:", ", ".join(s["name"] for s in subs))
     price = MODEL_PRICES.get(a.model, (0, 0))
     print(f"~${(_cost['in']*price[0]+_cost['out']*price[1])/1e6:.5f}")
 
