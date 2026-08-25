@@ -156,6 +156,16 @@ static void register_actions() {
     std::string line = world::follow_ping();
     speech::speak(line.empty() ? std::string(strings::kNotFollowing) : line, true);
   }).bind(0x28);  // Apostrophe
+  // Inspect the current target (/ ): "<pct> percent health, <effects>" with no name; silent for a non-enemy.
+  m.register_action("scan.inspect", "Inspect target", InputCategory::InGame, [] {
+    std::string s = world::inspect_target();
+    if (!s.empty()) speech::speak(s, true);
+  }).bind(0x35);  // Slash
+  // Comma cycles only the highest-rarity enemies nearby (find the boss / a summoner's adds); an inert camera key.
+  m.register_action("scan.topClassNext", "Cycle highest-rarity enemy", InputCategory::InGame,
+                    [] { speech::speak(world::cycle_highest_classification(1), true); }).bind(0x33);          // ,
+  m.register_action("scan.topClassPrev", "Previous highest-rarity enemy", InputCategory::InGame,
+                    [] { speech::speak(world::cycle_highest_classification(-1), true); }).bind(0x33, false, true, false);  // Shift+,
   // Rooms (docs/rooms.md): X = the current room's title and description; its exits are the scanner's Exits
   // group (V above). Place changes are announced automatically in the player's voice.
   m.register_action("rooms.describe", "Describe the room", InputCategory::InGame, [] { rooms::speak_description(); }).bind(0x2d);   // X

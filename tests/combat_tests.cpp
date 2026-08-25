@@ -38,7 +38,10 @@ TEST_CASE("combat strings") {
 }
 
 static CombatCoalescer::In hit(double amount, float x, float z, double t, bool crit = false) {
-  return {true, amount, crit, {}, x, z, 0.3f, 0.7f, t};
+  return {true, amount, crit, {}, {}, x, z, 0.3f, 0.7f, t};
+}
+static CombatCoalescer::In effect(std::string tag, float x, float z, double t) {
+  return {false, 0, false, {}, {std::move(tag)}, x, z, 0.3f, 0.7f, t};
 }
 TEST_CASE("coalescer merges same-place numbers inside the window") {
   CombatCoalescer c;
@@ -56,7 +59,7 @@ TEST_CASE("coalescer keeps separate what must stay separate") {
   c.push(hit(10, 5, 7, 0.3));           // later than the window: its own bucket
   c.push(hit(10, 5, 7, 0.31, true));    // crit: its own bucket
   c.push(hit(10, 9, 9, 0.31));          // elsewhere
-  c.push({false, 0, false, "Miss", 5, 7, 0, 1, 0.31});
+  c.push({false, 0, false, "Miss", {}, 5, 7, 0, 1, 0.31});
   auto out = c.flush(1.0);
   CHECK(out.size() == 5);
   CHECK_FALSE(out[0].is_number); CHECK(out[0].word == "Miss");  // words first, never merged
@@ -71,6 +74,32 @@ TEST_CASE("coalescer disabled passes everything through, cap drops the surplus")
   CHECK(out.size() == 2); CHECK(c.dropped() == 3); CHECK(c.merged() == 0);
 }
 
+TEST_CASE("coalescer: a debuff at the same place rides the number bucket") {
+  CombatCoalescer c;
+  c.push(hit(12, 5.0f, 7.0f, 0.00));
+  c.push(effect("frozen", 5.1f, 6.9f, 0.03));   // same place, inside the window
+  auto out = c.flush(0.20);
+  REQUIRE(out.size() == 1);
+  CHECK(out[0].is_number); CHECK(out[0].amount == doctest::Approx(12));
+  REQUIRE(out[0].tags.size() == 1); CHECK(out[0].tags[0] == "frozen");
+}
+TEST_CASE("coalescer: a lone debuff flushes on its own") {
+  CombatCoalescer c;
+  c.push(effect("stunned", 5, 7, 0.0));
+  auto out = c.flush(0.20);
+  REQUIRE(out.size() == 1);
+  CHECK_FALSE(out[0].is_number); CHECK(out[0].word.empty());
+  REQUIRE(out[0].tags.size() == 1); CHECK(out[0].tags[0] == "stunned");
+}
+TEST_CASE("coalescer: a debuff adopts an effect-only bucket then the number joins") {
+  CombatCoalescer c;
+  c.push(effect("burning", 5, 7, 0.00));        // effect first
+  c.push(hit(8, 5, 7, 0.02));                   // number lands on the same place
+  auto out = c.flush(0.20);
+  REQUIRE(out.size() == 1);
+  CHECK(out[0].is_number); CHECK(out[0].amount == doctest::Approx(8));
+  REQUIRE(out[0].tags.size() == 1); CHECK(out[0].tags[0] == "burning");
+}
 TEST_CASE("threshold watcher fires once per decade in both directions") {
   ThresholdWatcher w;
   int pct = -1;

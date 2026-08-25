@@ -33,6 +33,27 @@ MessageBuilder& push_scan_item(MessageBuilder& m, std::string_view label, float 
   push_position(m, index1, count);
   return m;
 }
+std::string_view classification_word(int classification) {
+  switch (classification) {
+    case 1: return "champion";
+    case 2: return "hero";
+    case 3: return "boss";
+    case 4: return "quest";
+    case 5: return "super boss";
+    default: return {};   // 0 Common / -1 unknown: no rarity word
+  }
+}
+MessageBuilder& push_enemy_label(MessageBuilder& m, std::string_view name, int level, int classification) {
+  m.fragment(name).fragment(std::format("level {}", level));
+  std::string_view w = classification_word(classification);
+  if (!w.empty()) m.fragment(w);
+  return m;
+}
+MessageBuilder& push_target_inspect(MessageBuilder& m, int health_percent, const std::vector<std::string>& effects) {
+  m.fragment(std::format("{}", health_percent)).fragment(kPercent).fragment(kHealth);
+  for (const std::string& e : effects) m.list_item().fragment(e);
+  return m;
+}
 MessageBuilder& push_character_summary(MessageBuilder& m, unsigned level, std::string_view class_name, bool hardcore) {
   m.list_item().fragment(std::format("level {}", level));
   if (!class_name.empty()) m.fragment(class_name);
@@ -80,6 +101,15 @@ MessageBuilder& push_combat_hit(MessageBuilder& m, std::string_view number, bool
 }
 MessageBuilder& push_combat_word(MessageBuilder& m, std::string_view word) {
   m.fragment(word);
+  return m;
+}
+MessageBuilder& push_kills(MessageBuilder& m, int count, uint64_t xp) {
+  if (count > 1) {   // a pack: "3 killed", "3 killed, 300 exp"
+    m.fragment(std::format("{}", count)).fragment(kKilled);
+    if (xp > 0) m.list_item().fragment(std::format("{}", xp)).fragment(kExp);
+  } else {   // a single kill drops "killed" -- just the exp, always ("0 exp" when it gave none)
+    m.fragment(std::format("{}", xp)).fragment(kExp);
+  }
   return m;
 }
 

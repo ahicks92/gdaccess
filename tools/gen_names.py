@@ -34,6 +34,17 @@ ENTRIES = [
     ("Character_GetManaLimit", "Game", r"GAME::Character::GetManaLimit\(void\)"),
     # combat text: the floating numbers / Miss / Dodge / Block are GameEvents of type 0x1b (src/combat.cpp)
     ("EventManager_Send", "Engine", r"GAME::EventManager::Send\(struct GAME::GameEvent const"),
+    # combat perception (src/combat.cpp, src/world.cpp, src/notify.cpp): status effects, nameplate, banners
+    ("Character_DebufTarget", "Game", r"GAME::Character::DebufTarget\(class GAME::Character & __ptr64,bool,struct GAME::SkillBuffTransfer const"),
+    ("Monster_GetClassification", "Game", r"GAME::Monster::GetClassification\(void\)"),
+    ("Monster_GetExperienceReward", "Game", r"GAME::Monster::GetExperienceReward\("),
+    ("GameEngine_AddUINotification_Str", "Game", r"GAME::GameEngine::AddUINotification\(enum GAME::UINotification::Type,class std::basic_string"),
+    ("GameEngine_AddUINotification_Vec", "Game", r"GAME::GameEngine::AddUINotification\(enum GAME::UINotification::Type,class mem::vector"),
+    ("ControllerPlayer_SetUserText", "Game", r"GAME::ControllerPlayer::SetUserText\("),
+    # Kill feedback: PlayStats::IncrementKills fires once per player-credited kill (confirmed live 2026-08-25 --
+    # HandleExperienceNotification / SkillManager::OnEnemyDeath do NOT fire/credit in single-player). Args
+    # (a1, a2, MonsterClassification, bool); XP is read by polling GetExperiencePoints (no XP-event hook fires).
+    ("PlayStats_IncrementKills", "Game", r"GAME::PlayStats::IncrementKills\("),
     ("Player_GetPlayerName", "Game", r"GAME::Player::GetPlayerName\(void\)"),
     ("Region_GetName", "Engine", r"GAME::Region::GetName\(void\)"),
     # world structure (chunks = the engine's Regions, their portals; docs/rooms.md)
@@ -307,6 +318,9 @@ ENTRIES = [
     # skill list for the default action of a role (0 = left mouse basic attack, 1 = right mouse), so the id is
     # per-character and weapon-dependent -- never cache it. Used to restore the mouse buttons to basic attack.
     ("SkillManager_GetDefaultSkillId", "Game", r"GAME::SkillManager::GetDefaultSkillId\(enum GAME::DefaultSkill\)"),
+    # Resolve a buff/debuff entry's record path (SkillBuffTransfer+0x00) to the live skill id, to name it (the
+    # entry holds no skill id -- +0x48 is the caster). The char const* overload takes the record path directly.
+    ("SkillManager_FindSkillId", "Game", r"GAME::SkillManager::FindSkillId\(char const"),
     # skills granted by equipped items (the hotbar-manager palette includes these)
     ("SkillManager_GetItemSkillList", "Game", r"GAME::SkillManager::GetItemSkillList\(void\)"),
     # per-item granted skill: FindItemSkillIdByItemId(item id) -- used to source the palette from EQUIPPED items

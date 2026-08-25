@@ -5,6 +5,7 @@
 #include "speech.h"
 #include "textcap.h"
 #include "world.h"
+#include "notify.h"
 #include "exe_ui.h"
 #include "audio.h"
 #include "audio_mute.h"
@@ -109,6 +110,15 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     if (q.count("raw")) combat::arm_raw_log(parse_int(q.at("raw"), 10));
     return combat::status();
   }
+  if (path == "/notify") return notify::status();   // banners + error popups the game showed, and dedupe count
+  if (path == "/inspect") { std::string s = world::inspect_target(); return s.empty() ? "no target\n" : s + "\n"; }
+  if (path == "/findskill") {  // ?id=<character>&record=<records/skills/...> -> the buff/skill name via FindSkillId
+    unsigned oid = (unsigned)parse_int(q.count("id") ? q.at("id") : "0", 0);
+    std::string rec = q.count("record") ? q.at("record") : "";
+    std::string nm = world::buff_name(oid, rec.c_str());
+    return nm.empty() ? "not found\n" : nm + "\n";
+  }
+  if (path == "/effects") return world::effects_dump((unsigned)parse_int(q.count("id") ? q.at("id") : "0", 0));   // ?id=<character> raw + resolved buff list
   if (path == "/speech" || path == "/log" || path == "/voice") {
     auto& ring = path == "/speech" ? speech::history() : path == "/voice" ? voice::history() : log::ring();
     uint64_t since = q.count("since") ? strtoull(q.at("since").c_str(), nullptr, 10) : 0;

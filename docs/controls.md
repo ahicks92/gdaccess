@@ -70,7 +70,9 @@ stationary attack, Ctrl pet targeting) and typing into the game's chat field.
 ## The mod's in-world keys (first cut, 2026-08-21; wotr's review-cursor layout)
 | Key | Action |
 |---|---|
-| . / Shift+. | Next / previous enemy (nearest first from the player) |
+| . / Shift+. | Next / previous enemy (nearest first from the player); an enemy reads "name level N rarity" -- the rarity word (champion / hero / boss / quest / super boss) is spoken only when the enemy is one (a common enemy is just "name level N") |
+| , / Shift+, | Next / previous of only the highest-rarity enemies nearby (find the boss, or a summoner's adds); same readout and landing as . (an inert camera key otherwise, since the camera is locked) |
+| / (slash) | Inspect what you are targeting: "N percent health" then its status effects, with no name repeat. Silent when nothing / no living enemy is targeted. A screen-reader readout, like H |
 | N / Shift+N | Next / previous person or object: the important non-loot things -- NPCs with a conversation (`Npc::HasConversation`) and what the game's Interact key would use that is not loot (rifts, shrines, doors, levers: `FixedActor` whose `IsOfInterest()` says so) |
 | B / Shift+B | Next / previous bystander (NPCs without one) |
 | M / Shift+M | Next / previous loot: items on the ground and containers (`Item` / `FixedItemContainer` whose `IsOfInterest()` says so) |
@@ -86,6 +88,9 @@ stationary attack, Ctrl pet targeting) and typing into the game's chat field.
 | K, Ctrl+Shift+P | Where am I (position, life, region) |
 | H | Health and energy in full ("health 250 of 250, energy 100 of 120") through the screen reader |
 | (automatic) | Hits you or your pets land: the number the game draws over the enemy ("17", "45 crit", "Miss", "Dodge", "Block"), spoken by Mark panned to where it happened, as many at once as there are hits. Needs the game's "Display damage numbers" option (`displayDamage`, default on). Health: "health N percent" in Zira each time it crosses a 10 % step, down or up |
+| (automatic) | A status effect applied TO you (an enemy's debuff) is named in Zira, panned toward whatever cast it. (Announcing the debuffs YOU apply to enemies is deferred -- naming each by its full skill per hit is too verbose; a terse effect lexicon is a later research project) |
+| (automatic) | Kills, in Zira, panned toward where they died (coalesced over ~0.5 s): a single kill reads just its experience ("300 exp", or "0 exp" when it gave none); a pack reads "N killed", plus ", N exp" when it gave any. Fires even on 0-XP kills, since the game shows a death only by the body dropping. XP with no kill (quest turn-ins) is not announced here. Kill signal = `PlayStats::IncrementKills`; XP is polled from `GetExperiencePoints` (single-player has no XP event) and attributed only when it lands next to a kill |
+| (automatic) | The game's banner strip (level up, "Enemy Hero Killed", quest updated, "You have died") and its red action-failed popups ("That skill is not ready", "Energy Too Low", "Invalid Target") are read through the screen reader, once each |
 | Ctrl+<game key> | The game's own windows and functions (see above) |
 | Q | The objective tracker: each tracked quest's open objectives ("Waking to Misery: Enter the Cave under Burial Hill, ...") |
 | Y | The game's own Quickbar Switch (cycles which of the two skill bars the HUD shows); the mod announces the new bar ("quickbar 2"). Passes straight through -- it is the game's key, we only add the readout |
@@ -132,6 +137,7 @@ step rebuilds the nearest-first list live and continues from that ID, or enters 
 (Historical, 2026-08-21: since the Ctrl lifts every game function the mod does not pass through is
 reachable as Ctrl+key, and the plain letters are the mod's -- X and V are the rooms keys now.)
 WASD, 1-0, Q N C I M O K G H J V, E R L B U X Z Y P, Space, Enter, Tab (push-to-talk, harmless),
-Alt/Ctrl/Shift (modifiers the game reads while clicking), Backspace, \, ], `,` `.` (camera), F2-F7.
-Free on the keyboard: F1, F8, T, the bracket/semicolon/quote/slash keys, Insert/Delete/Home/End/PgUp/PgDn,
-the arrow keys, numpad. Ctrl+letter chords arrive with flags and are unused by the game.
+Alt/Ctrl/Shift (modifiers the game reads while clicking), Backspace, \, ], `.` and `,` (review; the camera is
+locked so its rotate keys are inert), F2-F7. The mod's review/inspect keys are `.` `,` `;` `'` `/` and V/X.
+Free on the keyboard: F1, F8, T, the bracket keys, Insert/Delete/Home/End/PgUp/PgDn, the arrow keys, numpad.
+Ctrl+letter chords arrive with flags and are unused by the game.

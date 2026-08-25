@@ -50,6 +50,7 @@ constexpr int kFadeSamples = 48000 * 5 / 1000;  // 5 ms
 struct Shot {
   Pcm buf;
   size_t pos = 0;
+  size_t delay = 0;   // frames of leading silence before the shot starts (stagger of co-timed identical lines)
   float gl = 0, gr = 0;
   int group = 0;
   uint32_t id = 0;
@@ -128,7 +129,9 @@ void data_callback(ma_device*, void* out, const void*, ma_uint32 frames) {
   }
   for (Shot& sh : g_shots) {
     const std::vector<float>& s = *sh.buf;
-    for (ma_uint32 i = 0; i < frames && sh.pos < s.size(); ++i, ++sh.pos) {
+    for (ma_uint32 i = 0; i < frames; ++i) {
+      if (sh.delay > 0) { --sh.delay; continue; }   // leading silence (stagger)
+      if (sh.pos >= s.size()) break;
       float x = s[sh.pos];
       if (sh.shelf) { float y = sh.b0 * x + sh.z1; sh.z1 = sh.b1 * x - sh.a1 * y + sh.z2; sh.z2 = sh.b2 * x - sh.a2 * y; x = y; }  // transposed DF-II
       float v = x * (sh.mastered ? master : 1.0f);
@@ -138,6 +141,7 @@ void data_callback(ma_device*, void* out, const void*, ma_uint32 frames) {
         --sh.fade_out;
       }
       o[i * 2] += v * sh.gl; o[i * 2 + 1] += v * sh.gr;
+      ++sh.pos;
     }
   }
   for (Shot& sh : g_shots)
@@ -258,7 +262,7 @@ void play_sample(const std::string& wav_path, float volume, float pan, float rea
   play_pcm(buf, volume, pan, 0, false, true, rear_shelf_db);
 }
 
-uint32_t play_pcm(Pcm samples, float volume, float pan, int group, bool replace_group, bool apply_master, float rear_shelf_db) {
+uint32_t play_pcm(Pcm samples, float volume, float pan, int group, bool replace_group, bool apply_master, float rear_shelf_db, float predelay_ms) {
   if (!samples || samples->empty()) return 0;
   float l, r; pan_gains(pan, l, r);
   volume = volume < 0 ? 0 : volume > 1 ? 1 : volume;
@@ -267,6 +271,7 @@ uint32_t play_pcm(Pcm samples, float volume, float pan, int group, bool replace_
   if (replace_group && group)
     for (Shot& sh : g_shots) if (sh.group == group && sh.fade_out < 0) sh.fade_out = kFadeSamples;
   Shot sh; sh.buf = std::move(samples); sh.gl = volume * l; sh.gr = volume * r; sh.group = group; sh.id = g_next_shot_id++; sh.mastered = apply_master;
+  if (predelay_ms > 0.0f) sh.delay = (size_t)(predelay_ms * (float)kRate / 1000.0f);
   if (rear_shelf_db < -0.05f) high_shelf(sh, rear_shelf_db, kRearCornerHz, (float)kRate);
   g_shots.push_back(std::move(sh));
   return g_shots.back().id;

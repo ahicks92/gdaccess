@@ -108,6 +108,7 @@ struct SkillInfo {
 };
 std::vector<SkillInfo> skills();                 // the UI skill list, in the game's order
 unsigned skill_points();
+unsigned experience();   // Character::GetExperiencePoints on the main player (current level's XP; resets on level-up)
 unsigned default_skill_id(int role);             // SkillManager::GetDefaultSkillId (0 = left mouse basic attack, 1 = right); live, never cache
 std::vector<unsigned> item_skill_ids();          // skills granted by equipped items (SkillManager::GetItemSkillList)
 std::vector<SkillInfo> assignable_skills();      // UI skills + EQUIPPED-item granted skills (deduped); caller filters by skill_aim
@@ -115,6 +116,7 @@ std::string dump_item_skills();                  // dev: GetItemSkillList vs equ
 unsigned masteries_allowed();
 std::vector<unsigned> mastery_ids();             // the masteries the character has
 std::vector<std::string> skill_tooltip(const void* skill);   // GameEngine::GenerateUISkillText
+std::string skill_name_by_id(unsigned skill_id);   // object_by_id -> Skill::CreateUISkillName (buff/debuff labels); "" if none
 // "" = the skill can take a point now; otherwise a human reason (no points / mastery rank / base skill).
 std::string can_learn_skill(const void* skill);
 bool learn_skill(const void* skill);             // +1 level (a skill point); refuses unless can_learn_skill is ""

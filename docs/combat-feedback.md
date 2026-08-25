@@ -106,6 +106,76 @@ itself), not as the player's combat log: it prints attribute math and record pat
 `displayDamage` (numbers on hit), `critMultipliers` (index 3 in `Options::GetBool`: "(xN)" on crits),
 `critFeedback` (camera shake), `errorMessages` (the popup line), `monsterBarsUndamaged`, `targetLock`.
 
+## Status effects, the nameplate, banners and popups (built 2026-08-25)
+RE confirmed this session (Game.dll, static). Implemented in src/world.cpp, src/combat.cpp, src/notify.cpp.
+
+**Enemy nameplate** (a Monster is a Character; all offsets on the Character base):
+- current life = `Character::GetCurrentLife` -> double (`Character+0xf00`); max = `Character::GetLifeLimit` -> float
+  (`Character+0xf78`, a CharAttributeAccumulator). pct = cur/max.
+- level = `Character::GetCharLevel` -> uint (`Character+0x1760`).
+- rarity = `Monster::GetClassification` -> `enum const&` (`Monster+0x4ef4`). Enum: 0 Common, 1 Champion, 2 Hero,
+  3 Boss, 4 Quest, 5 SuperBoss (from monster.tpl's `monsterClassification` picklist; boundary confirmed by
+  `GameEngine::GetAscendantCharAttributes` `cmp edx,3`). "Nemesis" is NOT a classification value.
+- XP (available, unused for now): `Monster::GetExperienceReward(playerId, WorldVec3 const&)`, virtual, gated by
+  a byte at `Monster+0x51c4` (0 -> returns 0).
+The review cursor (. and ,) folds level + rarity into the enemy label ("Training Dummy level 41"); the / key
+inspects `ControllerPlayer::GetCombatEnemy` ("N percent health, <effects>", no name).
+
+**Status effects (buff/debuff list) on any Character** (src/world.cpp read_buff_records):
+`Character+0x850` = SkillManager; `*(SkillManager+0x390)` = SkillServices (**null-check**); `*(SkillServices+0x8)`
+= a std::list sentinel node; iterate `node = *(void**)node` until back at the sentinel; the value is at `node+0x10`
+(`SkillBuffTransfer`, stride 0xA0). In the value: `+0x00` = the **record path** (MsvcStringA, `+0x10` size /
+`+0x18` cap), the buff's identity. **`+0x48` is the CASTER entity id, NOT a skill id** (confirmed live 2026-08-25:
+a player freeze showed +0x48 == the player's own object id; the RE report's "+0x48 = skill id" was wrong). The
+struct carries no skill id at all, so name a buff from its **record**: `SkillManager::FindSkillId(char const*)`
+on the owning character's manager (`Character+0x850`) returns the live skill id -- the record is registered there
+when the buff is applied (`CreateUpdateSkillBuff` does the same lookup) -- then `Skill::CreateUISkillName`
+(`world::find_skill_by_record` / `world::buff_name` -> `gameapi::skill_name_by_id`). Example: a debuff entry with
+record `records/skills/playerclass05/chillingsurge_buff.dbr` resolves to "Olexra's Flash Freeze"
+(`skillDisplayName = tagClass05SkillName16A`). `gameapi::skill_name_by_id` is guarded to only dispatch the Skill
+vtable on an object whose record is under `records/skills/` -- dispatching CreateUISkillName through a non-skill
+object (e.g. resolving the stray +0x48 caster id) hung the game. Buff-vs-debuff: the record's templateName
+(`skillbuff_debuf*`, e.g. `skillbuff_debuffreeze`) is the dependable discriminator (offline; not filtered yet --
+the current pass lists all named effects). Dev: `/findskill?id=&record=`, `/effects?id=`.
+
+**Real-time debuffs** (src/combat.cpp): hook `Character::DebufTarget(Character& victim, bool, SkillBuffTransfer const&, ...)`
+-- `this` = caster, arg1 = victim, arg3+0x00 = the record path. The hook records the caster/victim ids + the record
+(POD, SEH); tick() resolves the name (`world::buff_name(victim, record)`) and position on the game thread. Only
+debuffs applied **to the player** are announced -- Zira, panned to the caster (group `kGroupSelfEffect`, off
+`kGroupSelf` so a health step's Replace does not cut it). **Announcing the debuffs the player applies to enemies
+is deferred** (2026-08-25): naming each by its full skill ("Olexra's Flash Freeze") per hit is unusably verbose in
+a fight, and a terse effect lexicon ("frozen", "stunned", ...) needs a proper pass over the DB's CC parameters
+(the effect is in the record's `*Duration`/CC params, not a single field or the class) -- a research project. The
+DebufTarget hook and the `CombatCoalescer` tag support (which merges an effect token into the enemy's damage
+number, "12 frozen") stay in place for when that lands. Caveat: not every debuff routes through DebufTarget (item
+procs / some monster casts hit the victim's `CreateUpdateSkillBuff` directly, no caster) -- a known gap.
+
+**Kills + XP** (src/combat.cpp, 2026-08-25): the game shows a kill only graphically (the body drops), so we
+announce it. Kill feedback CANNOT ride the XP event -- `GameEngine::HandleExperienceNotification(playerId, type,
+amount)` returns early when amount is 0, so over-levelled / trash kills that grant no XP would be silent. Instead
+the kill signal is `SkillManager::OnEnemyDeath(Character& victim, unsigned, mem::vector<unsigned> attackers,
+WorldVec3 const& pos)` -- the kill pipeline calls it on the killer's SkillManager for every enemy death; we
+credit the player when the player's object id is in `attackers` (so it also counts player-assisted / pet kills
+where the player is an attacker). Per kill we bump a counter and remember `pos`; `HandleExperienceNotification`
+only sums the XP. tick() coalesces a burst within 0.5 s into one Zira line, panned to `pos`: "killed" (one) /
+"N killed" (several), plus ", N exp" when the window's kills gave XP (`strings::push_kills`). Only kills announce
+-- non-kill XP (quests) with no kill that window is drained and discarded (the quest-reward screen already reads
+its XP). Dev: `/combat` shows `kills=`, `exp_total=`.
+
+**Banners + popups** (src/notify.cpp): hook `GameEngine::AddUINotification` (u16string and mem::vector overloads;
+already-localized text) and `ControllerPlayer::SetUserText(std::string const& tag, int ms)` (localize the tag via
+`hooks::localize`). This hook is the SINGLE source for banners -- nothing synthesizes level-up / kill / XP lines,
+so there is no double announcement (the quest-reward popup's XP line, src/screens/modals.*, is a separate screen
+read on focus). Spoken through the screen reader, deduped against the immediately-preceding identical line (the
+game re-sets the popup while it shows). Dev: /notify.
+
+**Stagger** (src/audio.cpp): identical text shares one cached PCM buffer, so co-timed copies phase-lock into one
+voice. `audio::play_pcm` gained a `predelay_ms` (the mixer counts down leading silence before a shot starts);
+`voice::Say::predelay_ms` threads it through, and combat::tick staggers the lines it emits in one pass by 0/30/60ms
+(capped 100 ms).
+
+Dev routes added: /inspect (current target), /effects?id= (raw + resolved buff list), /notify.
+
 ## Design consequences for the mod
 - "Damage taken" must come from `ApplyDamage` (victim == player, or a pet); the game has no text for it.
 - "Damage dealt" can come from either `ApplyDamage` (attacker ids contain the player) or the 0x1b event

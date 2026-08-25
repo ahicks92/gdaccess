@@ -3,6 +3,7 @@
 #include "audio.h"
 #include "audio_mute.h"
 #include "combat.h"
+#include "notify.h"
 #include "rooms.h"
 #include "db.h"
 #include "voice.h"
@@ -32,6 +33,7 @@ static DWORD WINAPI init_thread(LPVOID) {
   gd::hooks::install();
   gd::world::install();
   gd::combat::install();
+  gd::notify::install();
   gd::exe_ui::install();
   gd::audio::init();
   gd::voice::init();  // the positional voices (OneCore worker); falls back to the screen reader if it fails
@@ -56,6 +58,7 @@ extern "C" __declspec(dllexport) DWORD WINAPI gdaccess_unload(LPVOID) {
   gd::rooms::shutdown();
   gd::db::shutdown();
   gd::combat::remove();
+  gd::notify::remove();
   gd::voice::shutdown();  // joins the worker before the mixer it feeds goes away
   gd::audio::shutdown();
   gd::world::remove();

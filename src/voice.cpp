@@ -103,7 +103,7 @@ void worker() {
     audio::Pcm pcm = render(s);
     if (!pcm) continue;
     if (s.policy == Policy::Overlap && s.group && audio::group_count(s.group) >= g_max[slot(s.voice)].load()) { ++g_dropped_cap; continue; }
-    audio::play_pcm(pcm, s.gain * g_gain.load(), s.pan, s.group, s.policy == Policy::Replace, false);
+    audio::play_pcm(pcm, s.gain * g_gain.load(), s.pan, s.group, s.policy == Policy::Replace, false, 0.0f, s.predelay_ms);
   }
   g_cache.clear();
   g_cache_samples = 0;

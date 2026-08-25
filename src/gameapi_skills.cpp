@@ -214,6 +214,24 @@ std::vector<SkillInfo> skills() {
   }
   return out;
 }
+// A buff/debuff entry names itself by its skill id (SkillBuffTransfer+0x48): resolve the live Skill object and
+// take its UI name. Name-only (no full read_skill), for the status-effect readouts (src/world.cpp, src/combat.cpp).
+std::string skill_name_by_id(unsigned skill_id) {
+  load_skills();
+  void* s = object_by_id(skill_id);
+  if (!s) return {};
+  // SAFETY: only call the Skill vtable methods on an actual skill. object_by_id can return any object for a
+  // stray id, and dispatching CreateUISkillName through a non-Skill vtable slot crashed/hung the game. A skill's
+  // record lives under records/skills/...; Object::GetObjectName is a safe base call on any object.
+  std::string rec = object_record(s);
+  if (rec.find("skills/") == std::string::npos && rec.find("skills\\") == std::string::npos) return {};
+  std::string name;
+  guarded("skill name", [&] {
+    if (auto f = (MsvcStringW * (*)(const void*, MsvcStringW*, bool))vfn(s, g_s_name)) { MsvcStringW n; init_u16(n); f(s, &n, false); name = take_u16(n); }
+    if (name.empty() && g.Skill_GetDisplayNameTag) name = localize(a_text(g.Skill_GetDisplayNameTag(s)));
+  });
+  return name;
+}
 // The base skill a modifier enhances (reverse of Skill::GetModifiers), or 0. On-demand (a key press), so the
 // one-pass scan over the skill list is fine.
 unsigned modifier_base_id(const void* skill) {
@@ -234,6 +252,7 @@ unsigned modifier_base_id(const void* skill) {
   return base;
 }
 unsigned skill_points() { load_skills(); void* p = player(); unsigned n = 0; if (p && g.GetSkillPoints) guarded("GetSkillPoints", [&] { n = g.GetSkillPoints(p); }); return n; }
+unsigned experience() { load_skills(); void* p = player(); unsigned n = 0; if (p && g.GetExperiencePoints) guarded("GetExperiencePoints", [&] { n = g.GetExperiencePoints(p); }); return n; }
 // The character's current default skill for a role (0 = left mouse basic attack, 1 = right mouse), via the
 // game's own SkillManager::GetDefaultSkillId -- computed live from the equipped weapon and skills, so it is
 // always the correct instance to put back on a mouse button. Never cache the returned id.

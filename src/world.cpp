@@ -10,6 +10,7 @@
 #include <vector>
 #include "gd_names.h"
 #include "exe_ui.h"
+#include "gameapi.h"
 #include "hooks.h"
 #include "speech.h"
 #include "audio.h"
@@ -164,6 +165,9 @@ struct Api {
   void* (*Character_GetFootCoords)(void*, void*, bool) = nullptr;
   double (*GetCurrentLife)(const void*) = nullptr;
   float (*GetLifeLimit)(const void*) = nullptr;
+  unsigned (*GetCharLevel)(const void*) = nullptr;             // Character::GetCharLevel (the nameplate level)
+  const int* (*GetClassification)(const void*) = nullptr;      // Monster::GetClassification -> enum const& (0 Common..5 SuperBoss)
+  unsigned (*FindSkillId)(const void*, const char*) = nullptr; // SkillManager::FindSkillId(record path) -> live skill id (names a buff)
   float (*GetCurrentMana)(const void*) = nullptr;   // "energy" in the UI; float (GetCurrentLife is a double)
   float (*GetManaLimit)(const void*) = nullptr;
   const char16_t* (*GetPlayerName)(const void*) = nullptr;
@@ -279,6 +283,9 @@ void load_api() {
   LOAD(Character_GetFootCoords, Character_GetFootCoords);
   LOAD(GetCurrentLife, Character_GetCurrentLife);
   LOAD(GetLifeLimit, Character_GetLifeLimit);
+  LOAD(GetCharLevel, Character_GetCharLevel);
+  LOAD(GetClassification, Monster_GetClassification);
+  LOAD(FindSkillId, SkillManager_FindSkillId);
   LOAD(GetCurrentMana, Character_GetCurrentMana);
   LOAD(GetManaLimit, Character_GetManaLimit);
   LOAD(GetPlayerName, Player_GetPlayerName);
@@ -503,6 +510,10 @@ std::string player_name() {
   void* p = player();
   const char16_t* n = p && g_api.GetPlayerName ? g_api.GetPlayerName(p) : nullptr;
   return n ? log::utf8(n) : std::string();
+}
+unsigned player_id() {
+  void* p = player();
+  return p && g_api.Object_GetObjectId ? g_api.Object_GetObjectId(p) : 0;
 }
 static bool read_area_tag(const void* eng, char* out, size_t cap) {   // POD only (SEH)
   __try {
@@ -1547,6 +1558,53 @@ static std::vector<ScanItem> (*g_exit_provider)() = nullptr;
 void set_exit_provider(std::vector<ScanItem> (*provider)()) { g_exit_provider = provider; }
 static Vec3 g_reviewed_point;   // the position of a reviewed point item (set on landing)
 
+// Enemy nameplate stats off a Monster* (health fraction, char level, MonsterClassification). SEH-guarded and
+// POD-only (no C++ objects) so it can wrap the raw game reads. The caller must have confirmed e is a Monster
+// (GetClassification reads Monster+0x4ef4).
+bool read_enemy_stats(void* e, int& level, int& classification, float& pct) {
+  level = 0; classification = -1; pct = 0.0f;
+  __try {
+    if (g_api.GetCharLevel) level = (int)g_api.GetCharLevel(e);
+    if (g_api.GetClassification) { const int* c = g_api.GetClassification(e); if (c) classification = *c; }
+    double cur = g_api.GetCurrentLife ? g_api.GetCurrentLife(e) : 0.0;
+    float mx = g_api.GetLifeLimit ? g_api.GetLifeLimit(e) : 0.0f;
+    pct = mx > 0.0f ? (float)(cur / mx) : 0.0f;
+    return true;
+  } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+// Walk a Character's active buff/debuff list into POD record-path strings. The entry holds NO skill id
+// (SkillBuffTransfer+0x48 is the CASTER, confirmed live 2026-08-25); the identity is the record path at +0x00.
+// Chain: Character+0x850 SkillManager; *(SM+0x390) SkillServices (nullable); *(SVC+0x8) = std::list sentinel;
+// node+0x10 = value (stride 0xA0), value+0x00 = std::string<char> record. Returns how many records were written.
+constexpr int kBuffRecLen = 160;
+int read_buff_records(void* character, char (*recs)[kBuffRecLen], int max) {
+  int count = 0;
+  __try {
+    void* svc = *(void**)((char*)character + 0x850 + 0x390);
+    if (!svc) return 0;
+    void* head = *(void**)((char*)svc + 0x8);
+    if (!head) return 0;
+    void* n = *(void**)head;   // head->next
+    for (int guard = 0; n && n != head && guard < 512 && count < max; ++guard, n = *(void**)n) {
+      const MsvcStringA* s = (const MsvcStringA*)((char*)n + 0x10);   // record at value+0x00
+      size_t len = s->size < (size_t)kBuffRecLen - 1 ? s->size : (size_t)kBuffRecLen - 1;
+      const char* d = s->data();
+      if (len && !IsBadReadPtr((void*)d, len)) { memcpy(recs[count], d, len); recs[count][len] = 0; }
+      else recs[count][0] = 0;
+      ++count;
+    }
+  } __except (EXCEPTION_EXECUTE_HANDLER) {}
+  return count;
+}
+// The live skill id for a buff record, via the owner's own SkillManager (the record is registered there when
+// the buff is applied). SEH-guarded; 0 when not found.
+unsigned find_skill_by_record(void* character, const char* record) {
+  if (!character || !record || !record[0] || !g_api.FindSkillId) return 0;
+  unsigned id = 0;
+  __try { id = g_api.FindSkillId((char*)character + 0x850, record); } __except (EXCEPTION_EXECUTE_HANDLER) { id = 0; }
+  return id;
+}
+
 std::vector<ScanItem> scan(ScanGroup group, float radius) {
   std::vector<ScanItem> out;
   Vec3 me; Buf base; void* region = nullptr;
@@ -1575,6 +1633,7 @@ std::vector<ScanItem> scan(ScanGroup group, float radius) {
     float d = std::sqrt((r.pos.x - me.x) * (r.pos.x - me.x) + (r.pos.z - me.z) * (r.pos.z - me.z));
     if (d > radius) continue;
     // Enemies are Monsters the game's faction manager calls foes of the player (guards are Monsters too).
+    int lvl = 0, cls_i = -1;
     if (group == ScanGroup::Enemies) {
       void* fm = g_game_engine && g_api.GetFactionManager ? g_api.GetFactionManager(g_game_engine) : nullptr;
       void* p = player();
@@ -1582,9 +1641,10 @@ std::vector<ScanItem> scan(ScanGroup group, float radius) {
       if (fm && g_api.FactionManager_IsFoe && pid && !g_api.FactionManager_IsFoe(fm, pid, r.id, false)) continue;
       // Corpses stay Monsters (and foes) until the game reaps them: only the living are enemies (2026-08-22).
       if (g_api.Character_IsAlive && !g_api.Character_IsAlive(e)) continue;
+      float pct; read_enemy_stats(e, lvl, cls_i, pct);   // level + rarity for the readout (pct unused here)
     }
     std::string label = entity_label(e, r.ci, cls);  // an unlabelled object is read by its class name (cycle_review)
-    out.push_back({r.id, cls, label, record, r.pos, d});
+    out.push_back({r.id, cls, label, record, r.pos, d, std::string{}, lvl, cls_i});
   }
   std::sort(out.begin(), out.end(), [](const ScanItem& a, const ScanItem& b) { return a.dist < b.dist; });
   return out;
@@ -1602,12 +1662,12 @@ static std::string_view group_label(ScanGroup g) {
   }
 }
 
-std::string cycle_review(ScanGroup group, int dir, bool nearest) {
-  std::vector<ScanItem> items = scan(group);
+// The shared landing: pick an item from an already-scanned, nearest-first list (continuing from the current
+// review target when present, else entering at the nearest / farthest by direction), lock the cursor on it and
+// speak "label, N away, H o'clock, i of n" -- with "level N <rarity>" folded into an enemy's label.
+static std::string land_on(std::vector<ScanItem>& items, ScanGroup group, int dir, bool nearest) {
   gd::core::MessageBuilder m;
   if (items.empty()) { unlock_target(); g_reviewed_id = 0; gd::strings::push_nothing_nearby(m, group_label(group)); return m.build(); }
-  // Continue from the current target when it is in this group; otherwise enter at the nearest (or,
-  // cycling backward into a fresh group, the farthest). Distances are live, so the order self-heals.
   int idx = -1;
   if (!nearest) for (size_t i = 0; i < items.size(); ++i) if (items[i].id == g_reviewed_id) { idx = (int)i; break; }
   int count = (int)items.size();
@@ -1618,10 +1678,119 @@ std::string cycle_review(ScanGroup group, int dir, bool nearest) {
   else lock_target(it.id);
   ping_reviewed();  // every landing plays the route ping, like wotr
   std::string label = it.label.empty() ? it.cls : it.label;
+  if (group == ScanGroup::Enemies && it.classification >= 0) {   // "walking undead level 5 hero"
+    gd::core::MessageBuilder em; gd::strings::push_enemy_label(em, label, it.level, it.classification); label = em.build();
+  }
   gd::strings::push_scan_item(m, label, it.dist, clock_hour(it.pos), idx + 1, count, !on_screen(it.id), it.note);
   return m.build();
 }
+
+std::string cycle_review(ScanGroup group, int dir, bool nearest) {
+  std::vector<ScanItem> items = scan(group);
+  return land_on(items, group, dir, nearest);
+}
+
+std::string cycle_highest_classification(int dir) {
+  std::vector<ScanItem> items = scan(ScanGroup::Enemies);
+  int top = -1;
+  for (const ScanItem& it : items) top = std::max(top, it.classification);
+  if (top > 0) std::erase_if(items, [top](const ScanItem& it) { return it.classification != top; });
+  return land_on(items, ScanGroup::Enemies, dir, false);
+}
 unsigned reviewed_id() { return g_reviewed_id; }
+
+// ---- status effects and the target inspector ----
+std::vector<std::string> enemy_effects(unsigned id) {
+  std::vector<std::string> out;
+  void* e = gameapi::object_by_id(id);
+  if (!e) return out;
+  static char recs[64][kBuffRecLen];
+  int n = read_buff_records(e, recs, 64);
+  for (int i = 0; i < n; ++i) {
+    std::string name = gameapi::skill_name_by_id(find_skill_by_record(e, recs[i]));
+    if (!name.empty() && std::find(out.begin(), out.end(), name) == out.end()) out.push_back(std::move(name));
+  }
+  return out;
+}
+
+// Name a single buff by its record on the given owner's SkillManager (combat.cpp: the victim owns the entry).
+std::string buff_name(unsigned owner_id, const char* record) {
+  void* e = gameapi::object_by_id(owner_id);
+  if (!e) return {};
+  return gameapi::skill_name_by_id(find_skill_by_record(e, record));
+}
+
+bool enemy_vitals(unsigned id, float& pct, int& level, int& classification) {
+  void* e = gameapi::object_by_id(id);
+  if (!e) return false;
+  EntityRaw r{};
+  if (!read_entity(e, r) || rtti_name(r.ci) != "Monster") return false;   // only a Monster has GetClassification
+  return read_enemy_stats(e, level, classification, pct);
+}
+
+std::string inspect_target() {
+  if (!in_world()) return {};
+  void* ctrl = controller();
+  unsigned id = ctrl && g_api.GetCombatEnemy ? g_api.GetCombatEnemy(ctrl) : 0;
+  if (!id) return {};                                  // nothing targeted -> silent
+  void* e = gameapi::object_by_id(id);
+  if (!e) return {};
+  EntityRaw r{};
+  if (!read_entity(e, r) || rtti_name(r.ci) != "Monster") return {};       // not an enemy -> silent
+  if (g_api.Character_IsAlive && !g_api.Character_IsAlive(e)) return {};    // a corpse -> silent
+  int level = 0, classification = -1; float pct = 0.0f;
+  if (!read_enemy_stats(e, level, classification, pct)) return {};
+  std::vector<std::string> fx = enemy_effects(id);
+  gd::core::MessageBuilder m;
+  gd::strings::push_target_inspect(m, (int)std::lround(pct * 100.0f), fx);
+  return m.build();
+}
+
+bool entity_position(unsigned id, Vec3& out) {
+  void* e = gameapi::object_by_id(id);
+  Buf wv;
+  if (!e || !entity_world_vec(e, wv)) return false;
+  out = world_pos_of(wv);
+  return true;
+}
+
+// Diagnostic: copy each buff entry's record path (+0x00) and full 0xA0 bytes (POD/SEH), so effects_dump can
+// show the record and probe every 4-byte field for the one that resolves to a named skill.
+struct BuffRaw { char record[256]; unsigned char bytes[0xA0]; };
+int read_buff_raw(void* character, BuffRaw* out, int max) {
+  int count = 0;
+  __try {
+    void* svc = *(void**)((char*)character + 0x850 + 0x390);
+    if (!svc) return 0;
+    void* head = *(void**)((char*)svc + 0x8);
+    if (!head) return 0;
+    void* n = *(void**)head;
+    for (int g = 0; n && n != head && g < 512 && count < max; ++g, n = *(void**)n) {
+      const char* val = (const char*)n + 0x10;
+      memcpy(out[count].bytes, val, 0xA0);
+      const MsvcStringA* s = (const MsvcStringA*)val;   // record path at val+0x00
+      size_t len = s->size < 255 ? s->size : 255;
+      const char* d = s->data();
+      if (len && !IsBadReadPtr((void*)d, len)) { memcpy(out[count].record, d, len); out[count].record[len] = 0; }
+      else out[count].record[0] = 0;
+      ++count;
+    }
+  } __except (EXCEPTION_EXECUTE_HANDLER) {}
+  return count;
+}
+
+std::string effects_dump(unsigned id) {
+  void* e = gameapi::object_by_id(id);
+  if (!e) return "no such object\n";
+  BuffRaw raw[32];
+  int n = read_buff_raw(e, raw, 32);
+  std::string out = std::format("buffs on id {}: {}\n", id, n);
+  for (int i = 0; i < n; ++i) {
+    unsigned sid = find_skill_by_record(e, raw[i].record);
+    out += std::format("  record='{}' skillId={} name='{}'\n", raw[i].record, sid, gameapi::skill_name_by_id(sid));
+  }
+  return out;
+}
 
 // The one pan/gain rule for positioned sounds and voices (wotr's sonar): pan by the ear-frame bearing of the
 // point from the player, gain ref/(ref+dist) with ref = 10 ft in units, never below 0.15.

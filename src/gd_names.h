@@ -82,6 +82,27 @@ inline constexpr const char* Character_GetManaLimit = "?GetManaLimit@Character@G
 // public: void __cdecl GAME::EventManager::Send(struct GAME::GameEvent const * __ptr64,unsigned int) __ptr64
 inline constexpr const char* EventManager_Send_DLL = "Engine.dll";
 inline constexpr const char* EventManager_Send = "?Send@EventManager@GAME@@QEAAXPEBUGameEvent@2@I@Z";
+// public: void __cdecl GAME::Character::DebufTarget(class GAME::Character & __ptr64,bool,struct GAME::SkillBuffTransfer const & __ptr64,class mem::vector<enum GAME::Weapon_Type> const & __ptr64,enum GAME::EquipmentHandType
+inline constexpr const char* Character_DebufTarget_DLL = "Game.dll";
+inline constexpr const char* Character_DebufTarget = "?DebufTarget@Character@GAME@@QEAAXAEAV12@_NAEBUSkillBuffTransfer@2@AEBV?$vector@W4Weapon_Type@GAME@@@mem@@W4EquipmentHandTypes@2@@Z";
+// public: enum GAME::MonsterClassification const & __ptr64 __cdecl GAME::Monster::GetClassification(void)const __ptr64
+inline constexpr const char* Monster_GetClassification_DLL = "Game.dll";
+inline constexpr const char* Monster_GetClassification = "?GetClassification@Monster@GAME@@QEBAAEBW4MonsterClassification@2@XZ";
+// public: virtual unsigned int __cdecl GAME::Monster::GetExperienceReward(unsigned int,class GAME::WorldVec3 const & __ptr64) __ptr64
+inline constexpr const char* Monster_GetExperienceReward_DLL = "Game.dll";
+inline constexpr const char* Monster_GetExperienceReward = "?GetExperienceReward@Monster@GAME@@UEAAIIAEBVWorldVec3@2@@Z";
+// public: void __cdecl GAME::GameEngine::AddUINotification(enum GAME::UINotification::Type,class std::basic_string<unsigned short,struct std::char_traits<unsigned short>,class std::allocator<unsigned short> > const & __ptr
+inline constexpr const char* GameEngine_AddUINotification_Str_DLL = "Game.dll";
+inline constexpr const char* GameEngine_AddUINotification_Str = "?AddUINotification@GameEngine@GAME@@QEAAXW4Type@UINotification@2@AEBV?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@_N@Z";
+// public: void __cdecl GAME::GameEngine::AddUINotification(enum GAME::UINotification::Type,class mem::vector<class std::basic_string<unsigned short,struct std::char_traits<unsigned short>,class std::allocator<unsigned shor
+inline constexpr const char* GameEngine_AddUINotification_Vec_DLL = "Game.dll";
+inline constexpr const char* GameEngine_AddUINotification_Vec = "?AddUINotification@GameEngine@GAME@@QEAAXW4Type@UINotification@2@AEBV?$vector@V?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@@mem@@_N@Z";
+// public: void __cdecl GAME::ControllerPlayer::SetUserText(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const & __ptr64,int) __ptr64
+inline constexpr const char* ControllerPlayer_SetUserText_DLL = "Game.dll";
+inline constexpr const char* ControllerPlayer_SetUserText = "?SetUserText@ControllerPlayer@GAME@@QEAAXAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@H@Z";
+// public: void __cdecl GAME::PlayStats::IncrementKills(unsigned int,unsigned int,enum GAME::MonsterClassification,bool) __ptr64
+inline constexpr const char* PlayStats_IncrementKills_DLL = "Game.dll";
+inline constexpr const char* PlayStats_IncrementKills = "?IncrementKills@PlayStats@GAME@@QEAAXIIW4MonsterClassification@2@_N@Z";
 // public: unsigned short const * __ptr64 __cdecl GAME::Player::GetPlayerName(void)const __ptr64
 inline constexpr const char* Player_GetPlayerName_DLL = "Game.dll";
 inline constexpr const char* Player_GetPlayerName = "?GetPlayerName@Player@GAME@@QEBAPEBGXZ";
@@ -844,6 +865,9 @@ inline constexpr const char* SkillActivated_GetStaticClassInfo = "?GetStaticClas
 // public: virtual unsigned int __cdecl GAME::SkillManager::GetDefaultSkillId(enum GAME::DefaultSkill)const __ptr64
 inline constexpr const char* SkillManager_GetDefaultSkillId_DLL = "Game.dll";
 inline constexpr const char* SkillManager_GetDefaultSkillId = "?GetDefaultSkillId@SkillManager@GAME@@UEBAIW4DefaultSkill@2@@Z";
+// public: unsigned int const __cdecl GAME::SkillManager::FindSkillId(char const * __ptr64)const __ptr64
+inline constexpr const char* SkillManager_FindSkillId_DLL = "Game.dll";
+inline constexpr const char* SkillManager_FindSkillId = "?FindSkillId@SkillManager@GAME@@QEBA?BIPEBD@Z";
 // public: class mem::vector<class GAME::Skill * __ptr64> const & __ptr64 __cdecl GAME::SkillManager::GetItemSkillList(void)const __ptr64
 inline constexpr const char* SkillManager_GetItemSkillList_DLL = "Game.dll";
 inline constexpr const char* SkillManager_GetItemSkillList = "?GetItemSkillList@SkillManager@GAME@@QEBAAEBV?$vector@PEAVSkill@GAME@@@mem@@XZ";

@@ -16,6 +16,7 @@ void* game_engine();             // the GAME::GameEngine instance (captured from
 void* controller();              // the main player's ControllerPlayer (captured from ControllerPlayer::Update; null before)
 bool player_position(Vec3& p);   // world-space position of the main player (feet)
 std::string player_name();
+unsigned player_id();            // the main player's object id (0 before the player is seen)
 std::string region_name();
 std::string area_name();   // the minimap's area name (Engine::GetAreaNameTag localized), "Lower Crossing"; empty when unknown
 bool object_is_note(const void* obj);   // is-a ItemNote (any Object, bag items included)
@@ -72,6 +73,8 @@ std::string fog_reveal(float x, float z, int radius);                    // dev:
 // Npc::GetRolloverDescription / Player::GetRolloverDescription / Item::GetGameDescription, by class), colour
 // codes stripped; empty when the class has no label export. Game text, verbatim.
 std::string label_of(unsigned id);
+// World-space position of any object by id (through object_by_id). False when the id has no positioned entity.
+bool entity_position(unsigned id, Vec3& out);
 
 // How using a skill chooses where it lands, for the quickbar readout (docs/skills-targeting.md): the runtime
 // SkillTargetType plus the skill's class. None = not an activated skill (a passive or a modifier).
@@ -85,7 +88,9 @@ SkillAim skill_aim(const void* skill_obj);   // skill_obj from gameapi::object_b
 // parks the virtual cursor on the thing, so the game hovers / targets it natively.
 enum class ScanGroup { Enemies, Neutrals, Bystanders, Objects, Exits, Loot, Transitions };   // Loot/Transitions: the sonar sweep only
 // note: an extra spoken list item ("blocked" for an exit whose opening the live mesh refuses), normally empty.
-struct ScanItem { unsigned id; std::string cls, label, record; Vec3 pos; float dist; std::string note; };
+// level/classification are filled for enemies only (classification -1 = not read: not an enemy, or unknown);
+// classification is the MonsterClassification enum (0 Common, 1 Champion, 2 Hero, 3 Boss, 4 Quest, 5 SuperBoss).
+struct ScanItem { unsigned id; std::string cls, label, record; Vec3 pos; float dist; std::string note; int level = 0; int classification = -1; };
 std::vector<ScanItem> scan(ScanGroup group, float radius = 40.0f);  // nearest first
 // Point items (room exits) are not entities: ids from kPointIdBase up, positions carried by the item. The
 // provider (src/rooms.cpp) returns the current room's exits; the scanner locks/pings/projects the point.
@@ -95,7 +100,26 @@ void set_exit_provider(std::vector<ScanItem> (*provider)());
 // Step the review cursor through a group (dir +1 / -1); returns the landing's spoken line, or the
 // group's "nothing" text. Also locks the virtual cursor on it.
 std::string cycle_review(ScanGroup group, int dir, bool nearest = false);   // nearest: enter at the closest regardless of the current target (Alt+key)
+// The comma key: cycle only the enemies of the highest classification present nearby (find the boss and its
+// tier / a summoner's adds). Same readout and landing as cycle_review(Enemies).
+std::string cycle_highest_classification(int dir);
 unsigned reviewed_id();
+
+// ---- status effects and the target inspector ----
+// Inspect what the player is currently targeting (ControllerPlayer::GetCombatEnemy): "<pct> percent health,
+// <effect>, ..." with NO name (the review cursor already named it). Empty when nothing / not a living foe is
+// targeted (the / key then stays silent). Screen-reader channel (a key readout, like H).
+std::string inspect_target();
+// A character's active status effects (buffs + debuffs) as display names, deduped: walks the game's own buff
+// list (SkillServices GetBuffList) and names each via its skill id. Empty when none / unreadable.
+std::vector<std::string> enemy_effects(unsigned id);
+// Name one buff/debuff by its record path, resolved on the owner's SkillManager (the character the buff is on).
+// Used by combat.cpp to name a debuff caught by the DebufTarget hook. Empty when unresolved.
+std::string buff_name(unsigned owner_id, const char* record);
+// Enemy vitals for the review readout: health fraction 0..1, char level, MonsterClassification (or -1). False
+// when the id is not a readable Character.
+bool enemy_vitals(unsigned id, float& pct, int& level, int& classification);
+std::string effects_dump(unsigned id);   // dev: /effects?id= (raw buff ids + resolved names)
 // The mouse buttons as keys (J left, I right; hold = hold): the button goes down at the virtual cursor --
 // the reviewed thing when one is locked, else the real cursor -- and the game decides what that means
 // (attack, talk, open, pick up, move, skill). A locked thing the camera does not show cannot be clicked:

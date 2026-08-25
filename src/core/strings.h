@@ -1,6 +1,8 @@
 #pragma once
+#include <cstdint>
 #include <string>
 #include <string_view>
+#include <vector>
 #include "message_builder.h"
 
 // The single home for mod-authored spoken strings and, more importantly, for the spoken CONVENTIONS:
@@ -60,6 +62,12 @@ gd::core::MessageBuilder& push_where(gd::core::MessageBuilder& m, float x, float
 gd::core::MessageBuilder& push_scan_item(gd::core::MessageBuilder& m, std::string_view label, float distance, int clock_hour, int index1, int count, bool distant, std::string_view note = {});
 // "level 3 Arcanist, hardcore" -- a main-menu character row's value (class empty = no mastery yet).
 gd::core::MessageBuilder& push_character_summary(gd::core::MessageBuilder& m, unsigned level, std::string_view class_name, bool hardcore);
+// The MonsterClassification rarity word (0 Common -> "", 1 champion, 2 hero, 3 boss, 4 quest, 5 super boss).
+std::string_view classification_word(int classification);
+// "walking undead level 5 hero" -- an enemy review label (the game name, its level, its rarity word if any).
+gd::core::MessageBuilder& push_enemy_label(gd::core::MessageBuilder& m, std::string_view name, int level, int classification);
+// "100 percent health, frozen, stunned" -- the / inspect readout of the current target (no name repeat).
+gd::core::MessageBuilder& push_target_inspect(gd::core::MessageBuilder& m, int health_percent, const std::vector<std::string>& effects);
 // "5 away, 2 o'clock" -- the distance and bearing part alone (a riftgate row's value).
 gd::core::MessageBuilder& push_distance_bearing(gd::core::MessageBuilder& m, float distance, int clock_hour);
 // "no enemies nearby"
@@ -118,6 +126,11 @@ gd::core::MessageBuilder& push_health_percent(gd::core::MessageBuilder& m, int p
 gd::core::MessageBuilder& push_combat_hit(gd::core::MessageBuilder& m, std::string_view number, bool crit);
 // "Miss" / "Dodge" / "Block" -- game text, verbatim
 gd::core::MessageBuilder& push_combat_word(gd::core::MessageBuilder& m, std::string_view word);
+inline constexpr std::string_view kExp = "exp";       // deliberately terse (the game shows XP only as a filling bar)
+inline constexpr std::string_view kKilled = "killed";
+// Kill feedback, coalesced per window (the game shows an enemy dying only graphically), spoken in Zira. A single
+// kill is just the XP ("300 exp", "0 exp" when none). A pack is "N killed", plus ", M exp" when it yielded XP.
+gd::core::MessageBuilder& push_kills(gd::core::MessageBuilder& m, int count, uint64_t xp);
 // ---- the in-world windows (src/screens/codex.cpp, factions.cpp, inventory.cpp, skills.cpp, quickbar) ----
 inline constexpr std::string_view kCodex = "codex";
 inline constexpr std::string_view kQuests = "quests";

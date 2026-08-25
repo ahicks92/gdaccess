@@ -29,7 +29,9 @@ void play_sample(const std::string& wav_path, float volume, float pan, float rea
 // the shot still plays. group > 0 tags the shot; replace_group fades out (5 ms) the group's playing shots
 // first -- "the new health line replaces the old one". Returns the shot id (0 = not played).
 using Pcm = std::shared_ptr<const std::vector<float>>;
-uint32_t play_pcm(Pcm samples, float volume, float pan, int group = 0, bool replace_group = false, bool apply_master = true, float rear_shelf_db = 0.0f);
+// predelay_ms delays the shot's start by that many ms of silence (mixer counts it down): used to stagger
+// co-timed identical lines so they do not phase-lock into one voice.
+uint32_t play_pcm(Pcm samples, float volume, float pan, int group = 0, bool replace_group = false, bool apply_master = true, float rear_shelf_db = 0.0f, float predelay_ms = 0.0f);
 void stop_group(int group);        // fade out every playing shot of the group
 int group_count(int group);        // shots of the group still playing
 // Decode a WAV held in memory to mono f32 at the mixer rate (parse + downmix + resample in one step).

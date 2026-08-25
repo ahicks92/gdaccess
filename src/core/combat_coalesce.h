@@ -5,12 +5,15 @@
 
 // Merges the floating combat numbers that land at the same place inside a short window into one number, so
 // an area attack on one enemy (or several hits in one tick) is spoken once with the sum instead of as a pile
-// of overlapping voices. Words (Miss / Dodge / Block) are never merged. Engine-free, unit-tested.
+// of overlapping voices. Words (Miss / Dodge / Block) are never merged. A debuff applied at the same place
+// (an "effect" token: is_number false, word empty, tags non-empty) rides the same bucket, so the damage and
+// the status effect flush as one line ("12 frozen"); an effect with no number that window flushes alone
+// ("frozen"). Engine-free, unit-tested.
 namespace gd::core {
 class CombatCoalescer {
  public:
-  struct In { bool is_number; double amount; bool crit; std::string word; float x, z; float pan, gain; double t; };
-  struct Out { bool is_number; double amount; bool crit; std::string word; float pan, gain; };
+  struct In { bool is_number; double amount; bool crit; std::string word; std::vector<std::string> tags; float x, z; float pan, gain; double t; };
+  struct Out { bool is_number; double amount; bool crit; std::string word; std::vector<std::string> tags; float pan, gain; };
   void set_enabled(bool on) { enabled_ = on; }
   bool enabled() const { return enabled_; }
   void set_window(double seconds) { window_ = seconds < 0 ? 0 : seconds; }
@@ -24,7 +27,7 @@ class CombatCoalescer {
   void clear() { buckets_.clear(); words_.clear(); }
 
  private:
-  struct Bucket { int kx, kz; bool crit; double amount; float pan, gain; double opened; };
+  struct Bucket { int kx, kz; bool crit; bool has_number; double amount; std::vector<std::string> tags; float pan, gain; double opened; };
   bool enabled_ = true;
   double window_ = 0.15;
   int max_per_flush_ = 4;
