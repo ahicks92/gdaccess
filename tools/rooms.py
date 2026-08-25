@@ -24,6 +24,7 @@ import hashlib
 import json
 import os
 import re
+import struct
 import sys
 import time
 from dataclasses import asdict, fields
@@ -127,7 +128,7 @@ def chunk_stem(r):
     suffix), or None for a surface chunk (surface chunk names are unique, grouped by XZ instead)."""
     if not r.underground:
         return None
-    base = r.lvl_path.split("/")[-1].replace("Region", "").replace(".lvl", "")
+    base = re.split(r"[\\/]", r.lvl_path)[-1].replace("Region", "").replace(".lvl", "")
     return UG_STEM_RE.sub("", base)
 
 
@@ -371,6 +372,123 @@ def cmd_seams(wm, args):
         print(f"written: {total} seams into both sides' exit rows")
 
 
+def prettify_stem(stem):
+    """A dungeon .lvl stem -> a display name: drop the UG_ prefix, split camelCase and underscores, title-case
+    (UG_CaveBurial -> 'Cave Burial', UG_DCPrisonCellar -> 'DC Prison Cellar', UG_Crypt_Final -> 'Crypt Final')."""
+    s = stem.removeprefix("UG_").replace("_", " ")
+    s = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", s)          # caveBurial -> cave Burial
+    s = re.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", " ", s)     # DCPrison -> DC Prison
+    return " ".join(w if w.isupper() else w.capitalize() for w in s.split())
+
+
+def zone_names():
+    """{location basename -> the game's zone name} for the riftgate map locations, read offline: each location
+    .dbr's ZoneNameTag resolved through Text_EN.arc, minus the trailing ' Rift'. Empty on any failure (the
+    driver then title-cases the basename)."""
+    out = {}
+    try:
+        import lz4.block
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import arz
+        d, strings, recs = arz.load()
+        loc_tag = {}
+        for path, rname, off, csz, dsz in recs:
+            if "/riftgatemap/locations/" in path.lower() and path.lower().endswith(".dbr"):
+                rec = arz.decode(d, strings, off, csz, dsz)
+                t = rec.get("ZoneNameTag") or rec.get("TeleportNameTag")
+                if t:
+                    loc_tag[path.rsplit("/", 1)[-1][:-4]] = t[0]
+        P = r"C:\Program Files (x86)\Steam\steamapps\common\Grim Dawn\resources\Text_EN.arc"
+        dd = open(P, "rb").read()
+        _, _, numE, numP, recSize, strSize, recOff = struct.unpack_from("<IIIIIII", dd, 0)
+        parts = [struct.unpack_from("<III", dd, recOff + 12 * i) for i in range(numP)]
+        strs = dd[recOff + recSize:recOff + recSize + strSize]; ent = recOff + recSize + strSize
+        tag = {}
+        for i in range(numE):
+            f = struct.unpack_from("<11I", dd, ent + 44 * i)
+            np_, pi = f[7], f[8]
+            blob = b""
+            for j in range(pi, pi + np_):
+                o, c, u = parts[j]; ch = dd[o:o + c]
+                blob += ch if c == u else lz4.block.decompress(ch, uncompressed_size=u)
+            for line in blob.decode("utf-8-sig", errors="replace").splitlines():
+                if "=" in line:
+                    k, _, v = line.partition("="); tag[k.strip()] = v.strip()
+        for base, t in loc_tag.items():
+            name = tag.get(t, "")
+            if name:
+                out[base] = re.sub(r"\s+Rift$", "", name)
+    except Exception as e:                                       # noqa: BLE001 -- names are best-effort
+        print(f"  (zone name resolve failed: {type(e).__name__}: {e}; falling back to title-cased basenames)")
+    return out
+
+
+def cmd_build(wm, args):
+    """Tier 1: segment every physical cluster of a location record (or --all) into the db so the mod announces
+    "<zone>, room N" everywhere -- no authoring. Names: the game's own zone name for a surface cluster (read
+    offline), the prettified .lvl stem for a dungeon cluster. Clusters that match an already-authored db region
+    are skipped untouched. Preview by default; --write commits. Re-run `seams --write` afterwards."""
+    db = RoomsDb(DB)
+    stored = {}
+    for rk, chunks in db.c.execute("SELECT region_key, (SELECT chunks FROM regions WHERE key=grids.region_key) FROM grids"):
+        if chunks:
+            stored[rk] = frozenset(json.loads(chunks))
+    zn = zone_names()
+    base_of = lambda loc: loc.split("_", 1)[-1] if "_" in loc else loc
+    if args.all:
+        seen, locs = set(), []
+        for r in wm.regions:
+            if r.location and r.location not in seen:
+                seen.add(r.location); locs.append(r.location)
+    else:
+        locs = [args.location]
+    used_keys = set(stored)
+    wrote = skipped = failed = total_rooms = 0
+    for loc in locs:
+        regs = wm.by_location(loc)
+        if not regs:
+            continue
+        base = base_of(loc)
+        clusters = cluster_chunks(regs, args.step)
+        # The zone name goes to the PRIMARY cluster (the largest surface one, else the largest overall -- a
+        # dungeon-only location like undergroundtransit still has a real zone name); the other clusters are
+        # separate interiors named from their .lvl stem.
+        primary = next((c for c in clusters if not all(r.underground for r in c)), clusters[0] if clusters else None)
+        for cl in clusters:
+            paths = frozenset(r.lvl_path for r in cl)
+            if any(s and s <= paths for s in stored.values()):    # matches an authored region -> leave it be
+                skipped += 1
+                continue
+            if cl is primary:
+                key = base
+                name = zn.get(loc) or base.replace("_", " ").title()
+            else:
+                stem = chunk_stem(cl[0]) or base
+                key = f"{base}_{re.sub(r'[^a-z0-9]', '', stem.lower())}"
+                name = prettify_stem(stem)
+            k, n = key, 2
+            while k in used_keys:
+                k = f"{key}_{n}"; n += 1
+            key = k; used_keys.add(key)
+            try:
+                grid, roads, chunks, signature = build_area(wm, cl, False)
+                params = params_from(args, db.params(key))
+                seg = segment(grid, params)
+                rooms_n = len(seg.rooms); total_rooms += rooms_n
+                print(f"  {key:34s} {name:24s} {len(cl):2d} chunks -> {rooms_n} rooms" + ("" if args.write else "  (preview)"))
+                if args.write:
+                    from gdmap.rooms import resolve_overlays
+                    overlays = resolve_overlays(grid, seg.labels)
+                    db.write_segmentation(key, name, loc, chunks, params, signature, ALGO_VERSION, grid, seg, overlays)
+                wrote += 1
+            except Exception as e:                                # noqa: BLE001 -- one bad cluster must not abort the run
+                failed += 1
+                print(f"  {key:34s} {name:24s} FAILED: {type(e).__name__}: {e}")
+    print(f"\n{'WROTE' if args.write else 'PREVIEW'}: {wrote} clusters, {total_rooms} rooms; {skipped} authored skipped; {failed} failed")
+    if args.write:
+        print("Now run: uv run tools/rooms.py seams --write")
+
+
 def cmd_clusters(wm, args):
     """Preview the physical-place partition of a location record (or --all location records). With --segment,
     segment each cluster offline (no write) and report room counts + a grand total -- the dry-run that sizes a
@@ -481,6 +599,10 @@ def main():
     s.add_argument("--step", type=int, default=200, help="Chebyshev XZ chunk-gap threshold (units); 128 = one chunk")
     s.add_argument("--segment", action="store_true", help="segment each cluster (no write) and count rooms")
     add_params(s); s.set_defaults(fn=cmd_clusters)
+    s = sub.add_parser("build", help="Tier 1: segment every cluster of a location (or --all) into the db with game zone names; skips authored regions")
+    s.add_argument("location", nargs="?", default=None); s.add_argument("--all", action="store_true")
+    s.add_argument("--step", type=int, default=200); s.add_argument("--write", action="store_true")
+    add_params(s); s.set_defaults(fn=cmd_build)
     s = sub.add_parser("status"); s.set_defaults(fn=cmd_status)
     s = sub.add_parser("plan"); s.add_argument("location"); s.add_argument("--scale", type=int, default=1)
     s.add_argument("--out", default=None); s.set_defaults(fn=cmd_plan)
