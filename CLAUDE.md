@@ -502,8 +502,9 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   (Controls -> Keyboard); nothing in the repo sets it (NOT auto-forcing it: the engine rewrites options.txt on
   exit and the in-memory Options setter is unconfirmed). Plus keep default keybindings and `displayDamage` on.
   inactiveUpdateRate / windowed / 1600x900 / targetLock are dev-loop artifacts, irrelevant to a focused player.
-  Game-free CI is feasible (nothing links a game file; `gd_names.h` + `rooms.db` are committed; only prism must
-  be fetched). Runnable-by-others gaps: a non-CLI injector/launcher, and gating the dev HTTP server out of release.
+  Game-free CI is feasible (nothing links a game file; `gd_names.h`, `rooms.db` and the prism SDK parts the build
+  uses are all committed -- a fresh export of the tree builds with only VS 2022, verified 2026-08-25).
+  Runnable-by-others gaps: a non-CLI injector/launcher, and gating the dev HTTP server out of release.
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.
