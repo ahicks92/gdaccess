@@ -42,11 +42,13 @@ def cmd_list(db, a):
         print(f"{r['key']:32s} {r['status']:10s} {r['cls']:8s} {r['area']:6.0f} m2  sub={r['subregion_key'] or '-':18s} title={r['title'] or '-'}")
 
 
-def cmd_facts(db, a):
-    region_key = a.key.split(":", 1)[0]
-    room = next((r for r in db.rooms(region_key) if r["key"] == a.key), None)
+def build_facts(db, key):
+    """Everything the describer needs about a room, as a dict (cmd_facts prints it; describe_or.py imports it)."""
+    region_key = key.split(":", 1)[0]
+    room = next((r for r in db.rooms(region_key) if r["key"] == key), None)
     if not room:
-        print(json.dumps({"error": "no such room"})); return
+        return {"error": "no such room"}
+    a = type("A", (), {"key": key})()   # shim so the existing shot_dir(a.key) references below keep working
     meta_path = os.path.join(shot_dir(a.key), "meta.json")
     meta = json.load(open(meta_path, encoding="utf-8")) if os.path.exists(meta_path) else {}
     region = db.c.execute("SELECT name FROM regions WHERE key=?", (region_key,)).fetchone()
@@ -90,7 +92,11 @@ def cmd_facts(db, a):
     out = {"room": room, "region_name": region[0] if region else region_key, "subregion": {"key": room["subregion_key"], "name": sub[0] if sub else None, "summary": sub[1] if sub else None},
            "terrain": meta.get("terrain", {}), "nearby": nearby,
            "shots": [os.path.abspath(os.path.join(shot_dir(a.key), f)) for f in shots], "exits": neighbours}
-    print(json.dumps(out, indent=1))
+    return out
+
+
+def cmd_facts(db, a):
+    print(json.dumps(build_facts(db, a.key), indent=1))
 
 
 def cmd_export(db, a):
@@ -127,23 +133,27 @@ def cmd_assign(db, a):
     db.c.commit(); print("ok" if n else "no such room")
 
 
-def cmd_describe(db, a):
-    region_key = a.key.split(":", 1)[0]
-    room = next((r for r in db.rooms(region_key) if r["key"] == a.key), None)
+def save_description(db, key, title, body):
+    """Store a room's title/body, mechanically de-duplicating the title within its sub-region with a trailing
+    " N" suffix. Returns the final title, or None if the room does not exist. Shared by the CLI and describe_or.py."""
+    region_key = key.split(":", 1)[0]
+    room = next((r for r in db.rooms(region_key) if r["key"] == key), None)
     if room is None:
-        print("no such room"); return
-    # Mechanically de-duplicate titles within the sub-region: strip any numeric suffix the caller included, then
-    # append the smallest free " N" (decided 2026-08-24 -- we accept less-distinct auto-suffixed names now and
-    # polish them later, instead of a fix round or the consistency pass reworking every collision).
-    base = re.sub(r"\s+\d+$", "", a.title.strip().lower()).strip()
+        return None
+    base = re.sub(r"\s+\d+$", "", title.strip().lower()).strip()
     existing = {t.lower() for (t,) in db.c.execute(
         "SELECT title FROM rooms WHERE region_key=? AND subregion_key IS ? AND key<>? AND title IS NOT NULL",
-        (region_key, room["subregion_key"], a.key))}
-    title, k = base, 2
-    while title in existing:
-        title = f"{base} {k}"; k += 1
-    n = db.c.execute("UPDATE rooms SET title=?, body=?, status='described' WHERE key=?", (title, a.body.strip(), a.key)).rowcount
-    db.c.commit(); print("ok" if n else "no such room")
+        (region_key, room["subregion_key"], key))}
+    final, k = base, 2
+    while final in existing:
+        final = f"{base} {k}"; k += 1
+    db.c.execute("UPDATE rooms SET title=?, body=?, status='described' WHERE key=?", (final, body.strip(), key))
+    db.c.commit()
+    return final
+
+
+def cmd_describe(db, a):
+    print("ok" if save_description(db, a.key, a.title, a.body) else "no such room")
 
 
 def cmd_verify(db, a):
