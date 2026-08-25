@@ -119,6 +119,61 @@ def cmd_grid(wm, args):
         render_grid(grid, f"{OUT}/{name}_clear.png", scale=1, clearance=clear)
 
 
+UG_STEM_RE = re.compile(r"_?[A-Z]?\d+$")   # UG_CaveBurial_A01 -> UG_CaveBurial; Void_SecretA06 -> Void_Secret
+
+
+def chunk_stem(r):
+    """The game's own sub-level grouping for an underground chunk (its .lvl name minus the _A0N section
+    suffix), or None for a surface chunk (surface chunk names are unique, grouped by XZ instead)."""
+    if not r.underground:
+        return None
+    base = r.lvl_path.split("/")[-1].replace("Region", "").replace(".lvl", "")
+    return UG_STEM_RE.sub("", base)
+
+
+def cluster_chunks(regs, step=200):
+    """Partition a location record's chunks into physical places. GD lays each dungeon out in its own far-off
+    patch of the shared world XZ frame (not stacked in Y), so a location record can hold the overworld plus
+    several disjoint interiors. Segmenting them together allocates a label grid over their whole bounding box
+    -- mostly empty, and it blew to 20 GB on the necropolis. So: connected components by Chebyshev XZ distance
+    <= step (one 128-unit chunk stays joined; a >1-chunk gap breaks), THEN merge any components that share an
+    underground .lvl stem -- that re-joins a dungeon split across a coordinate gap (the burial cave's two
+    chunks are a vertical line 256 units apart; XZ alone splits them, the stem UG_CaveBurial rejoins them).
+    Verified to reproduce the authored regions: DC surface (9 chunks + inert no-nav 0W002), LC surface (exact
+    10), burial cave (exact 2). No dungeon stem spans a big enough box to re-blow up (necropolis's largest is
+    UG_Crypt_Final, 1248x384). Returns clusters (lists of Region), largest first."""
+    parent = list(range(len(regs)))
+
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]; a = parent[a]
+        return a
+
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+
+    for i in range(len(regs)):
+        for j in range(i + 1, len(regs)):
+            if (abs(regs[i].world_offset[0] - regs[j].world_offset[0]) <= step
+                    and abs(regs[i].world_offset[2] - regs[j].world_offset[2]) <= step):
+                union(i, j)
+    stem_rep = {}
+    for i, r in enumerate(regs):
+        s = chunk_stem(r)
+        if s is None:
+            continue
+        if s in stem_rep:
+            union(i, stem_rep[s])
+        else:
+            stem_rep[s] = i
+    comps = {}
+    for i, r in enumerate(regs):
+        comps.setdefault(find(i), []).append(r)
+    return sorted(comps.values(), key=lambda g: (-len(g), g[0].name))
+
+
 def build_area(wm, regs, want_roads):
     """Stitch the chunk records; returns (grid, roads mask or None, chunks used, signature).
     Takes Region records, not names: chunk NAMES collide in the map (two different 0W021s; the by_name
@@ -316,6 +371,67 @@ def cmd_seams(wm, args):
         print(f"written: {total} seams into both sides' exit rows")
 
 
+def cmd_clusters(wm, args):
+    """Preview the physical-place partition of a location record (or --all location records). With --segment,
+    segment each cluster offline (no write) and report room counts + a grand total -- the dry-run that sizes a
+    full authoring pass. Clusters whose chunk set already matches an authored db region are flagged [authored]
+    and (with --segment) skipped, so the enumeration never re-does or disturbs DC/LC/the cave."""
+    import json as _json
+    db = RoomsDb(DB)
+    stored = {}   # region_key -> frozenset(lvl_path)
+    for rk, chunks in db.c.execute("SELECT region_key, "
+                                   "(SELECT chunks FROM regions WHERE key=grids.region_key) FROM grids"):
+        if chunks:
+            stored[rk] = frozenset(_json.loads(chunks))
+    if args.all:
+        seen, locs = set(), []
+        for r in wm.regions:
+            if r.location and r.location not in seen:
+                seen.add(r.location); locs.append(r.location)
+    else:
+        locs = [args.location]
+    grand_rooms = grand_clusters = grand_authored = 0
+    for loc in locs:
+        regs = wm.by_location(loc)
+        if not regs:
+            print(f"{loc}: no chunks"); continue
+        base = loc.split("_", 1)[-1] if "_" in loc else loc
+        clusters = cluster_chunks(regs, args.step)
+        print(f"=== {loc}: {len(regs)} chunks -> {len(clusters)} clusters ===")
+        for ci, cl in enumerate(clusters):
+            xs = [r.world_offset[0] for r in cl]; zs = [r.world_offset[2] for r in cl]
+            span = (max(xs) - min(xs) + 128, max(zs) - min(zs) + 128)
+            ug = sum(1 for r in cl if r.underground)
+            paths = frozenset(r.lvl_path for r in cl)
+            # authored if a stored region's chunks are all present here (a cluster may add only inert no-nav
+            # chunks, e.g. DC's 0W002 -- those drop out in build_area, so the grid and anchors are unchanged)
+            authored = max((rk for rk, s in stored.items() if s and s <= paths),
+                           key=lambda rk: len(stored[rk]), default=None)
+            grand_clusters += 1
+            extra = sorted(p.split("/")[-1].replace("Region", "").replace(".lvl", "")
+                           for p in (paths - stored[authored])) if authored else []
+            tag = (f" [authored: {authored}" + (f", +{extra}" if extra else "") + "]") if authored else ""
+            kind = "underground" if ug == len(cl) else ("mixed" if ug else "surface")
+            head = f"  #{ci} {len(cl):3d} chunks {kind:11s} span={span[0]}x{span[1]}{tag}"
+            if args.segment and not authored:
+                try:
+                    grid, roads, chunks, _ = build_area(wm, cl, False)
+                    t0 = time.time()
+                    seg = segment(grid, params_from(args, db.params(base)))
+                    n = len(seg.rooms)
+                    grand_rooms += n
+                    print(f"{head} -> {n} rooms ({time.time()-t0:.1f}s, {int(grid.walk.sum())*0.0625:.0f} m2)")
+                except Exception as e:                                   # noqa: BLE001 -- dry run must not abort
+                    print(f"{head} -> FAILED: {type(e).__name__}: {e}")
+            else:
+                if authored:
+                    grand_authored += 1
+                print(f"{head}{' (segment skipped: authored)' if authored and args.segment else ''}"
+                      + ("" if args.segment else f"  chunks={sorted(r.name for r in cl)}"))
+    print(f"\nTOTAL: {grand_clusters} clusters ({grand_authored} authored/skipped)"
+          + (f", {grand_rooms} rooms in the un-authored clusters" if args.segment else ""))
+
+
 def cmd_status(wm, args):
     db = RoomsDb(DB)
     for row in db.status():
@@ -360,6 +476,11 @@ def main():
     s.add_argument("--write", action="store_true"); s.set_defaults(fn=cmd_exits)
     s = sub.add_parser("seams", help="cross-region exits over all region pairs; re-run after any area --write")
     s.add_argument("--write", action="store_true"); s.set_defaults(fn=cmd_seams)
+    s = sub.add_parser("clusters", help="partition a location record into physical places (XZ components + UG stem merge); --segment for a dry-run room count")
+    s.add_argument("location", nargs="?", default=None); s.add_argument("--all", action="store_true")
+    s.add_argument("--step", type=int, default=200, help="Chebyshev XZ chunk-gap threshold (units); 128 = one chunk")
+    s.add_argument("--segment", action="store_true", help="segment each cluster (no write) and count rooms")
+    add_params(s); s.set_defaults(fn=cmd_clusters)
     s = sub.add_parser("status"); s.set_defaults(fn=cmd_status)
     s = sub.add_parser("plan"); s.add_argument("location"); s.add_argument("--scale", type=int, default=1)
     s.add_argument("--out", default=None); s.set_defaults(fn=cmd_plan)
