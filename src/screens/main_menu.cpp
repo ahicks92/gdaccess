@@ -79,15 +79,19 @@ class UnsupportedScreen : public Screen {
   bool is_active() override { return true; }
   // Announced only after it has been current for a moment: screen transitions (menu -> loading -> world)
   // pass through a few frames where nothing is modelled, and "unsupported screen" every time was noise.
+  // Silent entirely until a modelled screen has been current once: the game always opens on its title
+  // screen (the "Grim Dawn (c) Crate" text, ~1.5 s before the main menu), which is not modelled on purpose.
   std::string screen_name() const override { return {}; }
   void on_focus() override { Screen::on_focus(); frames_ = 0; }
+  void on_unfocus() override { Screen::on_unfocus(); seen_modelled_ = true; }   // something else took over: we are past the title
   void on_update() override {
     if (frames_ >= 0 && ++frames_ == kDebounceFrames) {
       frames_ = -1;
-      // The exe layout check runs on first use; a mismatched game build is announced once, then the
-      // fallback keeps the keyboard with the game.
+      // The exe layout check runs on first use; a mismatched game build is announced once (a build we cannot
+      // read never shows a modelled screen, so this precedes the title gate), then the fallback keeps the
+      // keyboard with the game.
       if (!exe_ui::available() && !version_warned_) { version_warned_ = true; speech::speak(strings::kUnsupportedGameVersion, false); }
-      else speech::speak(strings::kUnsupportedScreen, false);
+      else if (seen_modelled_) speech::speak(strings::kUnsupportedScreen, false);
     }
   }
   int layer() const override { return -1; }
@@ -99,6 +103,7 @@ class UnsupportedScreen : public Screen {
   static constexpr int kDebounceFrames = 30;
   int frames_ = 0;
   bool version_warned_ = false;
+  bool seen_modelled_ = false;
 };
 
 std::unique_ptr<Screen> make_main_menu() { return std::make_unique<MainMenuScreen>(); }
