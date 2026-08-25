@@ -112,6 +112,14 @@ Measured windows (1600x900 positions are the widgets' own, not needed by the mod
   `screen+0x250` action, `+0x254` slot, `+0x258` waiting) is read-only in the mod so far.
 - Apply = exe+0xcd780(screen, false): diffs the screen's private `GAME::Options` (`screen+0x378`) against
   `Engine::GetOptions()`, saves, reloads. Defaults is per page (`Options::SetToDefaults(opts, group)`).
+- **From the pause menu** (2026-08-25): the exit window's Options Menu button calls exe+0x21bbc0(InGameUI), which
+  shows the host window at `[InGameUI+0x4def8]` (0x98 bytes, ctor exe+0x29efc0, vtable exe+0x31dd90, visible
+  byte `+0x68`); the host's create (exe+0x29f2d0) allocates 0x508 bytes and runs the SAME Options ctor
+  exe+0xc8e60, keeping the screen at host `+0x90`. App state stays 10 and the screen is NOT in the menu tree
+  root, so `exe_ui::options_screen` reads it from there when `ingame_ui()` is present. The screen's "closed"
+  flag is `+0x228` (vtable `+0xd0` returns it); the host polls it, deletes the screen and hides itself. The
+  host's Escape (exe+0x29f1c0) sets `+0x268` when the private Options differ from the live ones (the discard
+  prompt) else `+0x228`.
 - Delete Character window (vtable exe+0x30b138): TEXT 'DELETE', TEXT prompt, EDIT, A1 Accept (enabled once the
   box reads DELETE), A1 Cancel; no hidden byte known -- open = `manager+0xf8 == window`.
 

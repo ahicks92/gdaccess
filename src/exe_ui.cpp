@@ -674,8 +674,16 @@ std::vector<std::vector<std::string>> WidgetA::list_rows() const {
 
 OptionsScreen options_screen() {
   OptionsScreen o;
-  if (app_state() != 5) return o;
-  for (WidgetA c : root().children()) if (c.vtable_rva() == rva::kOptionsScreenVt && c.active()) { o.screen = c; break; }
+  if (app_state() == 5) {
+    for (WidgetA c : root().children()) if (c.vtable_rva() == rva::kOptionsScreenVt && c.active()) { o.screen = c; break; }
+  } else if (void* ui = ingame_ui()) {
+    // From the pause menu the very same screen class is owned by a small host window instead of the menu tree.
+    void* host = rdp(ui, ingame::kOptionsHostPtr);
+    if (host && rd_or<uint8_t>(host, ingame::kOptionsHost_Visible, 0)) {
+      WidgetA c{rdp(host, ingame::kOptionsHost_Screen)};
+      if (c && c.vtable_rva() == rva::kOptionsScreenVt && c.active()) o.screen = c;
+    }
+  }
   if (!o.screen) return o;
   for (WidgetA c : o.screen.children()) {
     if (c.vtable_rva() == rva::kOptionsPanelVt && !o.panel) o.panel = c;

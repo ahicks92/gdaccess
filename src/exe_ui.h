@@ -155,6 +155,10 @@ constexpr unsigned kPromptBox = 0x7378, kCharacter = 0x52258 /*the multiplayer I
                    kTrade = 0x29cc8, kMarket = 0x2b538, kEnchanter = 0x30dd8, kTransmuter = 0x85378, kAltar = 0x87628,
                    kFactionVendor = 0x2e188, kCaravan = 0x4fd08, kShrine = 0x7da50, kCrafting = 0x3aa80, kAscension = 0x8baa8;
 constexpr unsigned kHost = 0x7338;  // the widget host whose vtable +0x80 presses a child button
+// The pause menu's Options: InGameUI+0x4def8 holds a POINTER to a 0x98-byte host window (ctor exe+0x29efc0,
+// vtable exe+0x31dd90; visible byte +0x68) whose +0x90 is the framework-A Options screen itself (allocated
+// 0x508 and built by the same ctor exe+0xc8e60 as the main menu's, in exe+0x29f2d0). The app state stays 10.
+constexpr unsigned kOptionsHostPtr = 0x4def8, kOptionsHost_Visible = 0x68, kOptionsHost_Screen = 0x90;
 }
 struct WidgetB {
   void* p = nullptr;

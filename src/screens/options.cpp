@@ -27,7 +27,8 @@ class OptionsMenuScreen : public Screen {
   std::string_view key() const override { return "options"; }
   bool is_active() override { return exe_ui::available() && (bool)exe_ui::options_screen() && !exe_ui::popup(); }
   std::string screen_name() const override { return std::string(strings::kOptionsScreen); }
-  int layer() const override { return 0; }
+  // Above the in-game screen (0): from the pause menu the options live over the world, not in a menu state.
+  int layer() const override { return 20; }
   std::vector<ScreenAction> actions() override {
     return {{std::string(action_ids::Back), [] { OptionsScreen o = exe_ui::options_screen(); WidgetA c = close_button(o); if (c) c.activate(); }}};
   }
