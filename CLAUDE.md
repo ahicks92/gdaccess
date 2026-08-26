@@ -641,6 +641,9 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   understanding of how the game targets.
 
 ## Conventions
+- **Every player-facing KEY goes in README.md** (its Controls tables) in the same change that adds or rebinds it,
+  alongside `docs/controls.md`. The README is the player's document: keys and what they do, not every sound or
+  internal detail. (Pets and the vendor's Ctrl+Enter both shipped without a README line, 2026-08-26.)
 - Hook by exported name, never by signature scan. Member functions: `this` first; class-by-value returns
   (`std::basic_string`) use a hidden return pointer as the 2nd argument. The game uses
   `basic_string<unsigned short>` (not char16_t) — see `src/msvc_string.h`.
