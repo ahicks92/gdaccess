@@ -60,7 +60,8 @@ class Screen {
   // While this screen owns the keyboard: key codes it still lets through to the game (a text field being
   // typed into gets the letters; our navigation keys stay ours).
   virtual bool passes_key(int /*code*/) const { return false; }
-  // A true modal: blocks the categories of screens below it.
+  // A true modal: blocks the categories of screens below it. (Any screen that owns_keyboard() already does
+  // that for key actions -- see ScreenManager::live_categories; exclusive also marks intent for the stack.)
   virtual bool exclusive() const { return false; }
   // Ctrl+Tab / Ctrl+Shift+Tab: switch the screen's tab (dir +1 / -1) from anywhere in it. False = no tabs.
   virtual bool switch_tab(int /*dir*/) { return false; }

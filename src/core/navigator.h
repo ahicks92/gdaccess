@@ -130,7 +130,11 @@ class GraphNavigator {
   std::vector<std::optional<std::string>> live_values_;
   // typeahead
   TypeAheadSearch search_;
-  std::vector<GraphNode*> search_nodes_;
+  // The search scope is captured by IDENTITY + text, never by node pointer: the graph is immediate-mode and a
+  // GraphNode* from the render you typed in is freed two rerenders later (arrowing through the results used to
+  // read freed memory and focus whatever the stale id resolved to -- the tab row included; fixed 2026-08-26).
+  struct SearchEntry { ControlId id; std::string text; };
+  std::vector<SearchEntry> search_nodes_;
   std::optional<ControlId> search_focus_id_;
   Screen* last_typeahead_screen_ = nullptr;
   int search_held_dir_ = 0;

@@ -426,7 +426,7 @@ void GraphNavigator::type_char(char c) {
   rebuild_search_scope();
   if (search_nodes_.empty()) return;
   search_.add_char(c);
-  search_.search((int)search_nodes_.size(), [this](int i) { return search_text_of(search_nodes_[(size_t)i]); }, [this](int i) { search_focus_result(i); });
+  search_.search((int)search_nodes_.size(), [this](int i) { return search_nodes_[(size_t)i].text; }, [this](int i) { search_focus_result(i); });
 }
 
 std::string GraphNavigator::search_text_of(const GraphNode* n) {
@@ -442,12 +442,12 @@ void GraphNavigator::rebuild_search_scope() {
   const GraphNode* node = graph_ ? graph_->current_node() : nullptr;
   if (!node || !graph_->current()) return;
   for (GraphNode* n : graph_->current()->order())
-    if (n->stop_key == node->stop_key && n->vtable && !n->vtable->exclude_from_search && n->vtable->column <= 0) search_nodes_.push_back(n);
+    if (n->stop_key == node->stop_key && n->vtable && !n->vtable->exclude_from_search && n->vtable->column <= 0) search_nodes_.push_back({n->id, search_text_of(n)});
 }
 
 void GraphNavigator::search_focus_result(int index) {
   if (index < 0 || (size_t)index >= search_nodes_.size()) return;
-  if (!graph_->focus_at_column(search_nodes_[(size_t)index]->id, search_column_)) return;
+  if (!graph_->focus_at_column(search_nodes_[(size_t)index].id, search_column_)) return;   // resolves in the CURRENT render
   const GraphNode* node = graph_->current_node();
   play_hover(node);
   if (auto t = compose_move(last_spoken_node(), node, false)) speak(*t, true);

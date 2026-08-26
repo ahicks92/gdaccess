@@ -547,6 +547,15 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   dword must equal the item id). Sighted players split with Ctrl+click (dialog) / Shift+click (half) onto the
   cursor; consumption-side actions (crafting, attaching, potions, turn-ins) draw from stacks themselves, so the
   only other place a split is wanted is the stash (not wired).
+- Type-ahead fixes (2026-08-26, the user's report: arrowing through results jumped across tabs, and letters
+  fired world keys): (1) `GraphNavigator::search_nodes_` held `GraphNode*` across frames (the classic trap);
+  now `{ControlId, text}` resolved in the current render (regression test in tests/navigator_tests.cpp).
+  (2) `ScreenManager::live_categories` stops at the first screen that OWNS the keyboard, not only at an
+  `exclusive()` modal -- a window over the world no longer leaves the world's `InGame` letter keys (. , N B M V
+  F G Q K X H T) live under type-ahead. The game's Ctrl-lifts (`game.*`) moved to a new `InputCategory::Lifted`
+  declared by the in-game screen AND `WindowScreen`, so Ctrl+N/Ctrl+M/... still work from inside a window.
+  Verified through the loop (dev `/key` letters ALSO reach the game -- the map/codex opening on m/q in a
+  dev run is that artifact, not a filter hole; the user is checking real keys).
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.

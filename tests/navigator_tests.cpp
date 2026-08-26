@@ -68,3 +68,49 @@ TEST_CASE("row: Left/Right repeat at the ends, Up/Down say nothing") {
   CHECK(h.act(ui_actions::Up) == "");
   CHECK(h.act(ui_actions::Down) == "");
 }
+
+// Regression (2026-08-26): the search scope used to hold GraphNode* from the render you typed in; every arrow
+// through the results rerenders (focus_at_column), so by the second arrow those pointers were freed arena memory
+// and the focus landed on whatever the stale id resolved to (the tab row included). The scope is by ControlId now.
+namespace {
+struct WordsScreen : Screen {
+  int builds = 0;
+  std::string_view key() const override { return "words"; }
+  bool is_active() override { return true; }
+  std::string screen_name() const override { return "words"; }
+  void build(GraphBuilder& b) override {
+    ++builds;
+    b.begin_stop("items");
+    b.add_item(id("apple"), vt("apple"));
+    b.add_item(id("banana"), vt("banana"));
+    b.add_item(id("avocado"), vt("avocado"));
+    b.add_item(id("apricot"), vt("apricot"));
+  }
+};
+}  // namespace
+
+TEST_CASE("type-ahead results survive rerenders between the typing and the arrows") {
+  std::vector<std::string> spoken;
+  int frame = 0;
+  WordsScreen screen;
+  GraphNavigator nav{NavigatorHost{[&](std::string_view t, bool) { spoken.emplace_back(t); }, {}, [] { return true; }, [&] { return frame; }}};
+  nav.attach(&screen); nav.ensure_focus();
+  auto tick = [&](std::u16string_view typed, bool down) {
+    TypeaheadInput in; in.typed = typed; in.down_held = down; in.dt = 0.016; ++frame;
+    spoken.clear(); nav.tick_typeahead(in);
+    return spoken.empty() ? std::string() : spoken.back();
+  };
+  tick(u"", false);                        // the first tick only registers the screen for type-ahead
+  CHECK(tick(u"a", false) == "apple");
+  // Many rerenders before the first arrow: the render the scope was built from is long retired.
+  for (int i = 0; i < 5; ++i) nav.announce_current();
+  CHECK(tick(u"", true) == "avocado");
+  CHECK(tick(u"", false) == "");           // arrow released: no step
+  for (int i = 0; i < 5; ++i) nav.announce_current();
+  CHECK(tick(u"", true) == "apricot");
+  CHECK(tick(u"", false) == "");
+  CHECK(tick(u"", true) == "banana");      // the substring tier (the a in banana) ranks last
+  CHECK(tick(u"", false) == "");
+  CHECK(tick(u"", true) == "apple");       // and the results wrap
+  CHECK(screen.builds > 10);
+}

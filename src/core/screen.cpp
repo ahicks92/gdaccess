@@ -64,7 +64,11 @@ std::vector<InputCategory> ScreenManager::live_categories() {
   for (Screen* s : focused_first()) {
     for (auto c : s->input_categories())
       if (std::find(cats.begin(), cats.end(), c) == cats.end()) cats.push_back(c);
-    if (s->exclusive()) break;  // a modal owns the keyboard
+    // A modal, or any screen that takes the keyboard, is the end of the walk: nothing beneath it hears keys.
+    // (Only a pass-through overlay -- owns_keyboard() false -- lets the screens under it keep their keys; a
+    // window over the world must NOT leave the world's letter keys live while the player types ahead in it,
+    // which is what happened before 2026-08-26.)
+    if (s->exclusive() || s->owns_keyboard()) break;
   }
   if (std::find(cats.begin(), cats.end(), InputCategory::Global) == cats.end()) cats.push_back(InputCategory::Global);
   return cats;

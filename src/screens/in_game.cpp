@@ -180,7 +180,7 @@ class InGameScreen : public Screen {
   }
   bool allows_typeahead() const override { return false; }
   bool start_unfocused() const override { return true; }
-  std::vector<InputCategory> input_categories() const override { return {InputCategory::InGame}; }
+  std::vector<InputCategory> input_categories() const override { return {InputCategory::InGame, InputCategory::Lifted}; }
   void build(GraphBuilder&) override {}
   // A mouse-button key (J/Enter = left, I = right) that was ALREADY held the moment we regained focus is a
   // carry-over from the screen that just closed (e.g. Enter activated a map-marker row, which closed the map

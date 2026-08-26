@@ -91,7 +91,10 @@ class WindowScreen : public gd::core::Screen {
   std::string screen_name() const override { return name_; }
   int layer() const override { return layer_; }
   bool is_active() override { return gd::exe_ui::available() && window().visible(); }
-  std::vector<gd::core::InputCategory> input_categories() const override { return {gd::core::InputCategory::UI, gd::core::InputCategory::Windows}; }
+  // UI navigation, the window hotkeys, then the game's lifted Ctrl chords (so Ctrl+N still switches to the skills
+  // window from the inventory). NOT InGame: the world's plain letter keys (review groups, F, G, Q, K...) are what
+  // type-ahead types, and a window takes the keyboard from the world.
+  std::vector<gd::core::InputCategory> input_categories() const override { return {gd::core::InputCategory::UI, gd::core::InputCategory::Windows, gd::core::InputCategory::Lifted}; }
   bool allows_typeahead() const override { return true; }
   std::vector<gd::core::ScreenAction> actions() override {
     return {{std::string(gd::core::action_ids::Back), [this] { close(); }}};

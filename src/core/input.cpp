@@ -12,6 +12,7 @@ std::string_view category_name(InputCategory c) {
     case InputCategory::Exploration: return "exploration";
     case InputCategory::InGame: return "ingame";
     case InputCategory::Windows: return "windows";
+    case InputCategory::Lifted: return "lifted";
     default: return "?";
   }
 }

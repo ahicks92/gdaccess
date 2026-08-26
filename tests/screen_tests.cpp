@@ -55,7 +55,7 @@ TEST_CASE("stack diff: push bottom-up, pop top-down, focus follows the top; cove
   CHECK(std::count(log.events.begin(), log.events.end(), "closed modal") == 1);
 }
 
-TEST_CASE("live categories: focus-first union, exclusive stops the walk, Global always appended") {
+TEST_CASE("live categories: a keyboard-owning or exclusive screen ends the walk; a pass-through overlay unions; Global always appended") {
   Screen::set_host({}, {});  // the previous test's hooks captured locals that are gone
   Log log; bool a = true, b = true;
   ScreenManager sm;
@@ -64,6 +64,11 @@ TEST_CASE("live categories: focus-first union, exclusive stops the walk, Global 
   TestScreen* top_raw = top.get();
   sm.register_screen(std::move(base)); sm.register_screen(std::move(top));
   sm.tick();
+  // A window over the world takes the keyboard: the world's keys are NOT live under it (type-ahead letters
+  // must not fire the world's review/action keys).
+  CHECK(sm.live_categories() == std::vector<InputCategory>{InputCategory::UI, InputCategory::Global});
+  // A pass-through overlay (the game keeps the keys) leaves the screens beneath it live.
+  top_raw->owns_keyboard_ = false;
   CHECK(sm.live_categories() == std::vector<InputCategory>{InputCategory::UI, InputCategory::Exploration, InputCategory::InGame, InputCategory::Global});
   top_raw->exclusive_ = true;
   CHECK(sm.live_categories() == std::vector<InputCategory>{InputCategory::UI, InputCategory::Global});

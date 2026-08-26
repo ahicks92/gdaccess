@@ -21,6 +21,7 @@ enum class InputCategory {
   Exploration,  // the in-game world: cursor, interaction, scanner, overlays; control-gated
   InGame,       // base in-game keys that must work even without control (pause menu, cancel targeting)
   Windows,      // service-window hotkeys (inventory, character, skills...)
+  Lifted,       // the game's own functions lifted to Ctrl chords (open a window, map, pause...): live in the world AND in its windows
   Count,
 };
 std::string_view category_name(InputCategory c);

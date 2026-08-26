@@ -124,7 +124,7 @@ class StashScreen : public WindowScreen {
 std::unique_ptr<Screen> make_vendor() { return std::make_unique<VendorScreen>(); }
 void sell_partial_focused() {
   VendorScreen* v = dynamic_cast<VendorScreen*>(app::screens().current());
-  if (v) v->sell_partial(); else speech::speak(strings::kNotAStack, true);
+  if (v) v->sell_partial();   // a Windows-category chord: silent in the other windows
 }
 std::unique_ptr<Screen> make_stash() { return std::make_unique<StashScreen>(); }
 }  // namespace gd::screens
