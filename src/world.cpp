@@ -767,6 +767,17 @@ static void* region_containing_xz(void* from, float wx, float wz) {
   return g_api.World_GetRegionContainingXZ(g_world, from, wx - (off ? (float)off[0] : 0.f), wz - (off ? (float)off[2] : 0.f));
 }
 namespace { bool project_point(const Vec3& world_point, float& x, float& y); }   // defined with the cursor lock below
+bool world_vec3_at(const Vec3& w, void* out) {
+  load_api();
+  Buf base; void* region = nullptr;
+  if (!out || !g_api.WorldVec3_ctor || !player_world_vec(base, &region)) return false;
+  void* target = g_api.World_GetRegionContainingXZ && g_world ? region_containing_xz(region, w.x, w.z) : nullptr;
+  if (!target) target = region;
+  const int* off = g_api.Region_GetOffsetFromWorld ? g_api.Region_GetOffsetFromWorld(target) : nullptr;
+  Vec3 rel{w.x - (off ? (float)off[0] : 0.f), w.y - (off ? (float)off[1] : 0.f), w.z - (off ? (float)off[2] : 0.f)};
+  g_api.WorldVec3_ctor(out, target, &rel);
+  return true;
+}
 std::string teleport(float x, float z, bool check_only) {
   load_api();
   void* p = player();
@@ -1647,6 +1658,7 @@ bool in_group(const void* e, const void* ci, const std::string& cls, ScanGroup g
 // not SkillActivated -> None.
 SkillAim skill_aim(const void* skill_obj) {
   if (!skill_obj || !g_api.SkillActivated_StaticClassInfo || !g_api.SkillActivated_GetTargetType) return SkillAim::None;
+  if (rtti_name(rtti_of(skill_obj)) == "Skill_PetAttack") return SkillAim::AtTarget;   // "Pet Attack": not a SkillActivated, aims at the cursor (docs/pets.md)
   if (!is_kind_of(rtti_of(skill_obj), g_api.SkillActivated_StaticClassInfo())) return SkillAim::None;
   int tt = 0;
   if (!call_int_fn(skill_obj, g_api.SkillActivated_GetTargetType, &tt)) return SkillAim::None;
@@ -1724,6 +1736,15 @@ std::vector<ScanItem> scan(ScanGroup group, float radius) {
   std::vector<ScanItem> out;
   Vec3 me; Buf base; void* region = nullptr;
   if (!player_position(me)) return out;
+  if (group == ScanGroup::Pets) {   // the game's own pet list (docs/pets.md); note = the stance word
+    for (const gameapi::PetInfo& p : gameapi::pets()) {
+      ScanItem it; it.id = p.id; it.cls = "Pet"; it.label = p.label; it.pos = p.pos; it.note = gameapi::pet_stance_name(p.stance);
+      it.dist = std::sqrt((p.pos.x - me.x) * (p.pos.x - me.x) + (p.pos.z - me.z) * (p.pos.z - me.z));
+      out.push_back(it);
+    }
+    std::sort(out.begin(), out.end(), [](const ScanItem& a, const ScanItem& b) { return a.dist < b.dist; });
+    return out;
+  }
   if (group == ScanGroup::Exits) {
     if (g_exit_provider) out = g_exit_provider();
     for (ScanItem& it : out) it.dist = std::sqrt((it.pos.x - me.x) * (it.pos.x - me.x) + (it.pos.z - me.z) * (it.pos.z - me.z));
@@ -1773,6 +1794,7 @@ static std::string_view group_label(ScanGroup g) {
     case ScanGroup::Exits: return gd::strings::kExits;
     case ScanGroup::Loot: return gd::strings::kLoot;
     case ScanGroup::Transitions: return gd::strings::kTransitions;
+    case ScanGroup::Pets: return gd::strings::kPets;
     default: return gd::strings::kLoot;
   }
 }

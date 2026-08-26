@@ -427,6 +427,20 @@ ENTRIES = [
     ("gEngine", "Engine", r"^class GAME::Engine \* __ptr64 __ptr64 GAME::gEngine$"),
     ("LuaManager_RunCode", "Engine", r"GAME::LuaManager::RunCode\(char const"),
     ("LuaManager_Load", "Engine", r"GAME::LuaManager::Load\("),
+    # Pets (docs/re_pets_gamedll.md, 2026-08-26): the local pet list, the pen (pet -> summoning skill), stance
+    # (per SKILL: Player's map keyed by skill id + Monster::UseController on the pet), commands, disband.
+    ("GameEngine_GetLocalPetList", "Game", r"GAME::GameEngine::GetLocalPetList\(void\)"),
+    ("GameEngine_RegisterLocalPet", "Game", r"GAME::GameEngine::RegisterLocalPet\("),
+    ("GameEngine_UnregisterLocalPet", "Game", r"GAME::GameEngine::UnregisterLocalPet\("),
+    ("Character_GetPetPen", "Game", r"^public: class GAME::PetPen & __ptr64 __cdecl GAME::Character::GetPetPen\(void\)"),
+    ("PetPen_GetPetOwner", "Game", r"GAME::PetPen::GetPetOwner\("),
+    ("Player_GetPetControllerType", "Game", r"GAME::Player::GetPetControllerType\("),
+    ("Player_SetPetControllerType", "Game", r"GAME::Player::SetPetControllerType\("),
+    ("Monster_UseController", "Game", r"GAME::Monster::UseController\(enum"),
+    ("Character_RequestAttack", "Game", r"^public: void __cdecl GAME::Character::RequestAttack\(unsigned int,unsigned int\)"),
+    ("Character_RequestMove", "Game", r"^public: void __cdecl GAME::Character::RequestMove\(unsigned int,class GAME::WorldVec3 const"),
+    ("ControllerPlayer_ReleasePet", "Game", r"GAME::ControllerPlayer::ReleasePet\("),
+
 ]
 tables = {}
 for dll in ("Engine", "Game", "DirectInput"):

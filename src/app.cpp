@@ -34,6 +34,7 @@
 #include "screens/list_picker.h"
 #include "screens/count_prompt.h"
 #include "screens/hotbar_manager.h"
+#include "screens/pets.h"
 #include "gameapi.h"
 #include "speech.h"
 #include "world.h"
@@ -147,6 +148,17 @@ static void register_actions() {
       m.register_action(id, label, InputCategory::InGame, [g] { speech::speak(world::cycle_review(g, 1, true), true); }).bind(c.key, false, false, true);
     }
   }
+  // Pets (docs/pets.md): [ / ] cycle the review cursor through the player's own pets (Alt+] = nearest); Backspace
+  // = the pet overlay (stance, disband, selection, commands); F2..F6 / F7 = our own selection toggles (the game's
+  // are swallowed: they had a 5-pet ceiling and made the next click a hidden pet command); Shift+Backspace = the
+  // selected (or all) pets attack the locked target.
+  m.register_action("scan.petNext", "Next pet", InputCategory::InGame, [] { speech::speak(world::cycle_review(world::ScanGroup::Pets, 1), true); }).bind(0x1b);
+  m.register_action("scan.petPrev", "Previous pet", InputCategory::InGame, [] { speech::speak(world::cycle_review(world::ScanGroup::Pets, -1), true); }).bind(0x1a);
+  m.register_action("scan.petNearest", "Nearest pet", InputCategory::InGame, [] { speech::speak(world::cycle_review(world::ScanGroup::Pets, 1, true), true); }).bind(0x1b, false, false, true);
+  m.register_action("ingame.pets", "Pets", InputCategory::InGame, [] { screens::open_pet_overlay(); }).bind(0x0e);
+  m.register_action("ingame.petsAttack", "Pets attack locked target", InputCategory::InGame, [] { screens::pets_attack_locked(); }).bind(0x0e, false, true, false);
+  for (int i = 0; i < 5; ++i) m.register_action(std::format("ingame.selectPet{}", i + 1), std::format("Select pet {}", i + 1), InputCategory::InGame, [i] { screens::toggle_pet_selected(i); }).bind(0x3c + i);
+  m.register_action("ingame.selectAllPets", "Select all pets", InputCategory::InGame, [] { screens::select_all_pets(); }).bind(0x41);
   // Backslash: the sonar sweep on / off (the game's Toggle Party Display is lifted to Ctrl+Backslash).
   m.register_action("sonar.toggle", "Sonar on or off", InputCategory::InGame, [] {
     sonar::set_enabled(!sonar::enabled());
@@ -187,7 +199,7 @@ static void register_actions() {
     {"game.gameMenu", "Game menu", 0x22, u'g'}, {"game.help", "Help window", 0x23, u'h'}, {"game.factions", "Factions window", 0x24, u'j'},
     {"game.achievements", "Achievements window", 0x2f, u'v'}, {"game.riftgate", "Personal riftgate", 0x26, u'l'}, {"game.drop", "Drop item", 0x30, u'b'},
     {"game.tooltips", "Show item tooltips", 0x2d, u'x'}, {"game.showItems", "Show items (filter common)", 0x2c, u'z'},
-    {"game.pause", "Pause game", 0x19, u'p'}, {"game.petDisplay", "Toggle pet display", 0x0e, 0}, {"game.partyDisplay", "Toggle party display", 0x2b, u'\\'},
+    {"game.pause", "Pause game", 0x19, u'p'}, {"game.partyDisplay", "Toggle party display", 0x2b, u'\\'},
     {"game.toggleUi", "Toggle UI", 0x1b, u']'}, {"game.cameraLeft", "Camera rotate left", 0x33, u','}, {"game.cameraRight", "Camera rotate right", 0x34, u'.'},
     {"game.chat", "Chat window", 0x1c, 0}, {"game.pushToTalk", "Push to talk", 0x0f, 0},
   };
@@ -246,6 +258,7 @@ void init() {
   g_screens.register_screen(screens::make_vendor());
   g_screens.register_screen(screens::make_stash());
   g_screens.register_screen(screens::make_hotbar_manager());
+  g_screens.register_screen(screens::make_pet_overlay());
   g_screens.register_screen(screens::make_list_picker());
   g_screens.register_screen(screens::make_count_prompt());
   gameapi::load();

@@ -86,7 +86,7 @@ SkillAim skill_aim(const void* skill_obj);   // skill_obj from gameapi::object_b
 // from ObjectManager::CreateObjectID) and re-found in a fresh query on every step -- never by pointer --
 // so a despawned target simply drops out and the next step enters at the nearest. The landing also
 // parks the virtual cursor on the thing, so the game hovers / targets it natively.
-enum class ScanGroup { Enemies, Neutrals, Bystanders, Objects, Exits, Loot, Transitions };   // Loot/Transitions: the sonar sweep only
+enum class ScanGroup { Enemies, Neutrals, Bystanders, Objects, Exits, Loot, Transitions, Pets };   // Pets: the player's own summons ([ / ]), note = stance   // Loot/Transitions: the sonar sweep only
 // note: an extra spoken list item ("blocked" for an exit whose opening the live mesh refuses), normally empty.
 // level/classification are filled for enemies only (classification -1 = not read: not an enemy, or unknown);
 // classification is the MonsterClassification enum (0 Common, 1 Champion, 2 Hero, 3 Boss, 4 Quest, 5 SuperBoss).
@@ -148,6 +148,9 @@ void set_voice_rolloff(float near_d, float far_d, float floor_g);  // <0 = keep
 std::string voice_rolloff();
 // A raw WorldVec3 (Region* + Vec3, 24 bytes) to world space; false when it has no region.
 bool world_point(const void* worldvec3, Vec3& out);
+// The inverse: a world-space point as a WorldVec3 (out = 24+ bytes) in the chunk containing (x, z), reached from
+// the player's chunk (World::GetRegionContainingXZ); false without a player or when no chunk holds it.
+bool world_vec3_at(const Vec3& world, void* out_worldvec3);
 // The review ping (wotr's Semicolon, also played on every landing): one of three sounds for the route
 // from the player to the reviewed thing -- straight walk, path around, unreachable -- positioned toward it
 // (pan by bearing, volume ref/(ref+distance)). Returns the kind for the log; empty = nothing reviewed.

@@ -7,6 +7,7 @@
 #include "combat.h"
 #include "rooms.h"
 #include "screens/hotbar_manager.h"
+#include "screens/pets.h"
 #include "screens/quickbar.h"
 #include "sonar.h"
 #include "core/graph_builder.h"
@@ -173,8 +174,7 @@ class InGameScreen : public Screen {
                                  0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,   // 1..9 0 quickbar slots
                                  0x15,                                                         // Y quickbar switch (the game's own; we announce the page in quickbar_tick)
                                  0x39, 0x12, 0x13, 0x16, 0x01,                                 // Space evade, E energy, R health, U interact, Escape menu
-                                 0x38, 0x76,                                                   // Alt / Right Alt: show items (held)
-                                 0x3c, 0x3d, 0x3e, 0x3f, 0x40, 0x41};                          // F2..F7 pets
+                                 0x38, 0x76};                                                  // Alt / Right Alt: show items (held). F2..F7 (the game's pet selection) and Backspace (pet display) are OURS (screens/pets.cpp)
     for (int k : direct) if (k == code) return true;
     return false;
   }
@@ -200,6 +200,7 @@ class InGameScreen : public Screen {
     rooms::tick();
     quickbar_tick();
     weapon_swap_tick();
+    pets_tick();
     world::reping_tick();   // re-sound the review ping when the target's route (straight/path/unreachable) changes
     sonar::tick();
     walltones::tick();
@@ -216,7 +217,7 @@ class InGameScreen : public Screen {
     world::mouse_key(2, right);
   }
   void on_unfocus() override { walltones::silence(); world::mouse_key(1, false); world::mouse_key(2, false); }
-  void on_pop() override { walltones::silence(); world::mouse_key(1, false); world::mouse_key(2, false); rooms::reset(); sonar::reset(); quickbar_reset(); }
+  void on_pop() override { walltones::silence(); world::mouse_key(1, false); world::mouse_key(2, false); rooms::reset(); sonar::reset(); quickbar_reset(); pets_reset(); }
 
  private:
   bool suppress_left_ = false;   // a left-mouse key held over from the screen that just closed

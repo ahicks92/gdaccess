@@ -46,11 +46,11 @@ screenshots. Rows in the game's order; "-" = unassigned.
 | Target Pet (Hold Key and Click) | Ctrl | Right Ctrl |
 | Stationary Attack (Hold Key and Click) | Shift | Gamepad LTrigger |
 | Pause Game (Single Player Only) | P | - |
-| Toggle Pet Display | Backspace | - |
+| Toggle Pet Display | Backspace (taken by the mod: the pet overlay) | - |
 | Toggle Party Display | \ | - |
 | Quickbar Switch | Y | Gamepad RThumb |
-| Select Pet 1..5 | F2..F6 | - |
-| Select All Pets | F7 | - |
+| Select Pet 1..5 | F2..F6 (taken by the mod: its own selection, see Pets) | - |
+| Select All Pets | F7 (taken by the mod) | - |
 | Push To Talk | Tab | - |
 | Toggle UI | ] | - |
 
@@ -86,6 +86,11 @@ stationary attack, Ctrl pet targeting) and typing into the game's chat field.
 | Ctrl+M | The map: opens the game's aerial map and presents it accessibly as **one flat list**, nearest-first (merchants, riftgate, spirit guide, NPCs, quest markers, ...). Each icon is the game's own map marker, named by matching it to the entity under it, with distance and clock bearing. Enter picks a marker as the follow target ("following \<name\>") and closes the map. The marker set is whatever the game currently draws on the map (the loaded area) -- see docs on scope. (No quest/non-quest tab split: the marker source does not classify quest markers yet, so the split was empty.) |
 | ' (apostrophe) | Follow the picked map marker: plays the route ping toward it (straight walk / path around / unreachable, panned, fading with distance, like ;) and speaks "\<name\>, N away, H o'clock". Tracks a moving NPC; "not following anything" until you pick one from Ctrl+M |
 | K, Ctrl+Shift+P | Where am I (position, life, region) |
+| ] / [ (Alt+] nearest) | Next / previous of YOUR PETS, nearest first: "Hellhound, aggressive, 2 away, 1 o'clock, 1 of 2"; the landing parks the review lock on the pet like any group (docs/pets.md) |
+| Backspace | The pet overlay: one row per pet ("Hellhound, normal, selected"). Left/Right = stance (normal / aggressive / defensive -- per SUMMONING SKILL, so every pet of that skill follows, and a resummon remembers it), Enter = toggle selected, Backspace = disband, Space = where it is. Then two command rows for the selected pets (all when none are selected): "attack locked target" (the review lock's enemy) and "recall" (back to your side); a command closes the overlay and clears the selection. Escape closes |
+| F2..F6 / F7 | Toggle pet 1..5 selected / select all (list order = the game's portrait order), announced; the selection only matters to the next command. The game's own F-keys and their hidden "next click commands the pets" mode are not used |
+| Shift+Backspace | The selected (or all) pets attack the locked target, without opening the overlay |
+| (automatic) | "Hellhound summoned" / "Hellhound down" in Zira when a pet joins or leaves the game's pet list. Pets never count as enemies for the review groups, the sonar or the combat voices; the game's "Pet Attack" default skill can be put on a quickbar slot from the hotbar manager and works against the locked target like any aimed skill |
 | H | Health and energy in full ("health 250 of 250, energy 100 of 120") through the screen reader |
 | (automatic) | Hits you or your pets land: the number the game draws over the enemy ("17", "45 crit", "Miss", "Dodge", "Block"), spoken by Mark panned to where it happened, as many at once as there are hits. Needs the game's "Display damage numbers" option (`displayDamage`, default on). Health: "health N percent" in Zira each time it crosses a 10 % step, down or up |
 | (automatic) | A status effect applied TO you (an enemy's debuff) is named in Zira, panned toward whatever cast it. (Announcing the debuffs YOU apply to enemies is deferred -- naming each by its full skill per hit is too verbose; a terse effect lexicon is a later research project) |

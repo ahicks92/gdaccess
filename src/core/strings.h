@@ -61,6 +61,8 @@ gd::core::MessageBuilder& push_where(gd::core::MessageBuilder& m, float x, float
 // "Hangman Jarvis, 5 away, 2 o'clock, 1 of 3" -- a review-cursor landing (game label verbatim).
 gd::core::MessageBuilder& push_scan_item(gd::core::MessageBuilder& m, std::string_view label, float distance, int clock_hour, int index1, int count, bool distant, std::string_view note = {});
 // "level 3 Arcanist, hardcore" -- a main-menu character row's value (class empty = no mastery yet).
+// "Hellhound down" / "Hellhound summoned" -- a pet event line (game label verbatim + our word).
+gd::core::MessageBuilder& push_pet_event(gd::core::MessageBuilder& m, std::string_view label, std::string_view event);
 gd::core::MessageBuilder& push_character_summary(gd::core::MessageBuilder& m, unsigned level, std::string_view class_name, bool hardcore);
 // The MonsterClassification rarity word (0 Common -> "", 1 champion, 2 hero, 3 boss, 4 quest, 5 super boss).
 std::string_view classification_word(int classification);
@@ -75,6 +77,20 @@ gd::core::MessageBuilder& push_nothing_nearby(gd::core::MessageBuilder& m, std::
 // "<speaker>: <speech>" -- a conversation node (speaker may be empty).
 gd::core::MessageBuilder& push_speech(gd::core::MessageBuilder& m, std::string_view speaker, std::string_view speech);
 inline constexpr std::string_view kEnemies = "enemies";
+inline constexpr std::string_view kUnknown = "unknown";
+inline constexpr std::string_view kPets = "pets";                 // the [ / ] review group and the pet overlay
+inline constexpr std::string_view kStanceNormal = "normal";       // Monster::ControllerType 0 / 1 / 2 (docs/pets.md)
+inline constexpr std::string_view kStanceAggressive = "aggressive";
+inline constexpr std::string_view kStanceDefensive = "defensive";
+inline constexpr std::string_view kPetDown = "down";              // "<pet> down" (Zira) when a pet leaves the list
+inline constexpr std::string_view kPetSummoned = "summoned";      // "<pet> summoned"
+inline constexpr std::string_view kDeselected = "deselected";
+inline constexpr std::string_view kAllPets = "all pets";
+inline constexpr std::string_view kNoPets = "no pets";
+inline constexpr std::string_view kDisbanded = "disbanded";
+inline constexpr std::string_view kPetsAttack = "attack locked target";   // overlay command rows
+inline constexpr std::string_view kPetsRecall = "recall";
+inline constexpr std::string_view kSelectedPets = "selected pets";
 inline constexpr std::string_view kNeutrals = "people and objects";
 inline constexpr std::string_view kBystanders = "bystanders";
 inline constexpr std::string_view kLoot = "loot";

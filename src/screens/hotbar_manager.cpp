@@ -45,7 +45,7 @@ static void open_skill_picker(std::string label, std::string_view first_label, s
   items.push_back({0, std::string(first_label), {}});
   for (const gameapi::SkillInfo& s : gameapi::assignable_skills()) {
     if (!s.id || s.level == 0 || s.item_auto) continue;
-    if (s.record.rfind("records/skills/default/", 0) == 0) continue;
+    if (s.record.rfind("records/skills/default/", 0) == 0 && s.record != "records/skills/default/defaultpetattack.dbr") continue;   // Pet Attack is the one assignable default
     if (world::skill_aim(gameapi::object_by_id(s.id)) == world::SkillAim::None) continue;
     items.push_back({s.id, s.name, {}});
   }

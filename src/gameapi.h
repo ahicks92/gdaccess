@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include "world.h"
 
 namespace gd::gameapi {
 void load();                  // resolve the exports (once); missing ones are logged and their features report empty
@@ -167,4 +168,23 @@ std::string dump_sheet();
 std::string dump_object(unsigned id);
 std::string find_objects(const std::string& needle, size_t max);
 std::string dump_objects_stats();
+
+// ---- Pets (gameapi_pets.cpp; docs/re_pets_gamedll.md) ----
+struct PetInfo {
+  unsigned id = 0;
+  std::string label;          // the pet's own name ("Hellhound")
+  float life = 0, life_max = 0;
+  unsigned skill_id = 0;      // the summoning skill (the pen's owner); stance is keyed by it
+  std::string skill_name;
+  int stance = 1;             // 0 normal, 1 aggressive (the game's default), 2 defensive
+  world::Vec3 pos;
+};
+std::string_view pet_stance_name(int stance);   // strings.h words
+std::vector<unsigned> pet_ids();                 // GameEngine::GetLocalPetList: HUD portrait order = F2..F6 order
+std::vector<PetInfo> pets();
+bool set_pet_stance(unsigned pet_id, int stance); // per summoning skill: every pet of that skill follows
+bool pet_attack(unsigned pet_id, unsigned target_id);
+bool pet_move(unsigned pet_id, const world::Vec3& world_pos);
+bool release_pet(unsigned pet_id);               // Disband Pet
+std::string dump_pets();
 }  // namespace gd::gameapi

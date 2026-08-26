@@ -556,6 +556,21 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   declared by the in-game screen AND `WindowScreen`, so Ctrl+N/Ctrl+M/... still work from inside a window.
   Verified through the loop (dev `/key` letters ALSO reach the game -- the map/codex opening on m/q in a
   dev run is that artifact, not a filter hole; the user is checking real keys).
+- Pets mapped (2026-08-26, `docs/pets.md`, RE in `docs/re_pets_gamedll.md` / `re_pets_exe.md`; verified live on the
+  test char with a raven + hellhound): pets = `GameEngine::GetLocalPetList` (uncapped; the HUD portrait order = the
+  F2-F6 order); label/life through the usual Character paths; the summoning skill via `Character::GetPetPen` +
+  `PetPen::GetPetOwner` (returns a SKILL id); **stance is per summoning skill** (`Player::Get/SetPetControllerType`
+  keyed by skill id, 0 normal / 1 aggressive (default) / 2 defensive, applied to live pets with
+  `Monster::UseController`); disband = `ControllerPlayer::ReleasePet(id,false)`; per-pet attack =
+  `Character::RequestAttack(pet, playerId, target)` (works); `Character::RequestMove` behaved as a recall only.
+  The game's F2-F7 selection is exe-side (`X+0x858` list, X=`[main_obj+0x90]`) and makes the NEXT world click a
+  pet command (not reproduced through the dev loop). "Pet Attack" (default skill 7619) works from the hotbar key
+  with the review lock; `activate_hotslot` alone does not; `skill_aim` says None for it (hotbar manager hides it).
+  `src/gameapi_pets.cpp`, dev `/pets`. BUILT the same day (`src/screens/pets.{h,cpp}`, verified through the loop):
+  `]`/`[` cycle pets (`ScanGroup::Pets`, stance as the note), Backspace = pet overlay (stance Left/Right, Enter
+  select, Backspace disband, Space where, attack-locked-target / recall rows), F2-F6/F7 = OUR selection toggles
+  (the game's swallowed), Shift+Backspace = attack from the world, "<pet> summoned/down" in Zira from list
+  polling; Pet Attack listed by the hotbar manager. Decided: no pet health (nothing heals them).
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.

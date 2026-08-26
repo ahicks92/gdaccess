@@ -1132,4 +1132,37 @@ inline constexpr const char* LuaManager_RunCode = "?RunCode@LuaManager@GAME@@QEA
 // public: bool __cdecl GAME::LuaManager::Load(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const & __ptr64) __ptr64
 inline constexpr const char* LuaManager_Load_DLL = "Engine.dll";
 inline constexpr const char* LuaManager_Load = "?Load@LuaManager@GAME@@QEAA_NAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z";
+// public: class mem::vector<unsigned int> const & __ptr64 __cdecl GAME::GameEngine::GetLocalPetList(void)const __ptr64
+inline constexpr const char* GameEngine_GetLocalPetList_DLL = "Game.dll";
+inline constexpr const char* GameEngine_GetLocalPetList = "?GetLocalPetList@GameEngine@GAME@@QEBAAEBV?$vector@I@mem@@XZ";
+// public: void __cdecl GAME::GameEngine::RegisterLocalPet(unsigned int) __ptr64
+inline constexpr const char* GameEngine_RegisterLocalPet_DLL = "Game.dll";
+inline constexpr const char* GameEngine_RegisterLocalPet = "?RegisterLocalPet@GameEngine@GAME@@QEAAXI@Z";
+// public: void __cdecl GAME::GameEngine::UnregisterLocalPet(unsigned int) __ptr64
+inline constexpr const char* GameEngine_UnregisterLocalPet_DLL = "Game.dll";
+inline constexpr const char* GameEngine_UnregisterLocalPet = "?UnregisterLocalPet@GameEngine@GAME@@QEAAXI@Z";
+// public: class GAME::PetPen & __ptr64 __cdecl GAME::Character::GetPetPen(void) __ptr64
+inline constexpr const char* Character_GetPetPen_DLL = "Game.dll";
+inline constexpr const char* Character_GetPetPen = "?GetPetPen@Character@GAME@@QEAAAEAVPetPen@2@XZ";
+// public: unsigned int __cdecl GAME::PetPen::GetPetOwner(unsigned int)const __ptr64
+inline constexpr const char* PetPen_GetPetOwner_DLL = "Game.dll";
+inline constexpr const char* PetPen_GetPetOwner = "?GetPetOwner@PetPen@GAME@@QEBAII@Z";
+// public: enum GAME::Monster::ControllerType __cdecl GAME::Player::GetPetControllerType(unsigned int)const __ptr64
+inline constexpr const char* Player_GetPetControllerType_DLL = "Game.dll";
+inline constexpr const char* Player_GetPetControllerType = "?GetPetControllerType@Player@GAME@@QEBA?AW4ControllerType@Monster@2@I@Z";
+// public: void __cdecl GAME::Player::SetPetControllerType(unsigned int,enum GAME::Monster::ControllerType) __ptr64
+inline constexpr const char* Player_SetPetControllerType_DLL = "Game.dll";
+inline constexpr const char* Player_SetPetControllerType = "?SetPetControllerType@Player@GAME@@QEAAXIW4ControllerType@Monster@2@@Z";
+// public: void __cdecl GAME::Monster::UseController(enum GAME::Monster::ControllerType) __ptr64
+inline constexpr const char* Monster_UseController_DLL = "Game.dll";
+inline constexpr const char* Monster_UseController = "?UseController@Monster@GAME@@QEAAXW4ControllerType@12@@Z";
+// public: void __cdecl GAME::Character::RequestAttack(unsigned int,unsigned int) __ptr64
+inline constexpr const char* Character_RequestAttack_DLL = "Game.dll";
+inline constexpr const char* Character_RequestAttack = "?RequestAttack@Character@GAME@@QEAAXII@Z";
+// public: void __cdecl GAME::Character::RequestMove(unsigned int,class GAME::WorldVec3 const & __ptr64) __ptr64
+inline constexpr const char* Character_RequestMove_DLL = "Game.dll";
+inline constexpr const char* Character_RequestMove = "?RequestMove@Character@GAME@@QEAAXIAEBVWorldVec3@2@@Z";
+// public: virtual bool __cdecl GAME::ControllerPlayer::ReleasePet(unsigned int,bool) __ptr64
+inline constexpr const char* ControllerPlayer_ReleasePet_DLL = "Game.dll";
+inline constexpr const char* ControllerPlayer_ReleasePet = "?ReleasePet@ControllerPlayer@GAME@@UEAA_NI_N@Z";
 }  // namespace gd::names

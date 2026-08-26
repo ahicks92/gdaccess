@@ -33,6 +33,10 @@ MessageBuilder& push_scan_item(MessageBuilder& m, std::string_view label, float 
   push_position(m, index1, count);
   return m;
 }
+MessageBuilder& push_pet_event(MessageBuilder& m, std::string_view label, std::string_view event) {
+  m.fragment(label).fragment(event);
+  return m;
+}
 std::string_view classification_word(int classification) {
   switch (classification) {
     case 1: return "champion";

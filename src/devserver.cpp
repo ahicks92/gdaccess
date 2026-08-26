@@ -185,6 +185,13 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     hooks::click((float)atof(q.at("x").c_str()), (float)atof(q.at("y").c_str()), button);
     return "queued click\n";
   }
+  if (path == "/pets") {   // ?stance=<pet id>&type=0|1|2 | ?attack=<pet id>&target=<id> | ?move=<pet id>&x=&y=&z= | ?release=<pet id> | (none) list
+    if (q.count("stance")) return gameapi::set_pet_stance((unsigned)parse_int(q.at("stance"), 0), parse_int(q.count("type") ? q.at("type") : "1", 1)) ? "ok\n" : "failed\n";
+    if (q.count("attack")) return gameapi::pet_attack((unsigned)parse_int(q.at("attack"), 0), (unsigned)parse_int(q.count("target") ? q.at("target") : "0", 0)) ? "ok\n" : "failed\n";
+    if (q.count("move")) { world::Vec3 v{(float)atof(q.count("x") ? q.at("x").c_str() : "0"), (float)atof(q.count("y") ? q.at("y").c_str() : "0"), (float)atof(q.count("z") ? q.at("z").c_str() : "0")}; return gameapi::pet_move((unsigned)parse_int(q.at("move"), 0), v) ? "ok\n" : "failed\n"; }
+    if (q.count("release")) return gameapi::release_pet((unsigned)parse_int(q.at("release"), 0)) ? "ok\n" : "failed\n";
+    return gameapi::dump_pets();
+  }
   if (path == "/player") return world::debug_dump();
   if (path == "/classinfo") return world::classinfo_dump();
   if (path == "/scan") {  // /scan?group=0..3&max=40 -- the review cursor's list for a group (enemies, people, bystanders, objects)

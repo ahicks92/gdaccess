@@ -72,7 +72,7 @@ below has been exercised live yet. RVAs are `exe+`; window offsets are from `InG
   quest reward `+0x8efd8` (exe+0x225440, vt exe+0x31ae08); objective tracker `+0x90390` (exe+0x1cfa40, vt
   exe+0x318038); stack split `+0x83ed8` (exe+0x1db730, vt exe+0x3188b0); loot filter `+0xab410`
   (exe+0x1c7c30, vt exe+0x317640); hot-slot select `+0x4fb78`; chat `+0x4df00`; notification manager
-  `+0x4dbd8`; status manager `+0x4b408`; XP-bar rollover `+0x4de08`; survival `+0x90890`; endless dungeon
+  `+0x4dbd8`; player status icons `+0x4b408`; HUD status manager (pet + party portraits, `hud_statusmanager.dbr`; docs/re_pets_exe.md) `+0x4de08`; survival `+0x90890`; endless dungeon
   `+0x91488`; challenge area `+0x92260`; gamepad HUD `+0x92570`; network address `+0x8fba8`; item spawn
   (dev) `+0x8e078`; info icon `+0x90298`.
 - `+0xb138`/`+0xb158` are the `hudNpcDialogWindow` / `hudEndGameDialogWindow` record paths (the conversation
