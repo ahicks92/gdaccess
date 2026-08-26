@@ -505,6 +505,15 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   Game-free CI is feasible (nothing links a game file; `gd_names.h`, `rooms.db` and the prism SDK parts the build
   uses are all committed -- a fresh export of the tree builds with only VS 2022, verified 2026-08-25).
   Runnable-by-others gaps: a non-CLI injector/launcher, and gating the dev HTTP server out of release.
+- Game patches (quantified 2026-08-25): exports (367, by decorated name) survive a rebuild unless a signature
+  changes and degrade per feature; Engine/Game object offsets (~30) survive unless the class changed and fail
+  SILENTLY; the exe layer (19 RVAs + ~75 offsets in `exe_ui`, 14 byte signatures checked by `available()`) dies
+  on ANY relink of the exe -- every menu/window, deterministically, with the one "version not supported" line,
+  the export-driven world layer keeps running. Plan when the first patch lands (deferred deliberately; it needs
+  old + new images to be built against): an offline relocation tool (match the 14 signatures + the vtable
+  ctors in the new dump, emit a version-keyed RVA table) and vtable validation at each window offset. The
+  ground truth for that is the archive: `1.3.0.8-6a85fbec` is in `../grim-dawn-archive` (exe PE timestamp
+  0x6a85fbec, the exe's version resource is meaningless); archive every build before Steam replaces it.
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.
@@ -526,6 +535,8 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
 - `tools/rooms.py` + `tools/gdmap/` (arc, map header, level bodies: navmesh tile layers + terrain layers,
   segmentation, renderer, `roomsdb.py`) -- the rooms pipeline, `docs/rooms.md`. `rooms.py area
   devilscrossing --write` regenerates `assets/rooms.db`; floor plans in `build/rooms/`.
+- `tools/archive_build.py --version X` — copies the game's exe/DLLs + the unpacked dump to `../grim-dawn-archive/<version>-<pe-ts>/`
+  (refuses a stale dump). **Run before letting Steam patch the game** (see "Game patches" below).
 - `tools/gen_exports.py` — dumps `.def` files and undecorated export listings from the installed DLLs into
   `tools/exports/` (regenerate after a game patch).
 - `tools/gen_names.py` — resolves the exports we hook by regex over the undecorated listing and writes
