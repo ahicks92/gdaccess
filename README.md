@@ -163,7 +163,8 @@ itself hovers and targets it, and plays a route ping. Shift reverses; Alt jumps 
 | B / Shift+B | Next / previous bystander (NPCs without a conversation) or breakable (barrels, crates, jugs, quest destructibles -- hold J to smash) |
 | M / Shift+M | Next / previous loot: items on the ground, containers |
 | V / Shift+V | Next / previous exit of the current room ("blocked" if the way is shut) |
-| Alt + . , N B M V | The nearest of that group, whatever is reviewed now |
+| ] / [ | Next / previous of your own pets ("Hellhound, aggressive, 2 away, 1 o'clock, 1 of 2") |
+| Alt + . , N B M V ] | The nearest of that group, whatever is reviewed now |
 | ; | Ping the reviewed thing again: one of three sounds (straight walk / path around / unreachable), panned, fading with distance. Also replayed automatically when the route kind changes |
 | / | Inspect the target: health percent and status effects |
 | \ | Sonar on / off: every nearby enemy, loot drop and dungeon entrance repeats its own ping, faster as it nears and panned to its side |
@@ -195,7 +196,18 @@ popups are read once each.
 | Ctrl+- / Ctrl+= | Read the left / right mouse skill |
 | Ctrl+` | Hotbar manager: both bars and the mouse buttons of the current weapon set; activate a slot to pick a learned skill, or clear / default |
 | Alt (held) | Show item labels |
-| F2..F7 | Pet commands |
+| F2..F6 / F7 | Select pet 1..5 (toggle) / select all pets, announced; the selection applies to the next pet command only |
+| Shift+Backspace | The selected pets (all, if none are selected) attack the locked target |
+
+### Pets
+
+Pets are announced as they come and go ("Hellhound summoned", "Hellhound down") and never count as enemies.
+The game's own "Pet Attack" skill (all pets attack the cursor's target, or move to a point) can be put on a
+quickbar slot from the hotbar manager and works against the locked target like any aimed skill.
+
+| Key | Description |
+|---|---|
+| Backspace | The pet overlay: one row per pet, "name, stance, selected". Left / Right change the stance (normal, aggressive, defensive -- shared by every pet of that summoning skill, remembered across resummons), Enter toggles selected, Backspace disbands, Space says where it is. Below the pets: "attack locked target" and "recall", for the selected pets or all; a command closes the overlay |
 
 ### Windows
 
@@ -207,7 +219,7 @@ popups are read once each.
 | Ctrl+J | Factions |
 | Ctrl+L | Personal riftgate |
 | Ctrl+1..0, Ctrl+J, Ctrl+I | Inside inventory / skills: put the focused skill (or, on a weapon slot, the weapon's basic attack) on quickbar slot 1..10 / the left mouse / the right mouse |
-| Ctrl+O, Ctrl+K, Ctrl+G, Ctrl+H, Ctrl+V, Ctrl+B, Ctrl+X, Ctrl+Z, Ctrl+P, Ctrl+], Ctrl+\, Ctrl+Enter, Ctrl+Backspace | The game's own loot filter, group, game menu, help, achievements, drop item, item tooltips, show items, pause, toggle UI, party display, chat, pet display |
+| Ctrl+O, Ctrl+K, Ctrl+G, Ctrl+H, Ctrl+V, Ctrl+B, Ctrl+X, Ctrl+Z, Ctrl+P, Ctrl+], Ctrl+\, Ctrl+Enter | The game's own loot filter, group, game menu, help, achievements, drop item, item tooltips, show items, pause, toggle UI, party display, chat |
 
 NPC windows (vendor, stash, quest reward, shrine, riftgate travel, conversations) open when the NPC opens them
 and follow the menu keys above.
