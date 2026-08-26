@@ -526,6 +526,17 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   `/keydown?name=j` ALSO reaches the game (opens Factions); hold Enter instead (`/keydown?name=enter`, the
   other left-button key); `/jkey` is a one-shot click because the in-game screen re-asserts the hold from the
   key poll each frame.
+- Exits on stacked floors (2026-08-25, verified live in the prison cellar): `NavManager::FindPath` SNAPS the target
+  to the nearest polygon within its radius (our `kNavSnapRadius` 4) and reports a COMPLETE path to that -- a cell
+  on the tier above resolves to the wall's foot beneath it, so "reachable" was true for the wrong point (the
+  trailing `bool` is accept-partial; we pass false, so partial paths already fail). Gate: the reached point must be
+  within `kExitFloorTol` 1.5 u of the destination cell's stored floor (`LabelGrid::floor_y_at`, base/overlay).
+  Exit positions are the corridor's entry point into the room (`path_entry_point`); exits never auto re-ping.
+  Cross-floor enemies in the review/sonar groups stay flat (the user: not a problem in practice). `/los?id=` casts
+  the exe's cursor-pick ray (image points are viewport FRACTIONS): raw LOS is stricter than a sighted player's
+  view because the renderer cuts away the covering tier -- "on screen" remains the visibility rule.
+  **TRAP: never `class_name()`/`rtti_of()` a `Region*`** -- the cached `Object::GetRTTIClassInfo` slot is 0, which
+  on a Region's vtable is the virtual destructor; it destroyed the live region and crashed the render.
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.
