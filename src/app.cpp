@@ -32,6 +32,7 @@
 #include "screens/modals.h"
 #include "screens/vendor.h"
 #include "screens/list_picker.h"
+#include "screens/count_prompt.h"
 #include "screens/hotbar_manager.h"
 #include "gameapi.h"
 #include "speech.h"
@@ -120,6 +121,8 @@ static void register_actions() {
   // Quickbar assignment from a window (the skills window's focused skill): Ctrl+1..0 -> slot, Ctrl+J / Ctrl+I -> mouse.
   for (int k = 1; k <= 10; ++k) m.register_action(std::format("assign.slot{}", k), std::format("Assign to quickbar slot {}", k % 10), InputCategory::Windows, [k] { screens::assign_focused(k); }).bind(k == 10 ? 0x0b : 0x01 + k, true, false, false);
   m.register_action("assign.primary", "Assign to left mouse", InputCategory::Windows, [] { screens::assign_focused(0); }).bind(0x24, true, false, false);
+  // Ctrl+Enter on a stack in the vendor's Sell tab: sell part of it (a count prompt).
+  m.register_action("vendor.sellPartial", "Sell part of a stack", InputCategory::Windows, [] { screens::sell_partial_focused(); }).bind(keys::Enter, true, false, false);
   m.register_action("assign.secondary", "Assign to right mouse", InputCategory::Windows, [] { screens::assign_focused(-1); }).bind(0x17, true, false, false);
   m.register_action("ingame.where", "Where am I", InputCategory::InGame, [] { screens::speak_where(); }).bind(keys::P, true, true).bind(0x25);  // K
   // Health and energy in full, in the player's own voice (bare H; Ctrl+H stays the game's Help window).
@@ -244,6 +247,7 @@ void init() {
   g_screens.register_screen(screens::make_stash());
   g_screens.register_screen(screens::make_hotbar_manager());
   g_screens.register_screen(screens::make_list_picker());
+  g_screens.register_screen(screens::make_count_prompt());
   gameapi::load();
   g_last_tick = now();
   log::writef("app: initialized with {} actions", g_input.actions().size());

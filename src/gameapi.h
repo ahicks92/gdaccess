@@ -94,6 +94,13 @@ std::vector<MarketTab> market_stock(unsigned market_id);
 std::string market_price_text(unsigned market_id, unsigned item_id, bool buying);   // CreateUIPlayerBuyText / SellText, joined
 bool buy(unsigned market_id, unsigned item_id);          // GameEngine::PlayerPurchaseRequest
 bool sell(unsigned market_id, unsigned item_id);         // the bag's right-click-to-sell: PlayerSaleRequest + bag removal
+// Partial stacks: split_stack clones `count` off a stack the game's way (a new item known to the character but
+// in no bag grid, like the game's split-onto-cursor) and returns its id (0 = refused); sell_split sells that
+// clone (a frame or more later, so the character-side add has run); unsplit_stack puts a clone into the bag,
+// where the game merges it back into its stack (the recovery for a refused sale).
+unsigned split_stack(unsigned item_id, unsigned count);
+bool sell_split(unsigned market_id, unsigned item_id);
+bool unsplit_stack(unsigned item_id);
 std::string vendor_dump(unsigned market_id);              // dev: market map keys + market_stock(id) probe
 std::vector<Bag> stash_sacks();                          // private stash sacks (index 0..) then transfer sacks (index 100..)
 bool stash_to_bag(int sack_index, unsigned item_id);     // the stash grid's shift-click: to the bag

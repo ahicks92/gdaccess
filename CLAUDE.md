@@ -537,6 +537,16 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   view because the renderer cuts away the covering tier -- "on screen" remains the visibility rule.
   **TRAP: never `class_name()`/`rtti_of()` a `Region*`** -- the cached `Object::GetRTTIClassInfo` slot is 0, which
   on a Region's vtable is the virtual destructor; it destroyed the live region and crashed the render.
+- Partial-stack selling (2026-08-26, verified live at Kerrick with a Serrated Spike stack): Ctrl+Enter on a stack
+  in the vendor's Sell tab opens the mod-owned count prompt (`screens/count_prompt.{h,cpp}`: a layer-30 raw-input
+  overlay like the list picker -- digits by scancode, Backspace, Enter commits 1..max, Escape cancels; reusable
+  for the stash later). The split is the game's own stack-split OK sequence minus the cursor
+  (`gameapi::split_stack` / `sell_split` / `unsplit_stack`, details in docs/ingame-ui-survey.md "Stack split").
+  **Never `PlayerInventoryCtrl::AddItem` a split clone**: the grid add merges it back into its source stack and
+  destroys it. The only non-export constant is the inline `ItemReplicaInfo` at Item+0x538 (guarded: its first
+  dword must equal the item id). Sighted players split with Ctrl+click (dialog) / Shift+click (half) onto the
+  cursor; consumption-side actions (crafting, attaching, potions, turn-ins) draw from stacks themselves, so the
+  only other place a split is wanted is the stash (not wired).
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.

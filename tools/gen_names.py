@@ -281,6 +281,14 @@ ENTRIES = [
     ("Item_GetLevelRequirement", "Game", r"GAME::Item::GetLevelRequirement\(void\)"),
     ("Item_vftable_plain", "Game", r"const GAME::Item::`vftable'$"),
     ("GameEngine_GetItemMaxStackSize", "Game", r"GAME::GameEngine::GetItemMaxStackSize\("),
+    # Stack split, as the exe's stack-split window's OK does (exe+0x1dcb70, read 2026-08-26): clone the item
+    # from a copy of its ItemReplicaInfo (inline at Item+0x538, 0x190 bytes; +0 object id -> 0 = allocate,
+    # +0x178 = count) with Item::CreateItem, shrink the source with SetStackSize + SendUpdateItemStack; the
+    # cursor part of the handler reduces to SendAddItemToInventory. DestroyObjectEx undoes a clone with no room.
+    ("Item_CreateItem", "Game", r"GAME::Item::CreateItem\(struct GAME::ItemReplicaInfo const"),
+    ("Item_SetStackSize", "Game", r"GAME::Item::SetStackSize\(unsigned int\)"),
+    ("ControllerCharacter_SendUpdateItemStack", "Game", r"GAME::ControllerCharacter::SendUpdateItemStack\("),
+    ("ObjectManager_DestroyObjectEx", "Engine", r"GAME::ObjectManager::DestroyObjectEx\("),
     ("GameEngine_GetMarketInventorySack", "Game", r"GAME::GameEngine::GetMarketInventorySack\(unsigned int,enum GAME::Market_TypeEnum\)const"),
     ("GameEngine_GetMarketItemStatus", "Game", r"GAME::GameEngine::GetMarketItemStatus\("),
     ("GameEngine_PlayerPurchaseRequest", "Game", r"GAME::GameEngine::PlayerPurchaseRequest\("),

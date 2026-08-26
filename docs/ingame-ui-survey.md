@@ -329,7 +329,16 @@ Confirmed in disassembly by two further passes and, where marked, live through t
   live; an empty matching slot auto-equips). Auto-pickup is in `Player::UpdateSelf` (potions, gold, quest items ...).
 - **Stack split** (`+0x83ed8`): opens on Ctrl+click of a stack (`exe+0x21ad70(ui, itemId, rect)`); `+0xb0` item
   id, `+0x1438` count, `+0x1268` edit box (text `+0x12d8`), ok `+0x160`, cancel `+0x510`, registry `+0x118`,
-  visible `+0x68`; OK creates the split stack ON THE CURSOR. Not modelled yet.
+  visible `+0x68`; OK creates the split stack ON THE CURSOR. The window is not modelled; its OK handler
+  (exe+0x1dcb70, read 2026-08-26) is replicated by `gameapi::split_stack`: byte-copy the item's inline
+  `ItemReplicaInfo` (Item+0x538, 0x190 bytes; +0 object id -> 0 = allocate, +0x178 = count),
+  `Item::CreateItem(info)` (static export) -> the clone, `ControllerCharacter::SendAddItemToInventory(clone)`
+  (all the cursor handler's `CreateAndStackIds` does), `Item::SetStackSize(src, orig-N)` +
+  `SendUpdateItemStack(src, orig-N)`. The clone is deliberately NOT `PlayerInventoryCtrl::AddItem`ed: the grid
+  add merges a stackable back into its source stack and destroys it (lost 2 items live before this was
+  understood). The vendor's Ctrl+Enter sells the clone (`sell_split`: PlayerSaleRequest + SendRemoveItemFromInventory)
+  3 ticks later; a refused sale `unsplit_stack`s it (the grid add's merge is the recovery). Verified: 3 -> 1 in
+  the bag, +80 bits, the merchant's buyback lists "Serrated Spike (2)".
 - **Registries**: quest reward `+0x738` (Accept `+0x388`); shrine `+0x11b0` (Offer `+0x11f8`, Cancel `+0x15a8`,
   Close `+0x1958`). Framework-B vtable `+0xf0` is NOT always OnControlEvent (the stack window uses +0xe8..+0x100
   for setters and presses arrive at the window+0x90 listener on event code 0).

@@ -48,6 +48,12 @@ struct Api {
   void (*CreateUIPlayerSellText)(const void*, unsigned, unsigned, MemVec*) = nullptr;
   void (*SendRemoveItemFromInventory)(void*, unsigned) = nullptr;
   void (*SendAddItemToInventory)(void*, unsigned) = nullptr;
+  void* (*Item_CreateItem)(const void*) = nullptr;                 // static: a new Item from an ItemReplicaInfo
+  void (*Item_SetStackSize)(void*, unsigned) = nullptr;
+  void (*SendUpdateItemStack)(void*, unsigned, unsigned) = nullptr;  // ControllerCharacter: item id, new count
+  void* (*ObjectManager_Get)() = nullptr;
+  void (*ObjectManager_DestroyObjectEx)(void*, void*, const char*, int) = nullptr;
+  unsigned (*GetItemMaxStackSize)(const void*) = nullptr;
   const MemVec* (*GetPrivateStash)(void*) = nullptr;
   const MemVec* (*GetPlayerTransfer)(void*) = nullptr;
   bool (*AddItemToPrivateStash)(void*, unsigned, unsigned, bool) = nullptr;
@@ -110,6 +116,12 @@ void load_items() {
   GAPI_LOAD(g, CreateUIPlayerSellText, GameEngine_CreateUIPlayerSellText);
   GAPI_LOAD(g, SendRemoveItemFromInventory, ControllerCharacter_SendRemoveItemFromInventory);
   GAPI_LOAD(g, SendAddItemToInventory, ControllerCharacter_SendAddItemToInventory);
+  GAPI_LOAD(g, Item_CreateItem, Item_CreateItem);
+  GAPI_LOAD(g, Item_SetStackSize, Item_SetStackSize);
+  GAPI_LOAD(g, SendUpdateItemStack, ControllerCharacter_SendUpdateItemStack);
+  GAPI_LOAD(g, ObjectManager_Get, ObjectManager_Get);
+  GAPI_LOAD(g, ObjectManager_DestroyObjectEx, ObjectManager_DestroyObjectEx);
+  GAPI_LOAD(g, GetItemMaxStackSize, GameEngine_GetItemMaxStackSize);
   GAPI_LOAD(g, GetPrivateStash, Player_GetPrivateStash);
   GAPI_LOAD(g, GetPlayerTransfer, GameEngine_GetPlayerTransfer);
   GAPI_LOAD(g, AddItemToPrivateStash, Player_AddItemToPrivateStash);
@@ -465,6 +477,69 @@ bool sell(unsigned market_id, unsigned item_id) {
   invalidate_objects();
   log::writef("gameapi: sell {} to {} -> {}", item_id, market_id, r);
   return r;
+}
+// Part of a stack. The exe's stack-split window's OK (exe+0x1dcb70, read 2026-08-26) clones the item from a
+// copy of its ItemReplicaInfo (inline at Item+0x538, 0x190 bytes: +0 = object id, 0 = allocate a fresh one;
+// +0x178 = count) with the static Item::CreateItem, tells the character about it (SendAddItemToInventory --
+// the cursor's only lasting effect; the clone is NOT placed in the bag grid: PlayerInventoryCtrl::AddItem
+// merges a stackable back into its source stack and destroys it, seen live 2026-08-26), then shrinks the
+// source with Item::SetStackSize + ControllerCharacter::SendUpdateItemStack. The replica copy is a plain byte
+// copy: CreateItem only reads it (SetItemReplicaInfo deep-copies into the new item), nothing is constructed or
+// freed on our side. The caller sells the clone by id a frame or two later (sell_split); a refused sale puts
+// the clone into the bag, where the game merges it back into the stack (unsplit_stack).
+static constexpr size_t kReplicaOff = 0x538, kReplicaSize = 0x190, kReplicaCountOff = 0x178;
+unsigned split_stack(unsigned item_id, unsigned count) {
+  void* e = engine(); void* c = controller();
+  if (!e || !c || !g.Item_CreateItem || !g.Item_SetStackSize || !g.SendUpdateItemStack || !g.SendAddItemToInventory) return 0;
+  void* item = object_by_id(item_id);
+  unsigned orig = item ? item_stack(item) : 0;
+  if (orig < 2 || count < 1 || count >= orig) { log::writef("gameapi: split_stack {}: {} of {} refused", item_id, count, orig); return 0; }
+  unsigned cap = g.GetItemMaxStackSize ? g.GetItemMaxStackSize(e) : orig;
+  if (count > cap) return 0;
+  // Self-validating guard on the inline replica: SetItemReplicaInfo stamps its first dword with the object id.
+  unsigned replica_id = 0;
+  if (!read_mem((const char*)item + kReplicaOff, &replica_id, sizeof replica_id) || replica_id != item_id) {
+    log::writef("gameapi: split_stack {}: replica id {} does not match (layout changed?)", item_id, replica_id);
+    return 0;
+  }
+  alignas(8) unsigned char info[kReplicaSize];
+  if (!read_mem((const char*)item + kReplicaOff, info, kReplicaSize)) return 0;
+  *(unsigned*)(info + 0) = 0;
+  *(unsigned*)(info + kReplicaCountOff) = count;
+  unsigned new_id = 0;
+  guarded("split stack", [&] {
+    void* fresh = g.Item_CreateItem(info);
+    if (!fresh) return;
+    new_id = object_id(fresh);
+    g.SendAddItemToInventory(c, new_id);
+    g.Item_SetStackSize(item, orig - count);
+    g.SendUpdateItemStack(c, item_id, orig - count);
+  });
+  invalidate_objects();
+  log::writef("gameapi: split_stack {} x{} of {} -> clone {}", item_id, count, orig, new_id);
+  return new_id;
+}
+// The clone of split_stack is not in the bag grid: only the sale request and the character-side removal.
+bool sell_split(unsigned market_id, unsigned item_id) {
+  void* e = engine(); void* c = controller();
+  if (!e || !c || !g.PlayerSaleRequest || !g.SendRemoveItemFromInventory) return false;
+  bool r = false;
+  guarded("PlayerSaleRequest(split)", [&] {
+    r = g.PlayerSaleRequest(e, market_id, item_id, false);
+    if (r) g.SendRemoveItemFromInventory(c, item_id);
+  });
+  invalidate_objects();
+  log::writef("gameapi: sell split {} to {} -> {}", item_id, market_id, r);
+  return r;
+}
+bool unsplit_stack(unsigned item_id) {
+  void* ic = inv_ctrl();
+  if (!ic || !g.Inv_AddItem) return false;
+  bool ok = false;
+  guarded("unsplit", [&] { ok = g.Inv_AddItem(ic, item_id, true, false); });
+  invalidate_objects();
+  log::writef("gameapi: unsplit {} -> {}", item_id, ok);
+  return ok;
 }
 // ---- the caravan ----
 std::vector<Bag> stash_sacks() {

@@ -1,6 +1,10 @@
 #include "screens/vendor.h"
 #include <format>
+#include <optional>
+#include "app.h"
+#include "core/navigator.h"
 #include "gameapi.h"
+#include "screens/count_prompt.h"
 #include "screens/window_base.h"
 
 namespace gd::screens {
@@ -28,6 +32,41 @@ class VendorScreen : public WindowScreen {
   void close() override { exe_ui::WindowB w = active_window(); if (w) w.show(false); }
   void on_focus() override { invalidate(); WindowScreen::on_focus(); }
   void on_tab_changed(int) override { invalidate(); }
+
+  // Ctrl+Enter on a Sell row: "sell how many of N", then the game's split + sale of the piece.
+  void sell_partial() {
+    GraphNavigator* nav = app::navigator();
+    std::optional<ControlId> fid = nav ? nav->focused_id() : std::nullopt;
+    if (!fid || !fid->structural_key().is_string()) { speech::speak(strings::kNotAStack, true); return; }
+    const std::string& k = fid->structural_key().text();
+    if (k.rfind("vendor.sell.", 0) != 0) { speech::speak(strings::kNotAStack, true); return; }
+    unsigned id = (unsigned)strtoul(k.c_str() + 12, nullptr, 10);
+    const gameapi::BagItem* found = nullptr;
+    for (const gameapi::Bag& bag : bags_.value) for (const gameapi::BagItem& it : bag.items) if (it.id == id) found = &it;
+    if (!found || found->stack < 2) { speech::speak(strings::kNotAStack, true); return; }
+    unsigned market = exe_ui::vendor_market_id(active_window());
+    unsigned stack = found->stack;
+    open_count_prompt(std::format("{} {}", strings::kSellHowMany, stack), stack, [this, market, id](unsigned n) {
+      if (n >= stack_of(id)) { speech::speak(gameapi::sell(market, id) ? std::string(strings::kSold) : std::string(strings::kCannot), true); invalidate(); return; }
+      unsigned clone = gameapi::split_stack(id, n);
+      if (!clone) { speech::speak(strings::kCannot, true); return; }
+      pending_clone_ = clone; pending_market_ = market; pending_ticks_ = 3;   // the sale runs after the character-side add
+      invalidate();
+    });
+  }
+  void on_update() override {
+    if (pending_clone_ && --pending_ticks_ == 0) {
+      unsigned clone = pending_clone_; pending_clone_ = 0;
+      bool ok = gameapi::sell_split(pending_market_, clone);
+      if (!ok) gameapi::unsplit_stack(clone);
+      speech::speak(ok ? std::string(strings::kSold) : std::string(strings::kCannot), true);
+      invalidate();
+    }
+  }
+  unsigned stack_of(unsigned id) {
+    for (const gameapi::Bag& bag : bags_.value) for (const gameapi::BagItem& it : bag.items) if (it.id == id) return it.stack;
+    return 0;
+  }
 
   void build(GraphBuilder& b) override {
     unsigned market = exe_ui::vendor_market_id(active_window());
@@ -58,6 +97,7 @@ class VendorScreen : public WindowScreen {
   void invalidate() { stock_.invalidate(); bags_.invalidate(); }
   Snapshot<std::vector<gameapi::MarketTab>> stock_;
   Snapshot<std::vector<gameapi::Bag>> bags_;
+  unsigned pending_clone_ = 0, pending_market_ = 0; int pending_ticks_ = 0;
 };
 
 class StashScreen : public WindowScreen {
@@ -82,5 +122,9 @@ class StashScreen : public WindowScreen {
 };
 
 std::unique_ptr<Screen> make_vendor() { return std::make_unique<VendorScreen>(); }
+void sell_partial_focused() {
+  VendorScreen* v = dynamic_cast<VendorScreen*>(app::screens().current());
+  if (v) v->sell_partial(); else speech::speak(strings::kNotAStack, true);
+}
 std::unique_ptr<Screen> make_stash() { return std::make_unique<StashScreen>(); }
 }  // namespace gd::screens

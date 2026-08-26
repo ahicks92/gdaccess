@@ -214,6 +214,8 @@ inline constexpr std::string_view kBuy = "buy";
 inline constexpr std::string_view kSell = "sell";
 inline constexpr std::string_view kBought = "bought";
 inline constexpr std::string_view kSold = "sold";
+inline constexpr std::string_view kSellHowMany = "sell how many of";   // "sell how many of 12" -- the partial-sell count prompt
+inline constexpr std::string_view kNotAStack = "not a stack";
 inline constexpr std::string_view kStash = "stash";
 inline constexpr std::string_view kTransfer = "transfer";
 inline constexpr std::string_view kMoved = "moved";
@@ -238,6 +240,8 @@ inline constexpr std::string_view kNotEnoughBits = "not enough iron bits";
 inline constexpr std::string_view kNothingToReclaim = "nothing to reclaim";
 // "Waking to Misery: Enter the Cave under Burial Hill" -- one open objective of a tracked quest
 gd::core::MessageBuilder& push_quest_objective(gd::core::MessageBuilder& m, std::string_view quest, std::string_view objective);
+// "enter 1 to 12" -- a count prompt refusing an out-of-range value
+gd::core::MessageBuilder& push_range_hint(gd::core::MessageBuilder& m, unsigned lo, unsigned hi);
 // "<name>, x 3" -- a stacked item
 gd::core::MessageBuilder& push_stack(gd::core::MessageBuilder& m, std::string_view name, unsigned stack);
 // "<label>: <value>" -- a sheet row

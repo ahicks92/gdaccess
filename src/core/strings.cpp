@@ -116,6 +116,7 @@ MessageBuilder& push_kills(MessageBuilder& m, int count, uint64_t xp) {
 MessageBuilder& push_quest_objective(MessageBuilder& m, std::string_view quest, std::string_view objective) {
   return m.fragment(std::string(quest) + ":").fragment(objective);
 }
+MessageBuilder& push_range_hint(MessageBuilder& m, unsigned lo, unsigned hi) { return m.fragment("enter").fragment(std::format("{} to {}", lo, hi)); }
 MessageBuilder& push_stack(MessageBuilder& m, std::string_view name, unsigned stack) {
   m.fragment(name);
   if (stack > 1) m.list_item().fragment(std::format("x {}", stack));

@@ -766,6 +766,18 @@ inline constexpr const char* Item_vftable_plain = "??_7Item@GAME@@6B@";
 // public: unsigned int __cdecl GAME::GameEngine::GetItemMaxStackSize(void)const __ptr64
 inline constexpr const char* GameEngine_GetItemMaxStackSize_DLL = "Game.dll";
 inline constexpr const char* GameEngine_GetItemMaxStackSize = "?GetItemMaxStackSize@GameEngine@GAME@@QEBAIXZ";
+// public: static class GAME::Item * __ptr64 __cdecl GAME::Item::CreateItem(struct GAME::ItemReplicaInfo const & __ptr64)
+inline constexpr const char* Item_CreateItem_DLL = "Game.dll";
+inline constexpr const char* Item_CreateItem = "?CreateItem@Item@GAME@@SAPEAV12@AEBUItemReplicaInfo@2@@Z";
+// public: virtual void __cdecl GAME::Item::SetStackSize(unsigned int) __ptr64
+inline constexpr const char* Item_SetStackSize_DLL = "Game.dll";
+inline constexpr const char* Item_SetStackSize = "?SetStackSize@Item@GAME@@UEAAXI@Z";
+// public: void __cdecl GAME::ControllerCharacter::SendUpdateItemStack(unsigned int,unsigned int) __ptr64
+inline constexpr const char* ControllerCharacter_SendUpdateItemStack_DLL = "Game.dll";
+inline constexpr const char* ControllerCharacter_SendUpdateItemStack = "?SendUpdateItemStack@ControllerCharacter@GAME@@QEAAXII@Z";
+// public: void __cdecl GAME::ObjectManager::DestroyObjectEx(class GAME::Object * __ptr64,char const * __ptr64,int) __ptr64
+inline constexpr const char* ObjectManager_DestroyObjectEx_DLL = "Engine.dll";
+inline constexpr const char* ObjectManager_DestroyObjectEx = "?DestroyObjectEx@ObjectManager@GAME@@QEAAXPEAVObject@2@PEBDH@Z";
 // public: class GAME::InventorySack const * __ptr64 __cdecl GAME::GameEngine::GetMarketInventorySack(unsigned int,enum GAME::Market_TypeEnum)const __ptr64
 inline constexpr const char* GameEngine_GetMarketInventorySack_DLL = "Game.dll";
 inline constexpr const char* GameEngine_GetMarketInventorySack = "?GetMarketInventorySack@GameEngine@GAME@@QEBAPEBVInventorySack@2@IW4Market_TypeEnum@2@@Z";
