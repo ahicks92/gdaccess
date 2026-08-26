@@ -236,6 +236,8 @@ struct Api {
   bool (*Npc_HasConversation)(const void*) = nullptr;
   const void* (*Destructible_StaticClassInfo)() = nullptr;   // breakables (barrels, crates, quest targets): the B group
   bool (*Destructible_IsBroken)(const void*) = nullptr;
+  const void* (*StaticShrine_StaticClassInfo)() = nullptr;   // devotion shrines: the sonar tells ruined from restored
+  bool (*StaticShrine_IsCleansed)(const void*) = nullptr;
   bool (*Destructible_IsTargetable)(const void*) = nullptr;
   void* (*Project)(const void*, void*, const void*, const void*) = nullptr;  // WorldCamera::Project: hidden Vec2 return
   void* (*GetRayThroughImagePoint)(const void*, void*, const void*, const void*) = nullptr;  // WorldCamera: hidden WorldRay return {Region*, Vec3 origin, pad, Vec3 dir}
@@ -351,6 +353,8 @@ void load_api() {
   LOAD(Npc_HasConversation, Npc_HasConversation);
   LOAD(Destructible_StaticClassInfo, Destructible_GetStaticClassInfo);
   LOAD(Destructible_IsBroken, Destructible_IsBroken);
+  LOAD(StaticShrine_StaticClassInfo, StaticShrine_GetStaticClassInfo);
+  LOAD(StaticShrine_IsCleansed, StaticShrine_IsCleansed);
   LOAD(Destructible_IsTargetable, Destructible_IsTargetable);
   LOAD(Project, WorldCamera_Project);
   LOAD(GetRayThroughImagePoint, WorldCamera_GetRayThroughImagePoint);
@@ -1644,6 +1648,9 @@ bool in_group(const void* e, const void* ci, const std::string& cls, ScanGroup g
     case ScanGroup::Loot: return is_of_interest(e, ci) && is_loot(ci, cls);
     // Transitions = dungeon entrances/exits (locked or not: the way out of a cave is still the way out).
     case ScanGroup::Transitions: return is_named_kind(ci, "DungeonEntrance");
+    case ScanGroup::Destructibles: return is_live_destructible(e, ci);   // sonar: breakables only (no flavour NPCs)
+    case ScanGroup::Shrines: return g_api.StaticShrine_StaticClassInfo && is_kind_of(ci, g_api.StaticShrine_StaticClassInfo());
+    default: break;
   }
   return false;
 }
@@ -1835,6 +1842,13 @@ std::string cycle_highest_classification(int dir) {
   return land_on(items, ScanGroup::Enemies, dir, false);
 }
 unsigned reviewed_id() { return g_reviewed_id; }
+bool shrine_restored(unsigned id) {
+  void* e = gameapi::object_by_id(id);
+  EntityRaw r{};
+  if (!e || !g_api.StaticShrine_StaticClassInfo || !g_api.StaticShrine_IsCleansed || !read_entity(e, r) || !is_kind_of(r.ci, g_api.StaticShrine_StaticClassInfo())) return false;
+  bool v = false;
+  return call_bool_fn(e, g_api.StaticShrine_IsCleansed, &v) && v;
+}
 
 // ---- status effects and the target inspector ----
 std::vector<std::string> enemy_effects(unsigned id) {

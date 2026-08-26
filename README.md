@@ -167,7 +167,7 @@ itself hovers and targets it, and plays a route ping. Shift reverses; Alt jumps 
 | Alt + . , N B M V ] | The nearest of that group, whatever is reviewed now |
 | ; | Ping the reviewed thing again: one of three sounds (straight walk / path around / unreachable), panned, fading with distance. Also replayed automatically when the route kind changes |
 | / | Inspect the target: health percent and status effects |
-| \ | Sonar on / off: every nearby enemy, loot drop and dungeon entrance repeats its own ping, faster as it nears and panned to its side |
+| \ | Sonar on / off: every nearby enemy, loot drop, breakable, devotion shrine (ruined shrines have their own sound; restored ones share the loot ping) and dungeon entrance repeats its own ping, faster as it nears and panned to its side |
 | Ctrl+M | The map as a flat nearest-first list of its markers (merchants, riftgate, spirit guide, quest markers); Enter picks one to follow |
 | ' | Follow the picked map marker: route ping plus "name, distance, bearing" |
 

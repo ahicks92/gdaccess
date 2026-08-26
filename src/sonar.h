@@ -12,5 +12,6 @@ void reset();                // leaving the world
 void set_enabled(bool on);
 bool enabled();
 void set_knob(const std::string& name, float value);   // radius vol ref floor pnear pfar dnear dfar force
+bool set_trim(const std::string& kind, float db);   // per-cue level trim in dB (enemy loot transition destructible shrine-ruined shrine-restored; "all" resets)
 std::string status();
 }  // namespace gd::sonar

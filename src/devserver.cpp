@@ -238,6 +238,7 @@ static std::string handle(const std::string& path, const std::map<std::string, s
   if (path == "/sonar") {   // the sonar field: ?on=0|1 &radius= &vol= &ref= &floor= &pnear= &pfar= &dnear= &dfar= &force=
     if (q.count("on")) sonar::set_enabled(truthy(q.at("on")));
     for (const char* k : {"radius", "vol", "ref", "floor", "pnear", "pfar", "dnear", "dfar", "force"}) if (q.count(k)) sonar::set_knob(k, (float)atof(q.at(k).c_str()));
+    if (q.count("trim")) { std::string t = q.at("trim"); size_t c = t.find(','); if (!sonar::set_trim(t.substr(0, c), c == std::string::npos ? 0.0f : (float)atof(t.c_str() + c + 1))) return "unknown kind\n"; }   // ?trim=<kind>,<dB> | ?trim=all
     return sonar::status();
   }
   if (path == "/pingtime") {  // dev: time the reping navmesh line probe; ?group=0..5 first lands the review cursor
