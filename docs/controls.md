@@ -74,7 +74,7 @@ stationary attack, Ctrl pet targeting) and typing into the game's chat field.
 | , / Shift+, | Next / previous of only the highest-rarity enemies nearby (find the boss, or a summoner's adds); same readout and landing as . (an inert camera key otherwise, since the camera is locked) |
 | / (slash) | Inspect what you are targeting: "N percent health" then its status effects, with no name repeat. Silent when nothing / no living enemy is targeted. A screen-reader readout, like H |
 | N / Shift+N | Next / previous person or object: the important non-loot things -- NPCs with a conversation (`Npc::HasConversation`) and what the game's Interact key would use that is not loot (rifts, shrines, doors, levers: `FixedActor` whose `IsOfInterest()` says so) |
-| B / Shift+B | Next / previous bystander (NPCs without one) |
+| B / Shift+B | Next / previous bystander (NPCs without one) or breakable (barrels, crates, jugs, quest destructibles -- hold J to smash) |
 | M / Shift+M | Next / previous loot: items on the ground and containers (`Item` / `FixedItemContainer` whose `IsOfInterest()` says so) |
 | Alt + . N B M V | The NEAREST of that group, whatever is reviewed now (the enemy that just ran up to you) |
 | \ (backslash) | Sonar on / off: each nearby enemy, loot drop and dungeon entrance repeats its own ping, faster as it nears you and panned to its direction (Ctrl+\ is the game's party display) |

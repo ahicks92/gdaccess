@@ -231,6 +231,21 @@ std::string object_record(const void* o) {
   return r;
 }
 std::string dump_objects_stats() { return std::format("objects: {} ids, sweeps {}, last count {}, valid {}, frame {}\n", g_objects.size(), g_sweeps, g_last_count, g_objects_valid, g_objects_frame); }
+// Dev: every object whose record path contains `needle`, with its world position when it is a placed entity.
+std::string find_objects(const std::string& needle, size_t max) {
+  sweep_objects();
+  std::string out;
+  size_t n = 0;
+  for (const auto& [id, o] : g_objects) {
+    std::string rec = object_record(o);
+    if (rec.find(needle) == std::string::npos) continue;
+    world::Vec3 p;
+    bool has = world::entity_position(id, p);
+    out += has ? std::format("id={} at ({:.1f}, {:.1f}, {:.1f}) '{}'\n", id, p.x, p.y, p.z, rec) : std::format("id={} (no position) '{}'\n", id, rec);
+    if (++n >= max) { out += "...\n"; break; }
+  }
+  return out.empty() ? "no match\n" : out;
+}
 std::string dump_object(unsigned id) {
   void* o = object_by_id(id);
   if (!o) return std::format("object {}: not found\n", id);

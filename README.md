@@ -160,7 +160,7 @@ itself hovers and targets it, and plays a route ping. Shift reverses; Alt jumps 
 | . / Shift+. | Next / previous enemy, nearest first ("name level N", plus champion / hero / boss when it is one) |
 | , / Shift+, | Next / previous among only the highest-rarity enemies nearby (find the boss) |
 | N / Shift+N | Next / previous person or object: NPCs you can talk to; rifts, shrines, doors, levers |
-| B / Shift+B | Next / previous bystander (NPCs without a conversation) |
+| B / Shift+B | Next / previous bystander (NPCs without a conversation) or breakable (barrels, crates, jugs, quest destructibles -- hold J to smash) |
 | M / Shift+M | Next / previous loot: items on the ground, containers |
 | V / Shift+V | Next / previous exit of the current room ("blocked" if the way is shut) |
 | Alt + . , N B M V | The nearest of that group, whatever is reviewed now |

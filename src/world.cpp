@@ -233,6 +233,9 @@ struct Api {
   void** Monster_vftable = nullptr;       // to find the GetGameDescription slot (same slot for every Actor)
   void** Item_vftable = nullptr;
   bool (*Npc_HasConversation)(const void*) = nullptr;
+  const void* (*Destructible_StaticClassInfo)() = nullptr;   // breakables (barrels, crates, quest targets): the B group
+  bool (*Destructible_IsBroken)(const void*) = nullptr;
+  bool (*Destructible_IsTargetable)(const void*) = nullptr;
   void* (*Project)(const void*, void*, const void*, const void*) = nullptr;  // WorldCamera::Project: hidden Vec2 return
   void (*SetZoom)(void*, float) = nullptr;               // GameCamera::SetZoom(value in the camera's zoom range)
   void (*ResetZoom)(void*) = nullptr;
@@ -342,6 +345,9 @@ void load_api() {
   LOAD(Monster_vftable, Monster_vftable);
   LOAD(Item_vftable, Item_vftable);
   LOAD(Npc_HasConversation, Npc_HasConversation);
+  LOAD(Destructible_StaticClassInfo, Destructible_GetStaticClassInfo);
+  LOAD(Destructible_IsBroken, Destructible_IsBroken);
+  LOAD(Destructible_IsTargetable, Destructible_IsTargetable);
   LOAD(Project, WorldCamera_Project);
   LOAD(SetZoom, GameCamera_SetZoom);
   LOAD(ResetZoom, GameCamera_ResetZoom);
@@ -1489,6 +1495,14 @@ bool is_of_interest(const void* e, const void* ci) {
 bool is_loot(const void* ci, const std::string& cls) {
   return (g_api.Item_StaticClassInfo && is_kind_of(ci, g_api.Item_StaticClassInfo())) || cls == "FixedItemContainer";
 }
+// An unbroken, targetable breakable (barrels, crates, the quest's "destroy N of X" targets); a broken one is debris.
+bool is_live_destructible(const void* e, const void* ci) {
+  if (!g_api.Destructible_StaticClassInfo || !is_kind_of(ci, g_api.Destructible_StaticClassInfo())) return false;
+  bool broken = false, targetable = true;
+  if (g_api.Destructible_IsBroken && (!call_bool_fn(e, g_api.Destructible_IsBroken, &broken) || broken)) return false;
+  if (g_api.Destructible_IsTargetable && (!call_bool_fn(e, g_api.Destructible_IsTargetable, &targetable) || !targetable)) return false;
+  return true;
+}
 bool npc_has_conversation(const void* e) { bool v = false; return g_api.Npc_HasConversation && call_bool_fn(e, g_api.Npc_HasConversation, &v) && v; }
 bool is_a(const void* ci, const void* (*sf)()) { return sf && is_kind_of(ci, sf()); }
 // DungeonEntrance exports no GetStaticClassInfo: walk the RTTI parent chain comparing NAMES instead.
@@ -1512,7 +1526,8 @@ bool in_group(const void* e, const void* ci, const std::string& cls, ScanGroup g
     // A subclassed Npc (NpcMerchant Kerrick -- HasConversation is FALSE for merchants, the vendor window is
     // not a conversation) is specialized BECAUSE it does something important: N regardless.
     case ScanGroup::Neutrals: return (is_a(ci, g_api.Npc_StaticClassInfo) && (npc_has_conversation(e) || cls != "Npc")) || (is_of_interest(e, ci) && !is_loot(ci, cls));
-    case ScanGroup::Bystanders: return is_a(ci, g_api.Npc_StaticClassInfo) && cls == "Npc" && !npc_has_conversation(e);  // flavour NPCs
+    // B = flavour NPCs + breakables (2026-08-25: a quest asks for destructibles; no sound for them yet).
+    case ScanGroup::Bystanders: return (is_a(ci, g_api.Npc_StaticClassInfo) && cls == "Npc" && !npc_has_conversation(e)) || is_live_destructible(e, ci);
     case ScanGroup::Objects:
     // Loot (the sonar sweep's group too): an Item on the ground or a container the Interact key would open.
     case ScanGroup::Loot: return is_of_interest(e, ci) && is_loot(ci, cls);

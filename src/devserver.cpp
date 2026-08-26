@@ -355,6 +355,7 @@ static std::string handle(const std::string& path, const std::map<std::string, s
   if (path == "/lua") { std::string code = q.count("code") ? q.at("code") : body; if (code.empty()) return "?code= or POST body\n"; return gameapi::lua_run(code) ? "ok\n" : "failed (see /log)\n"; }   // dev: a chunk in the game's Lua state
   if (path == "/cheat") { if (q.count("xp")) return gameapi::dev_add_experience((unsigned)parse_int(q.at("xp"), 0)) ? "ok\n" : "failed\n"; if (q.count("bits")) return gameapi::dev_add_money((unsigned)parse_int(q.at("bits"), 0)) ? "ok\n" : "failed\n"; return std::string("?xp=N | ?bits=N\n"); }
   if (path == "/reclaim") return gameapi::dev_open_skill_reclaim() ? "ok\n" : "failed\n";   // open skills in spirit-guide reclaim mode
+  if (path == "/obj" && q.count("find")) return gameapi::find_objects(q.at("find"), q.count("max") ? (size_t)parse_int(q.at("max"), 50) : 50);
   if (path == "/obj") return q.count("id") ? gameapi::dump_object((unsigned)parse_int(q.at("id"), 0)) : gameapi::dump_objects_stats();
   if (path == "/loc2") return q.count("tag") ? gameapi::localize(q.at("tag")) + "\n" : std::string("?tag=\n");
   if (path == "/ingame") { if (q.count("action")) return exe_ui::ingame_key_action(parse_int(q.at("action"), 0)) ? "ok\n" : "failed\n"; return exe_ui::ingame_dump(); }    // InGameUI's windows and the prompt box (framework B)

@@ -516,6 +516,16 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   0x6a85fbec, the exe's version resource is meaningless). Procedure on a patch: the menu layer dies -> dump the
   new exe -> relocate against the previous build's archive -> when the mod works again, archive the new build.
   Nothing has to happen before Steam updates; only never skip archiving a build the mod works on.
+- Destructibles on B (2026-08-25, verified live in Devil's Crossing): the B group is flavour NPCs OR an unbroken,
+  targetable `Destructible` (`Destructible::GetStaticClassInfo` is-a, `IsBroken()` = +0x66c, `IsTargetable()` =
+  the record's `targetable` flag at +0x765 and not broken). `targetable = False` scenery (rustic chairs, tables,
+  fences) is excluded by the game's own flag; lootchests/breakables + quest urns are True and label through
+  the Actor `GetGameDescription` slot ("Barrel", "Jug", "Crate", "Wooden Door"). Holding J on the lock smashed a
+  barrel and it left the list. No sound for them yet. Dev: `/obj?find=<record substring>&max=` lists objects
+  by record path with positions (objects in unloaded chunks print "no position"). Dev-driving J: a synthetic
+  `/keydown?name=j` ALSO reaches the game (opens Factions); hold Enter instead (`/keydown?name=enter`, the
+  other left-button key); `/jkey` is a one-shot click because the in-game screen re-asserts the hold from the
+  key poll each frame.
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.

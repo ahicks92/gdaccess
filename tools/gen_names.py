@@ -126,6 +126,10 @@ ENTRIES = [
     ("Monster_vftable", "Game", r"GAME::Monster::`vftable'\{for `GAME::Object'\}"),
     ("Item_vftable", "Game", r"GAME::Item::`vftable'\{for `GAME::Object'\}"),
     ("Npc_HasConversation", "Game", r"GAME::Npc::HasConversation\(void\)"),
+    # ---- destructibles (barrels, crates, quest breakables) for the B review group ----
+    ("Destructible_GetStaticClassInfo", "Game", r"GAME::Destructible::GetStaticClassInfo\(void\)"),
+    ("Destructible_IsBroken", "Game", r"GAME::Destructible::IsBroken\(void\)"),
+    ("Destructible_IsTargetable", "Game", r"GAME::Destructible::IsTargetable\(void\)"),
     # ---- camera zoom presets (src/world.cpp) ----
     ("GameCamera_SetZoom", "Game", r"GAME::GameCamera::SetZoom\(float\)"),
     ("GameCamera_ResetZoom", "Game", r"GAME::GameCamera::ResetZoom\(void\)"),

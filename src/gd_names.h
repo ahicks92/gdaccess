@@ -331,6 +331,15 @@ inline constexpr const char* Item_vftable = "??_7Item@GAME@@6BObject@1@@";
 // public: bool __cdecl GAME::Npc::HasConversation(void)const __ptr64
 inline constexpr const char* Npc_HasConversation_DLL = "Game.dll";
 inline constexpr const char* Npc_HasConversation = "?HasConversation@Npc@GAME@@QEBA_NXZ";
+// public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::Destructible::GetStaticClassInfo(void)
+inline constexpr const char* Destructible_GetStaticClassInfo_DLL = "Game.dll";
+inline constexpr const char* Destructible_GetStaticClassInfo = "?GetStaticClassInfo@Destructible@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
+// public: bool __cdecl GAME::Destructible::IsBroken(void)const __ptr64
+inline constexpr const char* Destructible_IsBroken_DLL = "Game.dll";
+inline constexpr const char* Destructible_IsBroken = "?IsBroken@Destructible@GAME@@QEBA_NXZ";
+// public: bool __cdecl GAME::Destructible::IsTargetable(void)const __ptr64
+inline constexpr const char* Destructible_IsTargetable_DLL = "Game.dll";
+inline constexpr const char* Destructible_IsTargetable = "?IsTargetable@Destructible@GAME@@QEBA_NXZ";
 // public: void __cdecl GAME::GameCamera::SetZoom(float) __ptr64
 inline constexpr const char* GameCamera_SetZoom_DLL = "Game.dll";
 inline constexpr const char* GameCamera_SetZoom = "?SetZoom@GameCamera@GAME@@QEAAXM@Z";

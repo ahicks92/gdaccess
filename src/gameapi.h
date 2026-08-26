@@ -158,5 +158,6 @@ bool dev_add_experience(unsigned xp);   // dev only: SkillManager::AddExperience
 bool dev_open_skill_reclaim();          // dev only: open the skills window in spirit-guide reclaim mode
 std::string dump_sheet();
 std::string dump_object(unsigned id);
+std::string find_objects(const std::string& needle, size_t max);
 std::string dump_objects_stats();
 }  // namespace gd::gameapi
