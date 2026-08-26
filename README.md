@@ -222,7 +222,8 @@ quickbar slot from the hotbar manager and works against the locked target like a
 | Ctrl+O, Ctrl+K, Ctrl+G, Ctrl+H, Ctrl+V, Ctrl+B, Ctrl+X, Ctrl+Z, Ctrl+P, Ctrl+], Ctrl+\, Ctrl+Enter | The game's own loot filter, group, game menu, help, achievements, drop item, item tooltips, show items, pause, toggle UI, party display, chat |
 
 NPC windows (vendor, stash, quest reward, shrine, riftgate travel, conversations) open when the NPC opens them
-and follow the menu keys above.
+and follow the menu keys above. In a vendor's Sell tab, Enter sells the whole item (a stack entire);
+Ctrl+Enter on a stack asks "sell how many of N" -- type the number and press Enter (Escape cancels).
 
 ## The dev loop (how the author iterates)
 
