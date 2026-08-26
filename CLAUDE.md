@@ -513,7 +513,9 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   old + new images to be built against): an offline relocation tool (match the 14 signatures + the vtable
   ctors in the new dump, emit a version-keyed RVA table) and vtable validation at each window offset. The
   ground truth for that is the archive: `1.3.0.8-6a85fbec` is in `../grim-dawn-archive` (exe PE timestamp
-  0x6a85fbec, the exe's version resource is meaningless); archive every build before Steam replaces it.
+  0x6a85fbec, the exe's version resource is meaningless). Procedure on a patch: the menu layer dies -> dump the
+  new exe -> relocate against the previous build's archive -> when the mod works again, archive the new build.
+  Nothing has to happen before Steam updates; only never skip archiving a build the mod works on.
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.
@@ -536,7 +538,7 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   segmentation, renderer, `roomsdb.py`) -- the rooms pipeline, `docs/rooms.md`. `rooms.py area
   devilscrossing --write` regenerates `assets/rooms.db`; floor plans in `build/rooms/`.
 - `tools/archive_build.py --version X` — copies the game's exe/DLLs + the unpacked dump to `../grim-dawn-archive/<version>-<pe-ts>/`
-  (refuses a stale dump). **Run before letting Steam patch the game** (see "Game patches" below).
+  (refuses a stale dump). Run once the mod WORKS on a build, so it is the baseline for the next patch ("Game patches" below).
 - `tools/gen_exports.py` — dumps `.def` files and undecorated export listings from the installed DLLs into
   `tools/exports/` (regenerate after a game patch).
 - `tools/gen_names.py` — resolves the exports we hook by regex over the undecorated listing and writes
