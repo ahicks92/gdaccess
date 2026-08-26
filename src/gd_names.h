@@ -385,6 +385,15 @@ inline constexpr const char* Object_vftable = "??_7Object@GAME@@6B@";
 // public: class GAME::Vec2 __cdecl GAME::WorldCamera::Project(class GAME::WorldVec3 const & __ptr64,class GAME::Viewport const & __ptr64)const __ptr64
 inline constexpr const char* WorldCamera_Project_DLL = "Engine.dll";
 inline constexpr const char* WorldCamera_Project = "?Project@WorldCamera@GAME@@QEBA?AVVec2@2@AEBVWorldVec3@2@AEBVViewport@2@@Z";
+// public: class GAME::WorldRay __cdecl GAME::WorldCamera::GetRayThroughImagePoint(class GAME::Vec2 const & __ptr64,class GAME::Viewport const & __ptr64)const __ptr64
+inline constexpr const char* WorldCamera_GetRayThroughImagePoint_DLL = "Engine.dll";
+inline constexpr const char* WorldCamera_GetRayThroughImagePoint = "?GetRayThroughImagePoint@WorldCamera@GAME@@QEBA?AVWorldRay@2@AEBVVec2@2@AEBVViewport@2@@Z";
+// public: void __cdecl GAME::World::GetIntersection(class GAME::WorldRay const & __ptr64,class GAME::WorldIntersection & __ptr64,enum GAME::PhysicsSurface,bool,float,bool)const __ptr64
+inline constexpr const char* World_GetIntersection_DLL = "Engine.dll";
+inline constexpr const char* World_GetIntersection = "?GetIntersection@World@GAME@@QEBAXAEBVWorldRay@2@AEAVWorldIntersection@2@W4PhysicsSurface@2@_NM3@Z";
+// public: void __cdecl GAME::World::GetAllIntersections(class GAME::WorldRay const & __ptr64,class mem::vector<class GAME::Entity * __ptr64> & __ptr64,bool,float)const __ptr64
+inline constexpr const char* World_GetAllIntersections_DLL = "Engine.dll";
+inline constexpr const char* World_GetAllIntersections = "?GetAllIntersections@World@GAME@@QEBAXAEBVWorldRay@2@AEAV?$vector@PEAVEntity@GAME@@@mem@@_NM@Z";
 // public: __cdecl GAME::Viewport::Viewport(int,int,int,int) __ptr64
 inline constexpr const char* Viewport_ctor_DLL = "Engine.dll";
 inline constexpr const char* Viewport_ctor = "??0Viewport@GAME@@QEAA@HHHH@Z";

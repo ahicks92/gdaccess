@@ -86,6 +86,29 @@ int LabelGrid::label_at(double x, double z, double y, int ring) const {
   return -1;
 }
 
+bool LabelGrid::floor_y(int col, int row, double y, double& out) const {
+  if (heights_dm.empty() || col < 0 || row < 0 || col >= w || row >= h) return false;
+  uint32_t cell_i = (uint32_t)row * (uint32_t)w + col;
+  int16_t base_dm = heights_dm[cell_i];
+  if (base_dm == INT16_MIN) return false;
+  int16_t pick_dm = base_dm;
+  if (!std::isnan(y) && !overlays.empty()) {
+    auto it = std::lower_bound(overlays.begin(), overlays.end(), cell_i,
+                               [](const Overlay& o, uint32_t c) { return o.cell < c; });
+    if (it != overlays.end() && it->cell == cell_i) {
+      double y_dm = y * 10.0;
+      if (std::abs(y_dm - it->y_dm) < std::abs(y_dm - base_dm)) pick_dm = it->y_dm;
+    }
+  }
+  out = pick_dm / 10.0;
+  return true;
+}
+
+bool LabelGrid::floor_y_at(double x, double z, double y, double& out) const {
+  if (cell <= 0) return false;
+  return floor_y((int)std::floor((x - x0) / cell), (int)std::floor((z - z0) / cell), y, out);
+}
+
 int LabelGrid::label_at(double x, double z, int ring) const {
   return label_at(x, z, std::numeric_limits<double>::quiet_NaN(), ring);
 }
@@ -135,6 +158,25 @@ bool LabelGrid::path_is_direct(const std::vector<std::array<double, 3>>& pts, in
     }
   }
   return true;
+}
+
+bool LabelGrid::path_entry_point(const std::vector<std::array<double, 3>>& pts, int b, std::array<double, 3>& out,
+                                 int ring) const {
+  if (pts.empty()) return false;
+  const double step = cell > 0 ? std::min(cell, 1.0) : 1.0;
+  if (label_at(pts[0][0], pts[0][2], pts[0][1], ring) == b) { out = pts[0]; return true; }
+  for (size_t i = 1; i < pts.size(); ++i) {
+    const double ax = pts[i - 1][0], ay = pts[i - 1][1], az = pts[i - 1][2];
+    const double dx = pts[i][0] - ax, dy = pts[i][1] - ay, dz = pts[i][2] - az;
+    const double seg = std::sqrt(dx * dx + dz * dz);
+    const int n = std::max(1, (int)std::ceil(seg / step));
+    for (int k = 1; k <= n; ++k) {
+      const double t = (double)k / n;
+      const double x = ax + dx * t, y = ay + dy * t, z = az + dz * t;
+      if (label_at(x, z, y, ring) == b) { out = {x, y, z}; return true; }
+    }
+  }
+  return false;
 }
 
 bool Hysteresis::update(int observed, int now_ms) {

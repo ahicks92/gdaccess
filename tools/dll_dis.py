@@ -29,6 +29,8 @@ def main():
     rvas = [a for a, _ in syms]
     undec = {a: und(n) for a, n in syms}
     hits = [(a, undec[a]) for a, _ in syms if needle in undec[a]]
+    if needle.startswith('0x'): hits = [(a, undec[a]) for a, _ in syms if a == int(needle, 16)]   # exact RVA (disambiguates same-named overloads)
+    if needle.startswith('0x') and not hits: hits = [(int(needle, 16), f'<raw {needle}>')]   # an unexported body reached by a forwarder
     if len(hits) != 1:
         print(f"{len(hits)} matches for {needle!r}:")
         for a, u in hits[:20]: print(f"  {a:#x} {u[:160]}")

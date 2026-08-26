@@ -181,7 +181,8 @@ std::string conversation_dump();  // /conv
 
 // ---- targeting (measurement phase) ----
 // Everything the game rendered last frame, nearest first: pointer, object id, record name, class, distance.
-std::string entities_dump(float max_dist);
+std::string entities_dump(float max_dist, bool frustum = false);
+std::string los_dump(unsigned id);   // camera line of sight to an entity (dev; the exe's cursor-pick ray)   // frustum: Engine::GetEntitiesInPriorFrameFrustum (last frame's render set) instead of the sphere
 bool set_target(unsigned id);    // ControllerPlayer::SetCombatEnemy + FaceTarget
 void clear_target();
 unsigned current_target();       // ControllerPlayer::GetCombatEnemy

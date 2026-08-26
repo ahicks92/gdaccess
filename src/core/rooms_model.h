@@ -26,6 +26,10 @@ struct LabelGrid {
   bool decode_overlays(const uint8_t* blob, size_t size);                    // {u16 row, u16 col, i16 y_dm, i16 label}*
   int at(int col, int row) const;                                              // -1 outside
   int at(int col, int row, double y) const;      // overlay-aware: picks the layer whose floor y is nearer
+  // The floor height (world y) of the layer at(col,row,y) resolves to -- the overlay's when it picks the
+  // overlay, else the base plane's. False when the grid has no height for the cell.
+  bool floor_y(int col, int row, double y, double& out) const;
+  bool floor_y_at(double x, double z, double y, double& out) const;   // world (x, z) -> the cell's floor y
   // The label under (x, z), searching rings of radius 0..ring cells for the nearest labelled cell
   // (wotr's RoomAt: a point just off the mesh still resolves to the room beside it). Pass the player's y
   // so a stacked cell resolves to the layer under their feet; NaN ignores height.
@@ -46,6 +50,11 @@ struct LabelGrid {
   // or single-point path is treated as direct (caller couldn't compute a corridor -> fail open).
   bool path_is_direct(const std::vector<std::array<double, 3>>& pts, int a, int b, int ring = 2,
                       double tol = 2.0) const;
+  // The first point along the path (sampled like path_is_direct) whose cell is labelled `b`: where the route
+  // actually ENTERS room `b` -- the opening, as opposed to the nearest cell of `b`'s blob, which can lie on the
+  // far side of a wall. Returns false if no sample resolves to `b`.
+  bool path_entry_point(const std::vector<std::array<double, 3>>& pts, int b, std::array<double, 3>& out,
+                        int ring = 2) const;
 };
 
 // The current room changes immediately once the player has been in it for settle_ms (a genuine move);

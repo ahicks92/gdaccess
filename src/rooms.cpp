@@ -291,6 +291,7 @@ std::string foreign_label(const std::string& key) {
 // openings still come from the seam rows because the far room lives in another region's label grid.
 // On-demand (V / room change), so the ~a-few pathfinder calls are not a per-frame cost.
 constexpr double kExitRadius = 28.0;   // units; a room whose opening is farther than this shows once you near it
+constexpr double kExitFloorTol = 1.5;  // units; reached point vs the destination cell's floor y (layers < 0.9 apart are one floor)
 std::vector<world::ScanItem> exit_items() {
   std::vector<world::ScanItem> out;
   world::Vec3 p;
@@ -298,20 +299,55 @@ std::vector<world::ScanItem> exit_items() {
   const int room = g_hyst.current;
   for (const auto& nb : g_current->grid.neighbors_within(p.x, p.z, p.y, room, kExitRadius)) {
     world::Vec3 at{(float)nb.x, p.y, (float)nb.z};
-    if (world::find_path(at, 0.f, 0.f, nullptr) != 0) continue;   // not reachable at all -> not an exit
+    world::Vec3 reached{};
+    if (world::find_path(at, 0.f, 0.f, &reached) != 0) continue;   // not reachable at all -> not an exit
+    // Detour reports a PARTIAL path as success with the endpoint snapped to the nearest reachable polygon --
+    // for a room across a wall or on another floor that is the player's own spot (2026-08-25, prison cellar:
+    // "ruined tier hall 4 units south" through a wall, FindPath endpoint == player). No progress toward the
+    // target = unreachable.
+    {
+      const double to_target = std::hypot((double)at.x - p.x, (double)at.z - p.z);
+      const double end_to_target = std::hypot((double)at.x - reached.x, (double)at.z - reached.z);
+      if (end_to_target >= to_target - 0.5) continue;
+    }
+    // Same floor: the pathfinder SNAPS the target to the nearest polygon within its search radius and reports
+    // a complete path to that -- for a cell on the tier above (the prison cellar: the corridor at y -4, the
+    // cellblock rooms at y +1) the snap lands on the wall's foot below it, 4-5 units under the cell's floor.
+    // The grid stores each cell's floor height, so a reached point more than kExitFloorTol below/above the
+    // destination cell's floor is a route that never got to that floor (2026-08-25, "ruined tier hall 4 units
+    // south" -- and "cobbled cellblock corridor", the same tier, had passed for the same reason). A corridor
+    // that climbs a stair arrives at the tier's height and passes; a cell without height data is not gated.
+    {
+      double floor = 0;
+      if (g_current->grid.floor_y_at(nb.x, nb.z, p.y, floor) && std::fabs((double)reached.y - floor) > kExitFloorTol) continue;
+    }
     // Direct-exit test: an exit to `nb` exists only if the game's actual navmesh route to it does not detour
     // through a third labelled room (LOS is NOT required -- the route may curve round a wall, but it must run
     // from our room straight into the neighbour). Strictly additive: only DROP on a positive detour finding;
     // if the corridor can't be computed we keep the exit (the reachability gate above already passed).
+    // The exit's POSITION is where the corridor first enters the neighbour (the opening), not the neighbour's
+    // nearest cell -- that cell can sit across a wall from us, which made bearings point through walls
+    // (2026-08-25). Without a corridor the nearest cell stays the fallback.
+    float dist = (float)nb.dist;
     if (std::vector<world::Vec3> corridor; world::find_path_corridor(at, corridor)) {
       std::vector<std::array<double, 3>> pts;
       pts.reserve(corridor.size());
       for (const world::Vec3& c : corridor) pts.push_back({c.x, c.y, c.z});
       if (!g_current->grid.path_is_direct(pts, room, nb.label)) continue;
+      if (std::array<double, 3> entry{}; g_current->grid.path_entry_point(pts, nb.label, entry)) {
+        at = {(float)entry[0], (float)entry[1], (float)entry[2]};
+        dist = (float)std::hypot(entry[0] - p.x, entry[2] - p.z);
+      } else {
+        // The corridor reached (within a unit of) the target cell yet never sampled inside the neighbour:
+        // the cell is labelled for a floor the route did not enter -> not our exit. A corridor that stopped
+        // short (snapped onto unlabelled cells beside the room) is kept with the nearest-cell position.
+        const world::Vec3& last = corridor.back();
+        if (std::hypot((double)last.x - at.x, (double)last.z - at.z) <= 1.0) continue;
+      }
     }
     std::string dest = room_label(*g_current, nb.label);
     if (dest.empty()) dest = nb.label < (int)g_current->rooms.size() ? g_current->rooms[nb.label].cls : std::string(strings::kRoom);
-    out.push_back({world::kPointIdBase + (unsigned)nb.label, "exit", dest, {}, at, (float)nb.dist, {}});
+    out.push_back({world::kPointIdBase + (unsigned)nb.label, "exit", dest, {}, at, dist, {}});
   }
   // Cross-region openings: the neighbour is in another region's grid, so keep them from the seam rows,
   // shown only when the live mesh still reaches the opening.

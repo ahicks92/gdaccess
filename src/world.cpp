@@ -3,6 +3,7 @@
 #include <intrin.h>
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <cstdint>
 #include <cstring>
 #include <format>
@@ -237,6 +238,9 @@ struct Api {
   bool (*Destructible_IsBroken)(const void*) = nullptr;
   bool (*Destructible_IsTargetable)(const void*) = nullptr;
   void* (*Project)(const void*, void*, const void*, const void*) = nullptr;  // WorldCamera::Project: hidden Vec2 return
+  void* (*GetRayThroughImagePoint)(const void*, void*, const void*, const void*) = nullptr;  // WorldCamera: hidden WorldRay return {Region*, Vec3 origin, pad, Vec3 dir}
+  void (*World_GetIntersection)(const void*, const void*, void*, int, bool, float, bool) = nullptr;  // (ray, WorldIntersection& out, PhysicsSurface, skip_entities, max_dist, bool)
+  void (*World_GetAllIntersections)(const void*, const void*, void*, bool, float) = nullptr;   // (ray, mem::vector<Entity*>&, bool, max_dist)
   void (*SetZoom)(void*, float) = nullptr;               // GameCamera::SetZoom(value in the camera's zoom range)
   void (*ResetZoom)(void*) = nullptr;
   void (*SetCameraYaw)(void*, float) = nullptr;          // GameCamera::SetCameraYaw (radians)
@@ -349,6 +353,9 @@ void load_api() {
   LOAD(Destructible_IsBroken, Destructible_IsBroken);
   LOAD(Destructible_IsTargetable, Destructible_IsTargetable);
   LOAD(Project, WorldCamera_Project);
+  LOAD(GetRayThroughImagePoint, WorldCamera_GetRayThroughImagePoint);
+  LOAD(World_GetIntersection, World_GetIntersection);
+  LOAD(World_GetAllIntersections, World_GetAllIntersections);
   LOAD(SetZoom, GameCamera_SetZoom);
   LOAD(ResetZoom, GameCamera_ResetZoom);
   LOAD(SetCameraYaw, GameCamera_SetCameraYaw);
@@ -960,6 +967,10 @@ std::string debug_dump() {
   void* p = player();
   s += std::format("player={} name='{}' region='{}' life={:.1f}/{:.1f} camera_yaw={:.4f}\n", p, player_name(), region_name(), life(), life_max(), camera_yaw());
   if (!p) return s;
+  // NEVER class_name()/rtti_of() a Region: the Object::GetRTTIClassInfo slot is 0 here, which on a Region's
+  // vtable is the virtual destructor -- doing so destroyed the live region and crashed the render (2026-08-25).
+  { Buf b; void* region = nullptr;
+    if (player_world_vec(b, &region) && region) s += std::format("region={}\n", region); }
   Vec3 w;
   if (player_position(w)) s += std::format("player world=({:.2f}, {:.2f}, {:.2f}) on_navmesh={} id={} class={}\n", w.x, w.y, w.z, on_navmesh(w),
                                            g_api.Object_GetObjectId ? g_api.Object_GetObjectId(p) : 0, class_name(p));
@@ -989,7 +1000,17 @@ std::string debug_dump() {
 // ---- targeting ----
 namespace { std::string entity_label(void* e, const void* ci, const std::string& cls); }
 namespace { bool is_of_interest(const void* e, const void* ci); bool is_kind_of(const void* ci, const void* base); int vt_slot(void** vt, const void* fn); }
-std::string entities_dump(float max_dist) {
+namespace {
+// Frames since the render preload last stamped the entity (Entity::InRenderPreLoadFrustum: entity+0x17c vs
+// gEngine+0x640, read 2026-08-25); -1 without an engine, -2 on a fault.
+long long render_age(const void* e) {
+  const void* eng = gd::hooks::engine_object();
+  if (!eng) return -1;
+  __try { return (long long)*(const unsigned*)((const char*)eng + 0x640) - (long long)*(const unsigned*)((const char*)e + 0x17c); }
+  __except (EXCEPTION_EXECUTE_HANDLER) { return -2; }
+}
+}
+std::string entities_dump(float max_dist, bool frustum) {
   load_api();
   Vec3 me; if (!player_position(me)) return "no player\n";
   alignas(16) unsigned char vb[64] = {};
@@ -1001,7 +1022,7 @@ std::string entities_dump(float max_dist) {
   // regions, Sphere = {Vec3 centre, float radius} in the calling region's coordinates, and mem::vector is
   // std-like {begin, end, cap} (appended to). EntityListType 0 for now.
   Buf base; void* region = nullptr;
-  if (g_api.Region_GetEntitiesInSphere && player_world_vec(base, &region)) {
+  if (!frustum && g_api.Region_GetEntitiesInSphere && player_world_vec(base, &region)) {
     const Vec3* rp = g_api.WorldVec3_GetRegionPosition(&base);
     struct { Vec3 c; float r; } sphere{*rp, max_dist};
     g_api.Region_GetEntitiesInSphere(region, v, &sphere, false, 0);
@@ -1034,12 +1055,15 @@ std::string entities_dump(float max_dist) {
     else if (g_api.Item_StaticClassInfo && is_kind_of(r.ci, g_api.Item_StaticClassInfo())) kind = " [Item";
     if (!kind.empty()) kind += is_of_interest(e, r.ci) ? " interest]" : " no-interest]";
     if (cls == "Monster" && g_api.Character_IsAlive && !g_api.Character_IsAlive(e)) kind += " [dead]";   // a corpse: not an enemy
-    rows.push_back({d, std::format("{:6.1f}  id={:<8} {:<12} label='{}' at ({:.1f}, {:.1f}, {:.1f}) {} '{}'{}", d, r.id, cls, entity_label(e, r.ci, cls),
+    // Render stamp: Entity::InRenderPreLoadFrustum() == (entity+0x17c == gEngine+0x640); the render preload
+    // stamps every entity it considers with the frame counter, so age = frames since the renderer last saw it.
+    long long age = render_age(e);
+    rows.push_back({d, std::format("{:6.1f}  dy={:+5.1f} age={:<6} id={:<8} {:<12} label='{}' at ({:.1f}, {:.1f}, {:.1f}) {} '{}'{}", d, r.pos.y - me.y, age, r.id, cls, entity_label(e, r.ci, cls),
                                    r.pos.x, r.pos.y, r.pos.z, e, r.name, kind)});
   }
   if (faulted) log::writef("entities: {} objects faulted while being read (skipped)", faulted);
   std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) { return a.d < b.d; });
-  std::string s = std::format("ok={} rendered={} within {:.0f}: {}\n", ok, n, max_dist, rows.size());
+  std::string s = std::format("ok={} source={} returned={} within {:.0f}: {}\n", ok, how, n, max_dist, rows.size());
   for (auto& r : rows) s += r.text + "\n";
   return s;  // the vector's storage is leaked on purpose (dev route; the game's allocator owns it)
 }
@@ -1219,6 +1243,82 @@ bool project(void* entity, float& x, float& y) {
   return true;
 }
 }  // namespace
+
+// Camera line of sight to an entity, the sighted player's own primitive (static RE of the exe's cursor pick at
+// exe+0x30c49, 2026-08-25): the ray the camera sends through the entity's screen point
+// (WorldCamera::GetRayThroughImagePoint), cast with World::GetIntersection (surface 0, entities skipped, max +inf,
+// last bool true as the exe passes it) -- if level geometry stops it short of the entity, the entity is hidden
+// behind a wall / under a floor. World::GetAllIntersections lists the entities the ray crosses on the way
+// (the meshes the renderer would fade). WorldIntersection = {float dist +0, Region* +8, Vec3 point +0x10,
+// Entity* +0x20, int surface +0x28}, 0x30 bytes; surface 100 = nothing hit.
+namespace {
+bool seh_world_intersection(const void* ray, void* hit, bool skip_entities) {
+  __try { g_api.World_GetIntersection(g_world, ray, hit, 0, skip_entities, std::numeric_limits<float>::infinity(), true); return true; }
+  __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+bool seh_all_intersections(const void* ray, void* vec, float max_dist) {
+  __try { g_api.World_GetAllIntersections(g_world, ray, vec, false, max_dist); return true; }
+  __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+}
+std::string los_dump(unsigned id) {
+  load_api();
+  void* cam = g_game_engine && g_api.GetCamera ? g_api.GetCamera(g_game_engine) : nullptr;
+  if (!cam || !g_world || !g_api.Project || !g_api.Viewport_ctor || !g_api.GetRayThroughImagePoint || !g_api.World_GetIntersection) return "los: api missing\n";
+  void* e = find_entity(id);
+  if (!e) return "entity not found near the player\n";
+  float sx, sy;
+  if (!project(e, sx, sy)) return "cannot project\n";
+  RECT rc{};
+  HWND w = FindWindowA("Grim Dawn", nullptr);
+  if (!w || !GetClientRect(w, &rc)) return "no window\n";
+  Buf vp{};
+  g_api.Viewport_ctor(&vp, 0, 0, rc.right, rc.bottom);
+  // Image points are viewport FRACTIONS (0..1): the exe's pick divides the cursor by the viewport's width/height
+  // before this call (exe+0x30b8d..0x30ba5), and Camera::GetImagePoint takes them that way.
+  alignas(16) float pt[2] = {sx / (float)rc.right, sy / (float)rc.bottom};
+  Buf ray{};
+  g_api.GetRayThroughImagePoint(cam, &ray, pt, &vp);
+  void* ray_region = nullptr; memcpy(&ray_region, ray.b, sizeof ray_region);
+  Vec3 origin_rel, dir; memcpy(&origin_rel, ray.b + 8, sizeof origin_rel); memcpy(&dir, ray.b + 0x18, sizeof dir);
+  // The entity's position in world coords and its distance from the ray origin (the bbox-centre aim point
+  // project() used differs by at most the box's half-height; the 0.5 slack below covers it).
+  Buf wv; if (!entity_world_vec(e, wv)) return "no entity position\n";
+  Vec3 target = world_pos_of(wv);
+  Buf ow{}; memcpy(ow.b, &ray_region, sizeof ray_region); memcpy(ow.b + 8, &origin_rel, sizeof origin_rel);
+  Vec3 origin = world_pos_of(ow);
+  float tdist = std::sqrt((target.x - origin.x) * (target.x - origin.x) + (target.y - origin.y) * (target.y - origin.y) + (target.z - origin.z) * (target.z - origin.z));
+  std::string s = std::format("los id={} screen=({:.0f},{:.0f}) ray origin=({:.1f},{:.1f},{:.1f}) dir=({:.3f},{:.3f},{:.3f}) region={} target=({:.1f},{:.1f},{:.1f}) tdist={:.1f}\n",
+                              id, sx, sy, origin.x, origin.y, origin.z, dir.x, dir.y, dir.z, ray_region, target.x, target.y, target.z, tdist);
+  for (int pass = 0; pass < 2; ++pass) {
+    alignas(16) unsigned char hit[0x40] = {};
+    if (!seh_world_intersection(&ray, hit, pass == 0)) { s += "  GetIntersection faulted\n"; continue; }
+    float d; memcpy(&d, hit, sizeof d);
+    void* hr; memcpy(&hr, hit + 8, sizeof hr);
+    Vec3 p; memcpy(&p, hit + 0x10, sizeof p);
+    void* he; memcpy(&he, hit + 0x20, sizeof he);
+    int surf; memcpy(&surf, hit + 0x28, sizeof surf);
+    std::string hit_desc;
+    if (he) { EntityRaw r{}; if (read_entity(he, r)) hit_desc = std::format(" entity id={} {} '{}'", r.id, rtti_name(r.ci), r.name); }
+    s += std::format("  {}: dist={:.2f} surface={} region={} point=({:.1f},{:.1f},{:.1f}){} -> {}\n", pass == 0 ? "geometry only" : "with entities",
+                     d, surf, hr, p.x, p.y, p.z, hit_desc, d < tdist - 0.5f ? "BLOCKED before the target" : "clear to the target");
+  }
+  if (g_api.World_GetAllIntersections) {
+    alignas(16) unsigned char vb[64] = {};
+    MemVec* v = (MemVec*)vb;
+    if (!seh_all_intersections(&ray, v, tdist + 0.5f)) { s += "  GetAllIntersections faulted\n"; return s; }
+    size_t n = 0;
+    if (v->begin && v->end && (uintptr_t)v->end > (uintptr_t)v->begin && (uintptr_t)v->end - (uintptr_t)v->begin < (1u << 20))
+      n = (size_t)((char*)v->end - (char*)v->begin) / sizeof(void*);
+    s += std::format("  entities crossed within {:.1f}: {}\n", tdist + 0.5f, n);
+    for (size_t i = 0; i < n && i < 64; ++i) {
+      void* ce; memcpy(&ce, (char*)v->begin + i * sizeof(void*), sizeof ce);
+      EntityRaw r{}; if (!ce || !read_entity(ce, r)) continue;
+      s += std::format("    id={} {} '{}' at ({:.1f},{:.1f},{:.1f})\n", r.id, rtti_name(r.ci), r.name, r.pos.x, r.pos.y, r.pos.z);
+    }
+  }
+  return s;
+}
 
 // A bare world point (a room exit) projected through the player's region like on_navmesh does.
 namespace {
@@ -1971,6 +2071,10 @@ void reping_tick() {
   // Every frame -- the probe is 36-44 us at close range, ~2.7 us per half-unit step, so ~0.25 ms even at the
   // 40-unit scan radius (walltones already runs ~80 such probes per frame). Any throttle was audible as lag.
   if (!g_reviewed_id) { g_last_ping_kind.clear(); g_last_ping_id = 0; return; }
+  // Exits (point ids) ping only on the landing (V), never automatically: their position is the corridor's
+  // entry point, which depends on where the player stands, so re-pinging as the route kind flips while
+  // walking read as noise (2026-08-25, the user).
+  if (is_point_id(g_reviewed_id)) return;
   Vec3 me, target;
   std::string kind = reviewed_route(me, target);
   if (kind.empty()) return;

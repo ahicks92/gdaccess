@@ -61,6 +61,15 @@ TEST_CASE("stacked cells resolve by player height: base room below, overlay room
   CHECK(g.label_at(0.5, 1.5, 7.8, 0) == -1);  // enclosed upper floor: no room, not the room below
   CHECK(g.label_at(0.5, 1.5, 2.1, 0) == 3);   // but standing below it is still the base room
   CHECK(g.label_at(0.5, 0.5, 7.8, 0) == 3);   // an unstacked cell ignores y entirely
+  // floor_y follows the same layer choice: the base plane's 2.0, the bridge's 8.0 when y is nearer to it.
+  double fy = 0;
+  REQUIRE(g.floor_y_at(1.5, 0.5, 2.1, fy)); CHECK(fy == doctest::Approx(2.0));
+  REQUIRE(g.floor_y_at(1.5, 0.5, 7.8, fy)); CHECK(fy == doctest::Approx(8.0));
+  REQUIRE(g.floor_y_at(0.5, 0.5, 7.8, fy)); CHECK(fy == doctest::Approx(2.0));   // unstacked: the base
+  CHECK_FALSE(g.floor_y_at(5.5, 5.5, 2.0, fy));                                   // outside the grid
+  LabelGrid noh; noh.x0 = 0; noh.z0 = 0; noh.cell = 1.0;
+  REQUIRE(noh.decode_rle(labels.data(), labels.size(), 2, 2));
+  CHECK_FALSE(noh.floor_y_at(0.5, 0.5, 2.0, fy));                                 // no height data at all
 }
 
 TEST_CASE("hysteresis: first room immediate, a settled room changes at once, boundary flapping waits for the dwell") {
@@ -110,6 +119,22 @@ TEST_CASE("path_is_direct: a long stretch inside a third room is caught mid-segm
   CHECK(gap.path_is_direct(over_gap, 0, 1, 0, 0.5));   // the -1 cell is ignored, not a detour
   CHECK(gap.path_is_direct({}, 0, 1));                 // no corridor -> fail open (direct)
   CHECK(gap.path_is_direct({{0.5, 0, 0.5}}, 0, 1));    // single point -> fail open
+}
+
+TEST_CASE("path_entry_point: the first sample inside the destination room, sampled mid-segment") {
+  // 5x1, cell 1: A A A B B.  One long segment from col 0 to col 4 enters B at x = 3.
+  LabelGrid g;
+  g.x0 = 0; g.z0 = 0; g.cell = 1.0;
+  auto blob = rle({{0, 3}, {1, 2}});
+  REQUIRE(g.decode_rle(blob.data(), blob.size(), 5, 1));
+  std::array<double, 3> at{};
+  REQUIRE(g.path_entry_point({{0.5, 0, 0.5}, {4.5, 0, 0.5}}, 1, at, /*ring*/ 0));
+  CHECK(at[0] == doctest::Approx(3.5));   // samples at 1.5, 2.5, 3.5: the first labelled B
+  CHECK(at[2] == doctest::Approx(0.5));
+  CHECK_FALSE(g.path_entry_point({{0.5, 0, 0.5}, {1.5, 0, 0.5}}, 1, at, 0));   // never reaches B
+  CHECK_FALSE(g.path_entry_point({}, 1, at, 0));
+  REQUIRE(g.path_entry_point({{3.5, 0, 0.5}}, 1, at, 0));   // already inside B: the point itself
+  CHECK(at[0] == doctest::Approx(3.5));
 }
 
 TEST_CASE("cycle wraps both ways and starts from the nearest") {
