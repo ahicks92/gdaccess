@@ -47,7 +47,7 @@ class CodexScreen : public WindowScreen {
         for (const gameapi::Objective& o : t.objectives) {
           MessageBuilder om;
           om.fragment(o.text);
-          if (o.satisfied) om.list_item().fragment(strings::kDone);
+          if (o.done()) om.list_item().fragment(strings::kDone);
           b.add_item(ControlId::structural(std::format("{}.o{}", tid, oi++)), line_item(om.build()));
         }
         int ri = 0;
@@ -105,7 +105,7 @@ void speak_objectives() {
         if (t.state == 3) continue;   // a completed task is not the current step
         bool any = false;
         for (const gameapi::Objective& o : t.objectives)
-          if (!o.satisfied) { strings::push_quest_objective(m.list_item(), q.name, o.text); any = true; }
+          if (!o.done()) { strings::push_quest_objective(m.list_item(), q.name, o.text); any = true; }
         if (any) break;               // only the current step of this quest
       }
     }

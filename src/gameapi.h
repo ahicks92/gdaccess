@@ -28,7 +28,10 @@ std::string object_record(const void* object);   // Object::GetObjectName: the .
 
 // ---- objectives / quests ----
 std::vector<std::string> objectives();           // the HUD's objective tracker lines
-struct Objective { std::string text; int satisfied; };   // satisfied: the game's Quest2Objective::Satisfied enum, raw
+// Quest2Objective::Satisfied, read off live quests 2026-08-26: 1 = satisfied, 2 = active and not yet, 0 = not evaluated (a
+// later task's). Only 1 is "done" -- any-nonzero read every open objective as done (the user's codex report).
+inline constexpr int kSatisfied = 1;
+struct Objective { std::string text; int satisfied; bool done() const { return satisfied == kSatisfied; } };   // satisfied: the enum above, raw
 struct Task { void* p; std::string name, description; int state; std::vector<Objective> objectives; std::vector<std::string> rewards; };  // state 1 available, 2 in progress, 3 complete
 struct Quest { void* p; unsigned id; std::string name, group; bool tracked, complete, in_progress; std::vector<Task> tasks; };
 enum QuestFilter : int { kQuestsAll = 0, kQuestsInProgress = 1, kQuestsCompleted = 2, kQuestsTracked = 4 };
