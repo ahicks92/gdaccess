@@ -78,7 +78,7 @@ gd::core::MessageBuilder& push_nothing_nearby(gd::core::MessageBuilder& m, std::
 gd::core::MessageBuilder& push_speech(gd::core::MessageBuilder& m, std::string_view speaker, std::string_view speech);
 inline constexpr std::string_view kEnemies = "enemies";
 inline constexpr std::string_view kUnknown = "unknown";
-inline constexpr std::string_view kReceivesPickups = "receives pickups";   // the game's selected bag: where pickups go once bag 1 is full
+inline constexpr std::string_view kSecondaryBag = "secondary";   // the game's selected bag: where pickups overflow to once bag 1 is full (bag 1 is always first)
 inline constexpr std::string_view kNotABag = "not a bag";
 inline constexpr std::string_view kOffering = "offering";   // a shrine's required item row: "offering 1, Aether Crystal"
 inline constexpr std::string_view kPets = "pets";                 // the [ / ] review group and the pet overlay

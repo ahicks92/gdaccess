@@ -54,7 +54,7 @@ class InventoryScreen : public WindowScreen, public AssignSource {
     }
     if (t < 1 || t > nbags) { speech::speak(strings::kNotABag, true); return; }
     bool ok = gameapi::select_bag(t - 1);
-    MessageBuilder m; m.fragment(std::format("{} {}", strings::kBag, t)).list_item().fragment(ok ? strings::kReceivesPickups : strings::kCannot);
+    MessageBuilder m; m.fragment(std::format("{} {}", strings::kBag, t)).list_item().fragment(ok ? strings::kSecondaryBag : strings::kCannot);
     speech::speak(m.build(), true);
     invalidate();
   }
@@ -65,7 +65,12 @@ class InventoryScreen : public WindowScreen, public AssignSource {
     std::vector<std::string> labels{std::string(strings::kEquipment)};
     for (const gameapi::Bag& bag : bags) labels.push_back(bag.name.empty() ? std::format("{} {}", strings::kBag, bag.index + 1) : bag.name);   // labels stay stable: the tab is re-found by label
     labels.push_back(std::string(strings::kStats));
-    add_tabs(b, labels);
+    // The tab strip says which bag is the secondary one (the game's selected bag: pickups overflow there once bag 1
+    // is full; bag 1 itself is always tried first). Ctrl+Enter on a bag tab moves it (set_receiving_bag).
+    std::vector<std::string> values(labels.size());
+    int secondary = gameapi::selected_bag();
+    if (bags.size() > 1 && secondary > 0 && secondary < (int)bags.size()) values[(size_t)secondary + 1] = std::string(strings::kSecondaryBag);
+    add_tabs(b, labels, values);
     int t = tab();
     if (t == 0) build_equipment(b);
     else if (t >= 1 && t <= (int)bags.size()) build_bag(b, bags[(size_t)t - 1]);
@@ -123,7 +128,6 @@ class InventoryScreen : public WindowScreen, public AssignSource {
     b.add_item(ControlId::structural("inventory.money"), line_item(m.build()));
   }
   void build_bag(GraphBuilder& b, const gameapi::Bag& bag) {
-    if (bags_.value.size() > 1 && gameapi::selected_bag() == bag.index) b.add_item(ControlId::structural(std::format("inventory.bag{}.receives", bag.index)), line_item(std::string(strings::kReceivesPickups)));
     if (bag.items.empty()) { b.add_item(ControlId::structural(std::format("inventory.bag{}.empty", bag.index)), line_item(std::string(strings::kEmpty))); return; }
     for (const gameapi::BagItem& it : bag.items) {
       MessageBuilder m; strings::push_stack(m, it.name.empty() ? std::format("item {}", it.id) : it.name, it.stack);

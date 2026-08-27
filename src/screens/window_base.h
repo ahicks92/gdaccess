@@ -118,10 +118,19 @@ class WindowScreen : public gd::core::Screen {
     tab_ = index;
     tab_key_ = tab_labels_[(size_t)index];   // remember WHICH tab, not its position
     on_tab_changed(index);
-    if (speak) { gd::core::MessageBuilder m; gd::strings::push_control(m, tab_labels_[(size_t)index], gd::strings::kTab, false, false); speech::speak(m.build(), true); }
+    if (speak) {
+      gd::core::MessageBuilder m;
+      std::string label = tab_labels_[(size_t)index];
+      if ((size_t)index < tab_values_.size() && !tab_values_[(size_t)index].empty()) { gd::core::MessageBuilder v; v.fragment(label).list_item().fragment(tab_values_[(size_t)index]); label = v.build(); }
+      gd::strings::push_control(m, label, gd::strings::kTab, false, false);
+      speech::speak(m.build(), true);
+    }
   }
-  void add_tabs(gd::core::GraphBuilder& b, std::vector<std::string> labels) {
+  // `values`: an optional state per tab ("secondary" on a bag), spoken after the label as a live value; it is NOT part
+  // of the label the tab is re-found by, so a state change never loses the selection.
+  void add_tabs(gd::core::GraphBuilder& b, std::vector<std::string> labels, std::vector<std::string> values = {}) {
     tab_labels_ = std::move(labels);
+    tab_values_ = std::move(values);
     // Re-resolve the selection by its label: when the tab SET changes membership (a merchant's empty
     // category, or buying the last item in a category so its tab vanishes -- 2026-08-23) a bare index would
     // silently point at a different tab. Fall back to clamping when the remembered tab is gone.
@@ -143,6 +152,7 @@ class WindowScreen : public gd::core::Screen {
       // re-select for muscle memory.
       (void)selected;
       v->announcements = {gd::core::NodeAnnouncement([label] { return label; }, false, gd::core::announcement_kinds::kLabel)};
+      if (i < tab_values_.size() && !tab_values_[i].empty()) { std::string val = tab_values_[i]; v->announcements.push_back(gd::core::NodeAnnouncement([val] { return val; }, true, gd::core::announcement_kinds::kValue)); }
       v->on_focus = [this, i] { if (tab_ != (int)i) select_tab((int)i, false); };
       v->on_activate = [this, i] { select_tab((int)i, false); };
       b.add_item(gd::core::ControlId::structural(key_ + ".tab" + std::to_string(i)), v);
@@ -153,6 +163,7 @@ class WindowScreen : public gd::core::Screen {
 
  protected:
   std::string key_, name_;
+  std::vector<std::string> tab_values_;
   unsigned off_;
   int layer_;
   int tab_ = 0;
