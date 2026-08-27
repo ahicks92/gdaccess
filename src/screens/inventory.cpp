@@ -44,7 +44,14 @@ class InventoryScreen : public WindowScreen, public AssignSource {
   // (PlayerInventoryCtrl::AddItem, read 2026-08-26: stacks merge in any bag, then bag 1, then the selected bag,
   // nothing else). A sighted player does this by leaving the window on that bag's tab; we make it explicit.
   void set_receiving_bag() {
+    // The tab under FOCUS if the cursor is on the tab row (arrowing along it does not select), else the selected tab.
     int t = tab(), nbags = (int)bags_.value.size();
+    GraphNavigator* nav = app::navigator();
+    std::optional<ControlId> fid = nav ? nav->focused_id() : std::nullopt;
+    if (fid && fid->structural_key().is_string()) {
+      const std::string& k = fid->structural_key().text();
+      if (k.rfind("inventory.tab", 0) == 0) t = std::atoi(k.c_str() + 13);
+    }
     if (t < 1 || t > nbags) { speech::speak(strings::kNotABag, true); return; }
     bool ok = gameapi::select_bag(t - 1);
     MessageBuilder m; m.fragment(std::format("{} {}", strings::kBag, t)).list_item().fragment(ok ? strings::kReceivesPickups : strings::kCannot);
