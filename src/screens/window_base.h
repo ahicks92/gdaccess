@@ -104,7 +104,7 @@ class WindowScreen : public gd::core::Screen {
 
   // ---- tabs ----
   // The screen declares its tab labels per render; the selected index is ours (or the game's when the
-  // subclass maps it). Ctrl+Tab cycles; Enter on a tab selects it. A change speaks "label, tab".
+  // subclass maps it). Ctrl+Tab cycles; landing on a tab (arrows along the strip) opens it. A change speaks "label, tab".
   int tab() const { return tab_; }
   bool switch_tab(int dir) override {
     int n = (int)tab_labels_.size();
@@ -138,8 +138,12 @@ class WindowScreen : public gd::core::Screen {
       bool selected = (int)i == tab_;
       auto v = std::make_shared<gd::core::NodeVtable>();
       v->control_type = &kTabType;
-      v->announcements = {gd::core::NodeAnnouncement([label] { return label; }, false, gd::core::announcement_kinds::kLabel),
-                          gd::core::NodeAnnouncement([selected] { return selected ? std::string(gd::strings::kSelected) : std::string(); }, true, gd::core::announcement_kinds::kSelected)};
+      // Landing on a tab OPENS it (2026-08-26: arrowing along the strip switches pages, like Ctrl+Tab), so a tab
+      // has no "selected" state to speak -- the one under the cursor is always the open one. Enter is kept as a no-op
+      // re-select for muscle memory.
+      (void)selected;
+      v->announcements = {gd::core::NodeAnnouncement([label] { return label; }, false, gd::core::announcement_kinds::kLabel)};
+      v->on_focus = [this, i] { if (tab_ != (int)i) select_tab((int)i, false); };
       v->on_activate = [this, i] { select_tab((int)i, false); };
       b.add_item(gd::core::ControlId::structural(key_ + ".tab" + std::to_string(i)), v);
     }

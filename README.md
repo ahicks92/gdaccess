@@ -124,7 +124,7 @@ arranged around a review cursor. The game's own bindings must stay at their defa
 | Shift+Up / Shift+Down | Previous / next group |
 | Left / Right | Adjust a slider or drop-down; move along a tab row; expand or collapse a tree group |
 | Tab / Shift+Tab | Next / previous panel (for example a window's tab row and its column) |
-| Ctrl+Tab / Ctrl+Shift+Tab | Switch tabs from anywhere in a window |
+| Ctrl+Tab / Ctrl+Shift+Tab | Switch tabs from anywhere in a window. On the tab row itself, Left / Right open the tab you land on |
 | Enter | Activate |
 | Backspace | Secondary action: unequip an item; reclaim a skill point at a spirit guide |
 | Space or F1 | The game's tooltip for the item; Shift+Space the detailed one |

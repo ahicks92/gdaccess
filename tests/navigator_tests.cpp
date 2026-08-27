@@ -114,3 +114,34 @@ TEST_CASE("type-ahead results survive rerenders between the typing and the arrow
   CHECK(tick(u"", true) == "apple");       // and the results wrap
   CHECK(screen.builds > 10);
 }
+
+TEST_CASE("on_focus fires on a user landing, once per change of node, not on an edge repeat") {
+  struct FocusScreen : Screen {
+    int fired = 0;
+    std::string_view key() const override { return "f"; }
+    bool is_active() override { return true; }
+    std::string screen_name() const override { return "f"; }
+    void build(GraphBuilder& b) override {
+      b.begin_stop("items");
+      b.start_row("items");
+      b.add_item(id("a"), vt("a"));
+      auto v = vt("b"); v->on_focus = [this] { ++fired; };
+      b.add_item(id("b"), v);
+      b.add_item(id("c"), vt("c"));
+      b.end_row();
+    }
+  };
+  std::vector<std::string> spoken; int frame = 0;
+  FocusScreen screen;
+  GraphNavigator nav{NavigatorHost{[&](std::string_view t, bool) { spoken.emplace_back(t); }, {}, [] { return true; }, [&] { return frame; }}};
+  nav.attach(&screen); nav.ensure_focus();
+  CHECK(screen.fired == 0);          // the initial seat is not a user landing
+  nav.on_action(ui_actions::Right);  // a -> b
+  CHECK(screen.fired == 1);
+  nav.on_action(ui_actions::Right);  // b -> c
+  nav.on_action(ui_actions::Left);   // c -> b
+  CHECK(screen.fired == 2);
+  nav.on_action(ui_actions::Home);   // b -> a
+  nav.on_action(ui_actions::End);    // a -> c
+  CHECK(screen.fired == 2);
+}

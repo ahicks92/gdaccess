@@ -95,6 +95,7 @@ class GraphNavigator {
   void feedback_after_change();  // speak state_text, rerender, rebaseline the live watch
   void speak_focused_state();
   void play_hover(const GraphNode* node);
+  void fire_focus(const GraphNode* node);                          // the node's on_focus on a user landing (a change of node)
   void speak(std::string_view text, bool interrupt);
   std::optional<std::string> compose_move(const GraphNode* from, const GraphNode* to, bool entry, std::string_view transition = {});
   void watch_live(const GraphNode* node);

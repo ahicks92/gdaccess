@@ -301,6 +301,7 @@ bool GraphNavigator::land_on_stop(const Key& stop_key) {
   if (!land || !graph_->focus(land->id)) return true;
   const GraphNode* node = graph_->current_node();
   play_hover(node);
+  fire_focus(node);
   if (auto t = compose_move(last_spoken_node(), node, false)) speak(*t, true);
   mark_spoken(node);
   return true;
@@ -309,6 +310,13 @@ bool GraphNavigator::land_on_stop(const Key& stop_key) {
 void GraphNavigator::play_hover(const GraphNode* node) {
   if (node && node->vtable && node->vtable->hover_sound) { try { node->vtable->hover_sound(); } catch (...) {} }
   else if (host_.hover_sound) host_.hover_sound();
+}
+// A user landing on a node: the node's on_focus (a tab strip opens the tab under the cursor). Only on a CHANGE of
+// node -- repeating the focused item at a list edge is not a landing.
+void GraphNavigator::fire_focus(const GraphNode* node) {
+  if (!node || !node->vtable || !node->vtable->on_focus) return;
+  if (last_spoken_key_ && *last_spoken_key_ == node->id) return;
+  try { node->vtable->on_focus(); } catch (...) {}
 }
 
 bool GraphNavigator::jump_edge(bool first) {
@@ -336,6 +344,7 @@ bool GraphNavigator::region_jump(int dir) {
 void GraphNavigator::announce_move(const MoveResult& r) {
   if (!r.to) return;
   play_hover(r.to);
+  fire_focus(r.to);
   if (auto t = compose_move(r.from, r.to, false, r.transition_label)) speak(*t, true);
   mark_spoken(r.to);
 }
@@ -450,6 +459,7 @@ void GraphNavigator::search_focus_result(int index) {
   if (!graph_->focus_at_column(search_nodes_[(size_t)index].id, search_column_)) return;   // resolves in the CURRENT render
   const GraphNode* node = graph_->current_node();
   play_hover(node);
+  fire_focus(node);
   if (auto t = compose_move(last_spoken_node(), node, false)) speak(*t, true);
   mark_spoken(node);
   search_focus_id_ = node->id;

@@ -106,6 +106,9 @@ struct NodeVtable {
   /// nearest-survivor walk.
   std::string land_group;
 
+  /// Optional. Fires when the USER's movement lands on this node (arrows, Home/End, Tab into a stop, a type-ahead
+  /// result) -- not on a rebaseline or a programmatic focus. A tab strip uses it to open the tab under the cursor.
+  std::function<void()> on_focus;
   /// Optional. Primary activation -- the left-click equivalent (Enter).
   std::function<void()> on_activate;
   /// Optional. Secondary activation -- the right-click equivalent (Backspace).
