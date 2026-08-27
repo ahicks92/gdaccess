@@ -58,8 +58,16 @@ class ShrineScreen : public WindowScreen {
     b.begin_stop("page");
     add_text(b, "shrine.title", at(w, 0x540));
     add_text(b, "shrine.info", at(w, 0x638));
+    // What it asks for: the game's own offering names off the shrine object the window shows (its id at +0xa4,
+    // read by the exe's fill at exe+0x1d170a). The three offering boxes (+0x8e0/+0xbd0/+0xec0) are item icons;
+    // their text elements read empty (the user's report 2026-08-26).
+    unsigned shrine_id = 0; exe_ui::peek_u32((char*)w.p + 0xa4, shrine_id);
     int i = 0;
-    for (unsigned off : {0x8e0u, 0xbd0u, 0xec0u}) add_text(b, std::format("shrine.offer{}", i++), at(w, off));
+    for (const std::string& name : gameapi::shrine_offerings(shrine_id)) {
+      MessageBuilder m; m.fragment(strings::kOffering).fragment(std::format("{}", ++i)).list_item().fragment(name);
+      b.add_item(ControlId::structural(std::format("shrine.offer{}", i)), line_item(m.build()));
+    }
+    if (!i) for (unsigned off : {0x8e0u, 0xbd0u, 0xec0u}) add_text(b, std::format("shrine.offer{}", i++), at(w, off));
     void* reg = (char*)w.p + 0x11b0;
     add_button(b, "shrine.use", at(w, 0x11f8), reg, std::string(strings::kOffer));
     add_button(b, "shrine.cancel", at(w, 0x15a8), reg, std::string(strings::kClose));

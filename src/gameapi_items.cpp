@@ -35,6 +35,9 @@ struct Api {
   bool (*Ctrl_GetAlternateEquipment)(const void*) = nullptr;   // the active weapon set (A/B) on the controller
   void (*Ctrl_SetAlternateEquipment)(void*, bool) = nullptr;   // swap the active weapon set (only the two hands change)
   unsigned (*GetCurrentMoney)(const void*) = nullptr;
+  MsvcStringW* (*ShrineOffering1)(const void*, MsvcStringW*) = nullptr;   // StaticShrine::GetOffering1..3DisplayName (u16 by value, hidden pointer 2nd)
+  MsvcStringW* (*ShrineOffering2)(const void*, MsvcStringW*) = nullptr;
+  MsvcStringW* (*ShrineOffering3)(const void*, MsvcStringW*) = nullptr;
   void (*AddMoney)(void*, unsigned) = nullptr;   // dev: Character::AddMoney (iron bits)
   void (*SendDropItemRandom)(void*, unsigned) = nullptr;
   void (*PickupItem)(void*, unsigned) = nullptr;               // virtual on the controller; the export is the implementation
@@ -105,6 +108,9 @@ void load_items() {
   GAPI_LOAD(g, Ctrl_SetAlternateEquipment, ControllerCharacter_SetAlternateEquipment);
   GAPI_LOAD(g, GetCurrentMoney, Character_GetCurrentMoney);
   GAPI_LOAD(g, AddMoney, Character_AddMoney);
+  GAPI_LOAD(g, ShrineOffering1, StaticShrine_GetOffering1DisplayName);
+  GAPI_LOAD(g, ShrineOffering2, StaticShrine_GetOffering2DisplayName);
+  GAPI_LOAD(g, ShrineOffering3, StaticShrine_GetOffering3DisplayName);
   GAPI_LOAD(g, SendDropItemRandom, ControllerCharacter_SendDropItemRandom);
   GAPI_LOAD(g, PickupItem, ControllerCharacter_PickupItem);
   GAPI_LOAD(g, GetCompatibleItems, Player_GetCompatibleItems);
@@ -265,6 +271,21 @@ bool swap_weapon_set() {
   guarded("SetAlternateEquipment", [&] { nv = !g.Ctrl_GetAlternateEquipment(c); g.Ctrl_SetAlternateEquipment(c, nv); });
   log::writef("gameapi: swap weapon set -> alternate={}", nv);
   return nv;
+}
+// The offerings a ruined devotion shrine asks for: the game's own display names (empty slots skipped). The shrine
+// record has no quantity field (one item per slot); the game's window draws these as three item boxes.
+std::vector<std::string> shrine_offerings(unsigned shrine_id) {
+  load_items();
+  std::vector<std::string> out;
+  void* s = object_by_id(shrine_id);
+  if (!s) return out;
+  for (auto f : {g.ShrineOffering1, g.ShrineOffering2, g.ShrineOffering3}) {
+    if (!f) continue;
+    std::string name;
+    guarded("StaticShrine::GetOfferingDisplayName", [&] { MsvcStringW w; init_u16(w); f(s, &w); name = take_u16(w); });
+    if (!name.empty()) out.push_back(name);
+  }
+  return out;
 }
 unsigned money() { void* p = player(); unsigned m = 0; load_items(); if (p && g.GetCurrentMoney) guarded("GetCurrentMoney", [&] { m = g.GetCurrentMoney(p); }); return m; }
 bool dev_add_money(unsigned bits) { void* p = player(); load_items(); if (!p || !g.AddMoney) return false; bool ok = guarded("AddMoney", [&] { g.AddMoney(p, bits); }); log::writef("gameapi: dev add money {} ok={}", bits, ok); return ok; }

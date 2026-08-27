@@ -18,6 +18,7 @@ void* controller();           // the main player's ControllerPlayer (captured by
 // A localization tag -> the game's text (LocalizationManager::LocalizeWithoutParams), colour codes stripped;
 // empty when the tag is unknown.
 std::string localize(const std::string& tag);
+std::vector<std::string> shrine_offerings(unsigned shrine_id);   // a ruined devotion shrine's required items, display names
 
 // ---- objects by id (inventory items, notes, skills come back as ids) ----
 void* object_by_id(unsigned id);   // null when no such object; the lookup is a cached ObjectManager sweep

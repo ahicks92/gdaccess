@@ -231,7 +231,8 @@ struct ConvWindow {
 };
 ConvWindow conv_window();
 std::string conv_elements_dump();  // dev: the vtables/texts of the window's speaker and page elements
-std::string peek(uintptr_t ptr, int n);  // dev: hex dump of n bytes (qwords that point into the exe are annotated)
+std::string peek(uintptr_t ptr, int n);
+bool peek_u32(const void* p, unsigned& out);   // one guarded dword read (a widget field such as the shrine window's object id)  // dev: hex dump of n bytes (qwords that point into the exe are annotated)
 
 // ---- tutorial tips / notifications: the tip manager at [main_obj+0xbe0] (ctor exe+0x1087f0) ----
 // A tip is a heap struct holding its already-localized, line-split text (line 0 is the title); kind 1 =

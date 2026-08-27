@@ -328,6 +328,13 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     return gameapi::dump_hotslots();
   }
   if (path == "/lore") { if (q.count("read")) { std::string out; for (const std::string& l : gameapi::note_text(gameapi::object_by_id((unsigned)parse_int(q.at("read"), 0)))) out += l + "\n"; return out.empty() ? "no text\n" : out; } return gameapi::dump_lore(); }
+  if (path == "/shrine") {   // dev: the open shrine window's shrine object + its offering names
+    exe_ui::WindowB w = exe_ui::ingame_window(exe_ui::ingame::kShrine);
+    unsigned id = 0; if (w) exe_ui::peek_u32((char*)w.p + 0xa4, id);
+    std::string out = std::format("window={} visible={} shrine_id={} restored={}\n", w.p, w ? w.visible() : false, id, world::shrine_restored(id));
+    for (const std::string& s : gameapi::shrine_offerings(id)) out += "  offering: " + s + "\n";
+    return out;
+  }
   if (path == "/vendor") {   // ?id=<market id candidate>: the engine's market map + market_stock(id) (dev)
     std::string v = std::format("market window: visible={} vendor_market_id={}\n", exe_ui::ingame_window(exe_ui::ingame::kMarket).visible(), exe_ui::vendor_market_id(exe_ui::ingame_window(exe_ui::ingame::kMarket)));
     return v + gameapi::vendor_dump(q.count("id") ? (unsigned)parse_int(q.at("id"), 0) : 0u);

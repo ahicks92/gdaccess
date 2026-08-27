@@ -884,6 +884,9 @@ std::string dialog_dump() {
   return out;
 }
 
+bool peek_u32(const void* p, unsigned& out) {
+  __try { out = *(const unsigned*)p; return true; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
 std::string peek(uintptr_t ptr, int n) {
   std::string out;
   if (n > 4096) n = 4096;

@@ -39,9 +39,16 @@ class InventoryScreen : public WindowScreen, public AssignSource {
   }
   std::string focused_label() override { return focused_skill_id() ? std::string(strings::kBasicAttack) : std::string(); }
 
-  void on_tab_changed(int index) override {
-    int nbags = (int)bags_.value.size();
-    if (index >= 1 && index <= nbags) gameapi::select_bag(index - 1);   // the game's window shows the same bag
+  void on_tab_changed(int) override { invalidate(); }   // browsing the tabs must NOT move the game's selected bag (below)
+  // Ctrl+Enter on a bag tab: make it the game's SELECTED bag -- the one pickups fall into once bag 1 has no room
+  // (PlayerInventoryCtrl::AddItem, read 2026-08-26: stacks merge in any bag, then bag 1, then the selected bag,
+  // nothing else). A sighted player does this by leaving the window on that bag's tab; we make it explicit.
+  void set_receiving_bag() {
+    int t = tab(), nbags = (int)bags_.value.size();
+    if (t < 1 || t > nbags) { speech::speak(strings::kNotABag, true); return; }
+    bool ok = gameapi::select_bag(t - 1);
+    MessageBuilder m; m.fragment(std::format("{} {}", strings::kBag, t)).list_item().fragment(ok ? strings::kReceivesPickups : strings::kCannot);
+    speech::speak(m.build(), true);
     invalidate();
   }
   void on_focus() override { invalidate(); WindowScreen::on_focus(); }
@@ -49,7 +56,7 @@ class InventoryScreen : public WindowScreen, public AssignSource {
   void build(GraphBuilder& b) override {
     const std::vector<gameapi::Bag>& bags = bags_.get([] { return gameapi::bags(); }, 30);
     std::vector<std::string> labels{std::string(strings::kEquipment)};
-    for (const gameapi::Bag& bag : bags) labels.push_back(bag.name.empty() ? std::format("{} {}", strings::kBag, bag.index + 1) : bag.name);
+    for (const gameapi::Bag& bag : bags) labels.push_back(bag.name.empty() ? std::format("{} {}", strings::kBag, bag.index + 1) : bag.name);   // labels stay stable: the tab is re-found by label
     labels.push_back(std::string(strings::kStats));
     add_tabs(b, labels);
     int t = tab();
@@ -109,6 +116,7 @@ class InventoryScreen : public WindowScreen, public AssignSource {
     b.add_item(ControlId::structural("inventory.money"), line_item(m.build()));
   }
   void build_bag(GraphBuilder& b, const gameapi::Bag& bag) {
+    if (bags_.value.size() > 1 && gameapi::selected_bag() == bag.index) b.add_item(ControlId::structural(std::format("inventory.bag{}.receives", bag.index)), line_item(std::string(strings::kReceivesPickups)));
     if (bag.items.empty()) { b.add_item(ControlId::structural(std::format("inventory.bag{}.empty", bag.index)), line_item(std::string(strings::kEmpty))); return; }
     for (const gameapi::BagItem& it : bag.items) {
       MessageBuilder m; strings::push_stack(m, it.name.empty() ? std::format("item {}", it.id) : it.name, it.stack);
@@ -155,5 +163,9 @@ class InventoryScreen : public WindowScreen, public AssignSource {
   Snapshot<std::vector<gameapi::Stat>> sheet_;
 };
 
+void set_receiving_bag_focused() {
+  InventoryScreen* s = dynamic_cast<InventoryScreen*>(app::screens().current());
+  if (s) s->set_receiving_bag();   // a Windows-category chord (Ctrl+Enter): silent in the other windows
+}
 std::unique_ptr<Screen> make_inventory() { return std::make_unique<InventoryScreen>(); }
 }  // namespace gd::screens
