@@ -250,6 +250,12 @@ inline constexpr const char* Character_GetStaticClassInfo = "?GetStaticClassInfo
 // public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::Monster::GetStaticClassInfo(void)
 inline constexpr const char* Monster_GetStaticClassInfo_DLL = "Game.dll";
 inline constexpr const char* Monster_GetStaticClassInfo = "?GetStaticClassInfo@Monster@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
+// public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::ItemEquipment::GetStaticClassInfo(void)
+inline constexpr const char* ItemEquipment_GetStaticClassInfo_DLL = "Game.dll";
+inline constexpr const char* ItemEquipment_GetStaticClassInfo = "?GetStaticClassInfo@ItemEquipment@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
+// public: bool __cdecl GAME::ItemEquipment::HasRelic(void)const __ptr64
+inline constexpr const char* ItemEquipment_HasRelic_DLL = "Game.dll";
+inline constexpr const char* ItemEquipment_HasRelic = "?HasRelic@ItemEquipment@GAME@@QEBA_NXZ";
 // public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::Npc::GetStaticClassInfo(void)
 inline constexpr const char* Npc_GetStaticClassInfo_DLL = "Game.dll";
 inline constexpr const char* Npc_GetStaticClassInfo = "?GetStaticClassInfo@Npc@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";

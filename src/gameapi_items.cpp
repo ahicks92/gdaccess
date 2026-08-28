@@ -72,6 +72,8 @@ struct Api {
   unsigned (*Item_GetStackSize)(const void*) = nullptr;
   bool (*Item_AreRequirementsMet)(const void*, const void*) = nullptr;
   MsvcStringW* (*Item_GetGameDescription)(const void*, MsvcStringW*, bool, bool) = nullptr;
+  const void* (*ItemEquipment_GetStaticClassInfo)() = nullptr;
+  bool (*ItemEquipment_HasRelic)(const void*) = nullptr;   // a raw field read (+0x1558): only after the is-a check
   void** Item_vftable = nullptr;
   void** Item_vftable_plain = nullptr;
   bool loaded = false;
@@ -142,6 +144,8 @@ void load_items() {
   GAPI_LOAD(g, Item_GetStackSize, Item_GetStackSize);
   GAPI_LOAD(g, Item_AreRequirementsMet, Item_AreRequirementsMet);
   GAPI_LOAD(g, Item_GetGameDescription, Item_GetGameDescription);
+  GAPI_LOAD(g, ItemEquipment_GetStaticClassInfo, ItemEquipment_GetStaticClassInfo);
+  GAPI_LOAD(g, ItemEquipment_HasRelic, ItemEquipment_HasRelic);
   GAPI_LOAD(g, Item_vftable, Item_vftable);
   GAPI_LOAD(g, Item_vftable_plain, Item_vftable_plain);
   g_s_ui = slot_in((const void*)g.Item_GetUIDisplayText);
@@ -164,6 +168,18 @@ std::string item_name(const void* item) {
   if (!f) return out;
   guarded("Item::GetGameDescription", [&] { MsvcStringW s; init_u16(s); f(item, &s, false, false); out = take_u16(s); });
   return out;
+}
+// The bag tile's component badge (ItemEquipment::GetUIBitmapOverlay draws the relic's overlay): a component is
+// attached. The name builder never says so, hence this flag on the rows (docs/re_item_components_compare.md).
+bool has_component(const void* item) {
+  load_items();
+  if (!item || !g.ItemEquipment_HasRelic || !g.ItemEquipment_GetStaticClassInfo) return false;
+  bool yes = false;
+  guarded("HasRelic", [&] {
+    const void* ci = g.ItemEquipment_GetStaticClassInfo();
+    if (world::object_is_a(item, ci)) yes = g.ItemEquipment_HasRelic(item);
+  });
+  return yes;
 }
 unsigned item_stack(const void* item) {
   load_items();
@@ -220,6 +236,8 @@ std::vector<Bag> bags() {
         it.p = object_by_id(it.id);
         it.name = item_name(it.p);
         it.stack = item_stack(it.p);
+      it.component = has_component(it.p);
+        it.component = has_component(it.p);
         b.items.push_back(std::move(it));
       }
       std::stable_sort(b.items.begin(), b.items.end(), [](const BagItem& a, const BagItem& c) { return a.y != c.y ? a.y < c.y : a.x < c.x; });
@@ -248,6 +266,7 @@ std::vector<EquipSlot> equipment() {
       s.item_id = g.Equip_GetItemId(ec, loc);
       s.item = s.item_id ? object_by_id(s.item_id) : nullptr;
       s.name = item_name(s.item);
+      s.component = has_component(s.item);
       out.push_back(std::move(s));
     }
   });
@@ -411,6 +430,7 @@ Bag read_sack(const void* sack, int index) {
       it.p = object_by_id(it.id);
       it.name = item_name(it.p);
       it.stack = item_stack(it.p);
+      it.component = has_component(it.p);
       b.items.push_back(std::move(it));
     }
     std::stable_sort(b.items.begin(), b.items.end(), [](const BagItem& a, const BagItem& c) { return a.y != c.y ? a.y < c.y : a.x < c.x; });
@@ -611,13 +631,13 @@ std::string dump_bags() {
   std::string out = std::format("selected bag {} money {}\n", selected_bag(), money());
   for (const Bag& b : bags()) {
     out += std::format("bag {} '{}' {}x{} items={}{}\n", b.index, b.name, b.width, b.height, b.items.size(), b.debug);
-    for (const BagItem& it : b.items) out += std::format("  id={} {} at ({:.0f},{:.0f}) {:.0f}x{:.0f} stack={} '{}' record={}\n", it.id, it.p, it.x, it.y, it.w, it.h, it.stack, it.name, object_record(it.p));
+    for (const BagItem& it : b.items) out += std::format("  id={} {} at ({:.0f},{:.0f}) {:.0f}x{:.0f} stack={} component={} '{}' record={}\n", it.id, it.p, it.x, it.y, it.w, it.h, it.stack, it.component, it.name, object_record(it.p));
   }
   return out;
 }
 std::string dump_equipment() {
   std::string out = std::format("alternate={}\n", alternate_weapons());
-  for (const EquipSlot& s : equipment()) out += std::format("  loc {:2} '{}': id={} {} '{}'\n", s.loc, s.label, s.item_id, s.item, s.name);
+  for (const EquipSlot& s : equipment()) out += std::format("  loc {:2} '{}': id={} {} component={} '{}'\n", s.loc, s.label, s.item_id, s.item, s.component, s.name);
   return out;
 }
 }  // namespace gd::gameapi

@@ -97,6 +97,8 @@ ENTRIES = [
     ("Entity_GetStaticClassInfo", "Engine", r"GAME::Entity::GetStaticClassInfo\(void\)"),
     ("Character_GetStaticClassInfo", "Game", r"GAME::Character::GetStaticClassInfo\(void\)"),
     ("Monster_GetStaticClassInfo", "Game", r"GAME::Monster::GetStaticClassInfo\(void\)"),
+    ("ItemEquipment_GetStaticClassInfo", "Game", r"GAME::ItemEquipment::GetStaticClassInfo\(void\)"),
+    ("ItemEquipment_HasRelic", "Game", r"GAME::ItemEquipment::HasRelic\(void\)"),   # a component is attached (docs/re_item_components_compare.md)
     ("Npc_GetStaticClassInfo", "Game", r"GAME::Npc::GetStaticClassInfo\(void\)"),
     ("ItemNote_GetStaticClassInfo", "Game", r"GAME::ItemNote::GetStaticClassInfo\(void\)"),
     ("Player_GetStaticClassInfo", "Game", r"GAME::Player::GetStaticClassInfo\(void\)"),

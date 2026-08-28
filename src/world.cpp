@@ -495,6 +495,8 @@ bool read_entity(void* e, EntityRaw& r) {
 }
 }  // namespace
 const void* object_rtti(const void* obj) { return rtti_of(obj); }
+namespace { bool is_kind_of(const void* ci, const void* base); }
+bool object_is_a(const void* obj, const void* class_info) { return obj && class_info && is_kind_of(rtti_of(obj), class_info); }
 
 bool install() {
   load_api();

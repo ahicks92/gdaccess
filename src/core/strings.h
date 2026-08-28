@@ -180,6 +180,7 @@ inline constexpr std::string_view kEquipment = "equipment";
 inline constexpr std::string_view kBag = "bag";
 inline constexpr std::string_view kStats = "stats";
 inline constexpr std::string_view kEmptySlot = "empty";
+inline constexpr std::string_view kWithComponent = "with component";   // the bag tile's component badge, on the row label
 inline constexpr std::string_view kIronBits = "iron bits";
 inline constexpr std::string_view kSkills = "skills";
 inline constexpr std::string_view kSkillPointsLeft = "skill points";
