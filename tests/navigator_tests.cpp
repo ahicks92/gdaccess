@@ -145,3 +145,45 @@ TEST_CASE("on_focus fires on a user landing, once per change of node, not on an 
   nav.on_action(ui_actions::End);    // a -> c
   CHECK(screen.fired == 2);
 }
+
+namespace {
+// A tab strip stop, then a page stop holding a plain line and two top-level tree groups (the skills window's
+// Constellations tab). Home/End on a group must stay inside the page stop: the groups and the tab nodes share a
+// null parent, and the sibling walk once ran into the tab strip (2026-08-27).
+struct TabbedTreeScreen : Screen {
+  std::string_view key() const override { return "tabbed"; }
+  bool is_active() override { return true; }
+  std::string screen_name() const override { return "tabbed"; }
+  void build(GraphBuilder& b) override {
+    b.begin_stop("tabs");
+    b.start_row("tabs");
+    b.add_item(id("t1"), vt("t1"));
+    b.add_item(id("t2"), vt("t2"));
+    b.end_row();
+    b.begin_stop("page");
+    b.add_item(id("hdr"), vt("hdr"));
+    b.begin_group(id("g1"), vt("g1"));
+    b.add_item(id("g1.s1"), vt("g1s1"));
+    b.end_group();
+    b.begin_group(id("g2"), vt("g2"));
+    b.add_item(id("g2.s1"), vt("g2s1"));
+    b.end_group();
+  }
+};
+}  // namespace
+
+TEST_CASE("Home/End on a top-level tree group stay within the page stop, never the tab strip") {
+  std::vector<std::string> spoken;
+  int frame = 0;
+  TabbedTreeScreen screen;
+  GraphNavigator nav{NavigatorHost{[&](std::string_view t, bool) { spoken.emplace_back(t); }, {}, [] { return true; }, [&] { return frame; }}};
+  nav.attach(&screen); nav.ensure_focus();
+  auto act = [&](std::string_view k) { spoken.clear(); nav.on_action(k); return spoken.empty() ? std::string() : spoken.back(); };
+  CHECK(act(ui_actions::Next).find("hdr") != std::string::npos);   // into the page stop
+  CHECK(act(ui_actions::Down).find("g1") != std::string::npos);
+  CHECK(act(ui_actions::Down).find("g2") != std::string::npos);
+  std::string home = act(ui_actions::Home);
+  CHECK(home.find("hdr") != std::string::npos);
+  CHECK(home.find("t1") == std::string::npos);
+  CHECK(act(ui_actions::End).find("g2") != std::string::npos);
+}

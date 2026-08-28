@@ -494,6 +494,7 @@ bool read_entity(void* e, EntityRaw& r) {
   }
 }
 }  // namespace
+const void* object_rtti(const void* obj) { return rtti_of(obj); }
 
 bool install() {
   load_api();

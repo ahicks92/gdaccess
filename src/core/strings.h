@@ -257,6 +257,38 @@ inline constexpr std::string_view kEach = "each";
 inline constexpr std::string_view kReclaimed = "reclaimed";
 inline constexpr std::string_view kNotEnoughBits = "not enough iron bits";
 inline constexpr std::string_view kNothingToReclaim = "nothing to reclaim";
+inline constexpr std::string_view kUndoPoints = "undo points";   // the skills window's own button: revert the points spent since it opened
+// Devotion (the skills window's Constellations / Celestial Powers tabs; docs/devotion.md)
+inline constexpr std::string_view kConstellations = "constellations";
+inline constexpr std::string_view kCelestialPowers = "celestial powers";
+inline constexpr std::string_view kCelestialPower = "celestial power";
+inline constexpr std::string_view kAffinities = "affinities";
+inline constexpr std::string_view kNoAffinity = "no affinity";
+inline constexpr std::string_view kAvailable = "available";
+inline constexpr std::string_view kStar = "star";                  // "star 3" -- stars have no names of their own
+inline constexpr std::string_view kNeedsStar = "needs star";       // "needs star 2": the linked star is not learned yet
+inline constexpr std::string_view kNeeds = "needs";                // "needs Chaos 4": the constellation's affinity requirement
+inline constexpr std::string_view kGives = "gives";                // "gives Chaos 3, Eldritch 2": the completion bonus
+inline constexpr std::string_view kLearned = "learned";
+inline constexpr std::string_view kComplete = "complete";
+inline constexpr std::string_view kConstellationComplete = "constellation complete";
+inline constexpr std::string_view kAttachedTo = "attached to";     // a celestial power's host skill
+inline constexpr std::string_view kNotAttached = "not attached";
+inline constexpr std::string_view kHas = "has";                    // "<skill>, has <power>" in the host picker
+inline constexpr std::string_view kFrom = "from";                  // "from Bat": a power's constellation
+inline constexpr std::string_view kAssign = "assign";              // the host picker's title: "assign Twin Fangs to"
+inline constexpr std::string_view kTo = "to";
+inline constexpr std::string_view kHave = "have";                  // "requires Eldritch 1, have 4"
+inline constexpr std::string_view kNone = "none";
+inline constexpr std::string_view kReplaced = "replaced";
+inline constexpr std::string_view kNoCelestialPowers = "no celestial powers learned";
+inline constexpr std::string_view kNeededByStar = "needed by star";      // "needed by star 3": a learned star hangs off this one
+inline constexpr std::string_view kWouldLock = "would lock";             // "would lock Raven": losing the bonus drops that constellation below its requirement
+inline constexpr std::string_view kAetherCrystals = "aether crystals";
+inline constexpr std::string_view kNotEnoughAether = "not enough aether crystals";
+inline constexpr std::string_view kReclaimDevotionHint = "Backspace to reclaim a devotion point";
+inline constexpr std::string_view kAnd = "and";
+inline constexpr std::string_view kLost = "lost";                       // "constellation complete lost": the bonus went with the star
 // "Waking to Misery: Enter the Cave under Burial Hill" -- one open objective of a tracked quest
 gd::core::MessageBuilder& push_quest_objective(gd::core::MessageBuilder& m, std::string_view quest, std::string_view objective);
 // "enter 1 to 12" -- a count prompt refusing an out-of-range value

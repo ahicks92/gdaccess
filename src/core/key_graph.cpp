@@ -485,6 +485,9 @@ MoveResult KeyGraph::move_to_sibling_edge(bool first) {
   GraphNode* target = nullptr;
   for (GraphNode* n : current_->order()) {
     if (n->parent != node->parent) continue;
+    // Same Tab-stop only: a top-level group and the tab strip share a null parent, and Home from a
+    // constellation header used to land on the first tab (2026-08-27).
+    if (n->stop_key != node->stop_key) continue;
     if (first) {
       target = n;
       break;

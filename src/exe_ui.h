@@ -207,6 +207,35 @@ int skills_tab();
 // True while the skills window is in spirit-guide reclaim mode (SkillsWindow +0x1e1c): clicks reclaim instead of
 // learn. Refunding a skill point is only allowed then.
 bool skills_reclaim_mode();
+// The mastery pane's "Undo Points" button (reverts the skill points spent since the window opened): whether the
+// game shows it enabled, and pressing it through the pane's own registry.
+bool skills_undo_points_enabled();
+bool skills_undo_points();
+// Press a skill's icon on the current mastery pane (the game's own learn / reclaim click, which also records the
+// pending delta Undo Points reverts). False when the tab shows no mastery pane or the skill is not on it.
+bool skills_press_skill(unsigned skill_id);
+std::string skills_pane_dump();   // dev: the pane's icon entries (control, delta, skill id)
+
+// ---- the devotion window's constellation graph (docs/re_devotion_exe.md; built by the exe at load, valid whether
+// or not the window was ever shown). Read-only except set_star_host, which mirrors a celestial-power binding into
+// the exe's Star so its own picker / validation agree with what the mod bound through the exports.
+struct DevotionStarB {
+  void* p = nullptr;
+  unsigned index = 0;           // 1-based position in the constellation (what devotionLinks refer to)
+  unsigned skill_id = 0;        // the star's Skill object id
+  unsigned host_id = 0;         // the skill this star's celestial power is bound to (0 = none)
+  std::vector<int> links;       // 1-based indices of the stars this one hangs off (empty = the root)
+};
+struct DevotionConstellationB {
+  void* p = nullptr;
+  std::string name_tag, info_tag;                        // constellationDisplayTag / constellationInfoTag
+  std::vector<std::pair<int, unsigned>> required, given;  // {AffinityType 0..4, amount}
+  std::vector<DevotionStarB> stars;
+};
+std::vector<DevotionConstellationB> devotion_constellations();   // empty when the window / layout is unavailable
+bool devotion_set_star_host(void* star, unsigned host_id);        // Star+0x10c
+// AffinityType (read off the exe's record parser): 0 Ascendant, 1 Chaos, 2 Eldritch, 3 Order, 4 Primordial.
+constexpr int kAffinityCount = 5;
 
 // The NPC conversation window (allocated on demand, pointer at InGameUI+0x8efd0; ctor exe+0x16e9a0): the
 // speaker and speech text, and the response rows, each carrying its display text and the step it selects

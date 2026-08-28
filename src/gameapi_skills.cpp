@@ -251,6 +251,7 @@ unsigned modifier_base_id(const void* skill) {
   }
   return base;
 }
+unsigned skill_level(const void* skill) { load_skills(); unsigned n = 0; if (skill && g.Skill_GetSkillLevel) guarded("GetSkillLevel", [&] { n = g.Skill_GetSkillLevel(skill); }); return n; }
 unsigned skill_points() { load_skills(); void* p = player(); unsigned n = 0; if (p && g.GetSkillPoints) guarded("GetSkillPoints", [&] { n = g.GetSkillPoints(p); }); return n; }
 unsigned experience() { load_skills(); void* p = player(); unsigned n = 0; if (p && g.GetExperiencePoints) guarded("GetExperiencePoints", [&] { n = g.GetExperiencePoints(p); }); return n; }
 // The character's current default skill for a role (0 = left mouse basic attack, 1 = right mouse), via the
@@ -469,6 +470,7 @@ std::vector<Stat> character_sheet() {
     if (g.GetModifierPoints) out.push_back({std::string(strings::kAttributePoints), num(g.GetModifierPoints(p))});
     out.push_back({std::string(strings::kSkillPoints), num(g.GetSkillPoints ? g.GetSkillPoints(p) : 0)});
     if (g.GetDevotionPoints) out.push_back({std::string(strings::kDevotionPoints), num(g.GetDevotionPoints(p))});
+    out.push_back({std::string(strings::kAffinities), affinities_text()});   // one row: "Ascendant 3, Chaos 1" (docs/devotion.md)
     if (g.GetTotalCharAttribute) {
       if (g.GetCurrentLifeInt) out.push_back({localize("tagCharAttributeName04"), std::format("{} of {}", g.GetCurrentLifeInt(p), (int)g.GetTotalCharAttribute(p, 4)), 0, localize("tagCharAttributeDescription04")});
       if (g.GetCurrentMana) out.push_back({localize("tagCharAttributeName05"), std::format("{:.0f} of {:.0f}", g.GetCurrentMana(p), g.GetTotalCharAttribute(p, 5)), 0, localize("tagCharAttributeDescription05")});

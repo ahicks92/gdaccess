@@ -124,6 +124,7 @@ struct SkillInfo {
 };
 std::vector<SkillInfo> skills();                 // the UI skill list, in the game's order
 unsigned skill_points();
+unsigned skill_level(const void* skill);          // Skill::GetSkillLevel, live
 unsigned experience();   // Character::GetExperiencePoints on the main player (current level's XP; resets on level-up)
 unsigned default_skill_id(int role);             // SkillManager::GetDefaultSkillId (0 = left mouse basic attack, 1 = right); live, never cache
 std::vector<unsigned> item_skill_ids();          // skills granted by equipped items (SkillManager::GetItemSkillList)
@@ -146,6 +147,58 @@ struct MasteryChoice { int enumeration; std::string name, description; };
 std::vector<MasteryChoice> mastery_choices();
 // The mastery skill (the "class training" skill) of a mastery enumeration, or null.
 const SkillInfo* mastery_skill(const std::vector<SkillInfo>& list, int enumeration);
+
+// ---- devotion (gameapi_devotion.cpp; docs/devotion.md). Structure from the exe's constellation graph
+// (exe_ui::devotion_constellations), state and actions through Game.dll exports. ----
+struct Affinity { int type; std::string name; unsigned value; };   // type = AffinityType 0..4, name localized
+std::vector<Affinity> affinities();                                 // the five in enum order
+std::string affinity_name(int type);                                // tagDevotionAffinity01..05
+unsigned devotion_points();                                         // available (unspent)
+std::string affinities_text();                                      // "Ascendant 3, Chaos 1" (nonzero ones) or "no affinity"
+unsigned devotion_points_total();
+unsigned devotion_points_max();
+struct DevotionStar {
+  void* star = nullptr;        // the exe's Star (re-resolved on use)
+  void* skill = nullptr;       // the star's Skill object
+  unsigned index = 0;          // 1-based position in the constellation
+  unsigned skill_id = 0, host_id = 0;   // host = the skill a learned celestial power is bound to (0 = none)
+  std::string name;            // a celestial power's own name; empty for a plain star ("star N" is the screen's label)
+  std::string host_name;
+  bool power = false, learned = false;
+  unsigned dev_level = 0, dev_max = 0, experience = 0, next_experience = 0;   // a power's level/XP (dev_max 0 for a plain star)
+  std::vector<int> links;      // 1-based indices of the stars this one hangs off (empty = the root)
+};
+struct DevotionConstellation {
+  void* p = nullptr;
+  std::string name, description;
+  std::vector<std::pair<int, unsigned>> required, given;   // {AffinityType, amount}
+  std::vector<DevotionStar> stars;
+  unsigned learned = 0;
+  bool complete = false, affinity_met = false;
+};
+std::vector<DevotionConstellation> constellations();
+std::vector<unsigned> star_order(const DevotionConstellation& c);   // 1-based indices, breadth-first from the root
+// "" = the star can take a point now; else the reason ("needs star 2", "needs Chaos 4", "no points", "learned").
+std::string can_take_star(const DevotionConstellation& c, const DevotionStar& s);
+// The window's own click: IncrementSkillLevel(1) + SubtractDevotionPoint (+ IncrementDevotionLevel), and the
+// constellation's affinity bonus when this completes it. `completed` reports that. Re-resolves the live graph by skill id.
+bool take_star(unsigned skill_id, bool& completed);
+std::vector<std::string> star_tooltip(unsigned skill_id);           // GameEngine::GenerateUIDevotionText as the window passes it
+std::vector<std::string> constellation_tooltip(const DevotionConstellation& c);
+// Celestial powers: the skills a power may be bound to (the game's picker filter, learned only), and the binding.
+std::vector<SkillInfo> power_host_candidates(unsigned power_skill_id);
+bool bind_power(unsigned power_skill_id, unsigned host_skill_id, std::string* replaced_power = nullptr);   // host 0 = unbind
+// Reclaiming a devotion point (only in a spirit guide's reclaim mode, exe_ui::skills_reclaim_mode): the game's
+// gates -- a learned star hanging off it, the affinity self-lock, iron bits + aether crystals -- as a spoken
+// reason ("" = allowed), and the star map's own reclaim sequence.
+std::string can_reclaim_star(const DevotionConstellation& c, const DevotionStar& s, const std::vector<DevotionConstellation>& all);
+bool reclaim_star(unsigned skill_id, bool& uncompleted);
+unsigned devotion_reclaim_cost();          // iron bits for the next reclaim (SkillManager::GetCurrentDevotionReclamationCost)
+unsigned devotion_reclaim_aether_cost();   // aether crystals per reclaim
+unsigned aether();                         // Player::GetCurrentAether
+bool dev_add_aether(unsigned n);           // dev only
+std::string dump_devotion();
+bool dev_add_devotion(unsigned n);   // dev only: AddDevotionPoints + AddTotalDevotionPoints (what a shrine grant does, minus the clamp)
 
 // ---- the character sheet ----
 struct Stat { std::string label, value; int spend = 0; std::string desc; };   // spend 1..3 = the row takes an attribute point (Physique / Cunning / Spirit); desc = the game's tooltip (Space)

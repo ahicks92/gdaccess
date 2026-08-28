@@ -4,24 +4,32 @@
 #include "app.h"
 #include "core/navigator.h"
 #include "gameapi.h"
+#include "screens/list_picker.h"
 #include "screens/window_base.h"
 
 namespace gd::screens {
 using namespace gd::core;
 
-// The skill window (N). Tabs = the character's mastery slots (one per allowed mastery): a slot without a class
-// shows the class-selection list (six masteries; Space reads the description, Enter puts that class's tree on
-// the game's tab -- undoable until the mastery takes its first point); a slot with a class shows the skill-points
-// line, the mastery bar, then the class's skills in tier order. Enter spends a point (refused with the game's
-// reason when requirements -- mastery rank, a modifier's base skill -- aren't met), Space reads the game's skill
-// text. Refunding is only possible AT A SPIRIT GUIDE (the game opens this window in reclaim mode,
+// The skill window (N). Tabs = the character's mastery slots (one per allowed mastery), then Constellations and,
+// once a celestial power is learned, Celestial Powers (docs/devotion.md). A slot without a class shows the
+// class-selection list (six masteries; Space reads the description, Enter puts that class's tree on the game's
+// tab -- undoable until the mastery takes its first point); a slot with a class shows the skill-points line, the
+// mastery bar, then the class's skills in tier order. Enter spends a point (refused with the game's reason when
+// requirements -- mastery rank, a modifier's base skill -- aren't met), Space reads the game's skill text.
+// Refunding is only possible AT A SPIRIT GUIDE (the game opens this window in reclaim mode,
 // exe_ui::skills_reclaim_mode): then a hint row appears at the top of the list, each skill shows its iron-bit
 // reclaim cost, and Backspace reclaims one point. Ctrl+1..0 / Ctrl+J / Ctrl+I assign the focused skill to the quickbar.
+// Constellations: the points and affinity lines, then one tree group per constellation ("Bat, 2 of 5, celestial
+// power Twin Fangs, gives Chaos 3, Eldritch 2"; Space = the constellation's description and requirements) holding
+// its stars breadth-first from the root ("star 3, needs star 2"; Enter spends a devotion point, Space = the game's
+// star tooltip). A learned celestial power's Enter opens the host picker. Celestial Powers: every learned power
+// ("Twin Fangs, level 2 of 20, attached to Cadence, from Bat"), Enter = the host picker, Space = the tooltip.
 class SkillsScreen : public WindowScreen, public AssignSource {
  public:
   SkillsScreen() : WindowScreen("skills", std::string(strings::kSkills), exe_ui::ingame::kSkills, 12) {}
   void on_focus() override { refresh(); WindowScreen::on_focus(); }
   void on_tab_changed(int) override { refresh(); }
+  bool wrap() const override { return false; }
 
   void build(GraphBuilder& b) override {
     const std::vector<gameapi::SkillInfo>& list = skills_.get([] { return gameapi::skills(); }, 30);
@@ -36,8 +44,17 @@ class SkillsScreen : public WindowScreen, public AssignSource {
       std::string name = e >= 0 ? mastery_name(e) : std::string(strings::kSelectClass);
       labels.push_back(name.empty() ? std::string(strings::kSelectClass) : name);
     }
+    const std::vector<gameapi::DevotionConstellation>& cons = constellations_.get([] { return gameapi::constellations(); }, 30);
+    labels.push_back(std::string(strings::kConstellations));
+    bool any_power = false;
+    for (const gameapi::DevotionConstellation& c : cons) for (const gameapi::DevotionStar& s : c.stars) if (s.power && s.learned) any_power = true;
+    if (any_power) labels.push_back(std::string(strings::kCelestialPowers));
     add_tabs(b, labels);
     int t = tab();
+    if (t >= slots) {
+      if (t == slots) build_constellations(b, cons); else build_powers(b, cons);
+      return;
+    }
     bool committed = t < (int)have.size();
     int e = committed ? (int)have[(size_t)t] : chosen_[t];
     if (e < 0) { build_select(b, t); return; }
@@ -59,7 +76,7 @@ class SkillsScreen : public WindowScreen, public AssignSource {
   }
 
  private:
-  void refresh() { skills_.invalidate(); choices_.invalidate(); }
+  void refresh() { skills_.invalidate(); choices_.invalidate(); constellations_.invalidate(); }
   std::string mastery_name(int e) { for (const gameapi::MasteryChoice& c : choices_.get([] { return gameapi::mastery_choices(); }, 600)) if (c.enumeration == e) return c.name; return {}; }
 
   void build_select(GraphBuilder& b, int t) {
@@ -93,6 +110,12 @@ class SkillsScreen : public WindowScreen, public AssignSource {
       auto undo = [this, t] { if (exe_ui::skills_set_pane(t, exe_ui::kSkillsClassSelectPane)) { chosen_[t] = -1; refresh(); } };
       b.add_item(ControlId::structural("skills.undo"), row_item(std::string(strings::kUndoClassSelection), {}, undo));
     }
+    // The window's own Undo Points button: reverts every skill point spent since the window opened (the game
+    // keeps that per-button; we press its button rather than replay it). Present while the button is enabled.
+    if (exe_ui::skills_undo_points_enabled()) {
+      auto undo_points = [this] { speech::speak(exe_ui::skills_undo_points() ? std::string(strings::kUndoPoints) : std::string(strings::kCannot), true); refresh(); };
+      b.add_item(ControlId::structural("skills.undopoints"), row_item(std::string(strings::kUndoPoints), {}, undo_points));
+    }
     unsigned mid = mastery ? mastery->id : 0;
     std::vector<const gameapi::SkillInfo*> tree;
     for (const gameapi::SkillInfo& s : list) if (!s.is_mastery && mid && s.mastery_id == mid) tree.push_back(&s);
@@ -119,11 +142,17 @@ class SkillsScreen : public WindowScreen, public AssignSource {
     };
     void* p = s.p; unsigned id = s.id;
     // Enter learns, gated by the game's requirements (mastery rank, modifier base, points); the reason is spoken.
+    // Spending goes through the pane's OWN icon click when the pane shows the skill (exe_ui::skills_press_skill):
+    // the game gates, spends and records the pending delta its Undo Points button reverts. The direct call is
+    // the fallback (no pane -- e.g. a mastery slot the game has no pane for yet).
     auto learn = [this, p, id] {
       void* q = gameapi::object_by_id(id); if (!q) q = p;
       std::string why = gameapi::can_learn_skill(q);
       if (!why.empty()) { speech::speak(why, true); return; }
-      speech::speak(gameapi::learn_skill(q) ? std::string(strings::kPointSpent) : std::string(strings::kCannot), true);
+      unsigned before = gameapi::skill_level(q);
+      bool ok = exe_ui::skills_press_skill(id) && gameapi::skill_level(q) > before;
+      if (!ok) ok = gameapi::learn_skill(q);
+      speech::speak(ok ? std::string(strings::kPointSpent) : std::string(strings::kCannot), true);
       refresh();
     };
     // Backspace reclaims a point -- ONLY at a spirit guide (reclaim mode); wired only then, so it does nothing otherwise.
@@ -132,7 +161,8 @@ class SkillsScreen : public WindowScreen, public AssignSource {
       void* q = gameapi::object_by_id(id); if (!q) q = p;
       std::string why = gameapi::can_reclaim_skill(q);   // mastery last point / not enough iron bits / nothing to reclaim
       if (!why.empty()) { speech::speak(why, true); return; }
-      if (gameapi::refund_skill(q)) { speech::speak(strings::kReclaimed, true); refresh(); return; }
+      unsigned before = gameapi::skill_level(q);   // the pane's click reclaims in reclaim mode (and records the undo delta)
+      if ((exe_ui::skills_press_skill(id) && gameapi::skill_level(q) < before) || gameapi::refund_skill(q)) { speech::speak(strings::kReclaimed, true); refresh(); return; }
       // The only remaining refusal is a base skill's final point with modifiers still on it.
       std::string base = gameapi::localize("tagReclaimBase");
       speech::speak(base.empty() ? std::string(strings::kCannot) : base, true);
@@ -143,8 +173,178 @@ class SkillsScreen : public WindowScreen, public AssignSource {
     b.add_item(ControlId::structural(std::format("skills.s{}", s.id)), v);
   }
 
+  // ---- devotion ----
+  // "2 available, 5 of 50" and the affinity line, both live.
+  void add_devotion_header(GraphBuilder& b) {
+    MessageBuilder m;
+    m.fragment(strings::kDevotionPoints).list_item().fragment(std::format("{}", gameapi::devotion_points())).fragment(strings::kAvailable);
+    m.list_item().fragment(std::format("{} of {}", gameapi::devotion_points_total(), gameapi::devotion_points_max()));
+    b.add_item(ControlId::structural("skills.devpoints"), line_item(m.build()));
+    MessageBuilder a; a.fragment(strings::kAffinities).list_item().fragment(gameapi::affinities_text());
+    b.add_item(ControlId::structural("skills.affinities"), line_item(a.build()));
+  }
+  // Ordering a blind player can use without the picture: constellations with points in them first, then the
+  // ones open to take, then complete ones, then those still locked behind an affinity; game order within each.
+  static int state_rank(const gameapi::DevotionConstellation& c) {
+    if (c.complete) return 2;
+    if (c.learned) return 0;
+    return c.affinity_met ? 1 : 3;
+  }
+  static std::string constellation_value(const gameapi::DevotionConstellation& c) {
+    MessageBuilder m;
+    m.list_item();
+    if (c.complete) m.fragment(strings::kComplete);
+    else if (c.learned) m.fragment(std::format("{} of {}", c.learned, c.stars.size()));
+    else if (c.affinity_met) m.fragment(strings::kAvailable);
+    else {
+      MessageBuilder r;
+      for (const auto& [type, amount] : c.required) r.list_item().fragment(gameapi::affinity_name(type)).fragment(std::format("{}", amount));
+      m.fragment(strings::kNeeds).fragment(r.build());
+    }
+    for (const gameapi::DevotionStar& s : c.stars) if (s.power && !s.name.empty()) m.list_item().fragment(strings::kCelestialPower).fragment(s.name);
+    if (!c.given.empty()) {
+      MessageBuilder g;
+      for (const auto& [type, amount] : c.given) g.list_item().fragment(gameapi::affinity_name(type)).fragment(std::format("{}", amount));
+      m.list_item().fragment(strings::kGives).fragment(g.build());
+    }
+    return m.build();
+  }
+  static std::string star_label(const gameapi::DevotionStar& s) { return s.power && !s.name.empty() ? s.name : std::format("{} {}", strings::kStar, s.index); }
+  static std::string star_value(const gameapi::DevotionConstellation& c, const gameapi::DevotionStar& s, bool reclaim, unsigned cost) {
+    MessageBuilder m;
+    m.list_item();
+    if (s.learned) {
+      if (s.power) {
+        m.fragment(strings::kCelestialPower);
+        strings::push_skill_level(m, s.dev_level, s.dev_max);
+        if (!s.host_name.empty()) m.list_item().fragment(strings::kAttachedTo).fragment(s.host_name); else m.list_item().fragment(strings::kNotAttached);
+      } else m.fragment(strings::kLearned);
+      if (reclaim) m.list_item().fragment(std::format("{}", cost)).fragment(strings::kIronBits).fragment(strings::kToReclaim);
+      return m.build();
+    }
+    if (s.power) m.fragment(strings::kCelestialPower).list_item();
+    std::string why = gameapi::can_take_star(c, s);
+    m.fragment(why.empty() || why == strings::kNoPoints ? std::string(strings::kAvailable) : why);   // "no points" is spoken on Enter, not on every row
+    return m.build();
+  }
+  void open_host_picker(const gameapi::DevotionStar& s) {
+    unsigned power = s.skill_id;
+    std::vector<PickerItem> items;
+    items.push_back({0, std::string(strings::kNone), {}});
+    for (const gameapi::SkillInfo& k : gameapi::power_host_candidates(power)) {
+      std::string has;
+      for (const gameapi::DevotionConstellation& c : constellations_.value) for (const gameapi::DevotionStar& o : c.stars)
+        if (o.power && o.learned && o.host_id == k.id && o.skill_id != power && !o.name.empty()) { MessageBuilder m; m.fragment(strings::kHas).fragment(o.name); has = m.build(); }
+      items.push_back({k.id, k.name, has});
+    }
+    std::string t = std::format("{} {} {}", strings::kAssign, s.name, strings::kTo);   // "assign Twin Fangs to"
+    auto pick = [this, power](unsigned host) {
+      std::string replaced;
+      bool ok = gameapi::bind_power(power, host, &replaced);
+      MessageBuilder m;
+      if (!ok) m.fragment(strings::kCannot);
+      else if (!host) m.fragment(strings::kCleared);
+      else { m.fragment(strings::kAssigned); if (!replaced.empty()) m.list_item().fragment(strings::kReplaced).fragment(replaced); }
+      speech::speak(m.build(), true);
+      refresh();
+    };
+    open_picker(t, std::move(items), pick, [](unsigned id, bool) { if (void* k = gameapi::object_by_id(id)) speak_lines(gameapi::skill_tooltip(k)); else speech::speak(strings::kNoTooltip, true); });
+  }
+  void add_star(GraphBuilder& b, const std::string& group_id, const gameapi::DevotionConstellation& c, const gameapi::DevotionStar& s, bool reclaim, unsigned cost) {
+    unsigned sid = s.skill_id;
+    std::string value = star_value(c, s, reclaim, cost);
+    gameapi::DevotionStar star = s;
+    bool power = s.power, learned = s.learned;
+    std::string why = learned ? std::string() : gameapi::can_take_star(c, s);
+    auto activate = [this, sid, star, power, learned, why] {
+      if (learned) {
+        if (power) { open_host_picker(star); return; }
+        speech::speak(strings::kLearned, true);
+        return;
+      }
+      if (!why.empty()) { speech::speak(why, true); return; }
+      bool completed = false;
+      if (!gameapi::take_star(sid, completed)) { speech::speak(strings::kCannot, true); refresh(); return; }
+      MessageBuilder m; m.fragment(strings::kPointSpent);
+      if (completed) m.list_item().fragment(strings::kConstellationComplete);
+      speech::speak(m.build(), true);
+      refresh();
+      if (power) {   // the window opens its host picker right after a power is taken; so do we
+        for (const gameapi::DevotionConstellation& c2 : gameapi::constellations()) for (const gameapi::DevotionStar& s2 : c2.stars) if (s2.skill_id == sid && s2.learned) { open_host_picker(s2); return; }
+      }
+    };
+    auto tooltip = [sid] { speak_lines(gameapi::star_tooltip(sid)); };
+    // Backspace reclaims -- only in a spirit guide's reclaim mode (wired only then, like the skill rows).
+    std::function<void()> refund;
+    if (reclaim) refund = [this, sid] {
+      std::vector<gameapi::DevotionConstellation> all = gameapi::constellations();
+      for (const gameapi::DevotionConstellation& c2 : all) for (const gameapi::DevotionStar& s2 : c2.stars) if (s2.skill_id == sid) {
+        std::string why = gameapi::can_reclaim_star(c2, s2, all);
+        if (!why.empty()) { speech::speak(why, true); return; }
+        bool uncompleted = false;
+        bool ok = gameapi::reclaim_star(sid, uncompleted);
+        MessageBuilder m; m.fragment(ok ? strings::kReclaimed : strings::kCannot);
+        if (ok && uncompleted) m.list_item().fragment(strings::kConstellationComplete).fragment(strings::kLost);
+        speech::speak(m.build(), true);
+        refresh();
+        return;
+      }
+      speech::speak(strings::kCannot, true);
+    };
+    auto v = row_item(star_label(s), [value] { return value; }, activate, tooltip, refund);
+    b.add_item(ControlId::structural(std::format("{}.star{}", group_id, s.index)), v);
+  }
+  void build_constellations(GraphBuilder& b, const std::vector<gameapi::DevotionConstellation>& cons) {
+    add_devotion_header(b);
+    bool reclaim = exe_ui::skills_reclaim_mode();   // a spirit guide opened the window: stars can be reclaimed
+    unsigned cost = reclaim ? gameapi::devotion_reclaim_cost() : 0;
+    if (reclaim) {   // the hint row, as on the mastery tabs: "spirit guide, Backspace to reclaim a devotion point, 25 iron bits and 1 aether crystals each"
+      MessageBuilder m; m.fragment(strings::kSpiritGuide).list_item().fragment(strings::kReclaimDevotionHint);
+      m.list_item().fragment(std::format("{}", cost)).fragment(strings::kIronBits).fragment(strings::kAnd).fragment(std::format("{}", gameapi::devotion_reclaim_aether_cost())).fragment(strings::kAetherCrystals).fragment(strings::kEach);
+      b.add_item(ControlId::structural("skills.devreclaim"), line_item(m.build()));
+    }
+    if (cons.empty()) { b.add_item(ControlId::structural("skills.nocons"), line_item(std::string(strings::kEmpty))); return; }
+    std::vector<const gameapi::DevotionConstellation*> order;
+    for (const gameapi::DevotionConstellation& c : cons) order.push_back(&c);
+    std::stable_sort(order.begin(), order.end(), [](const gameapi::DevotionConstellation* a, const gameapi::DevotionConstellation* c) { return state_rank(*a) < state_rank(*c); });
+    for (const gameapi::DevotionConstellation* cp : order) {
+      const gameapi::DevotionConstellation& c = *cp;
+      std::string id = std::format("skills.con{:x}", (uintptr_t)c.p);
+      std::string name = c.name, value = constellation_value(c);
+      gameapi::DevotionConstellation copy = c;
+      auto v = std::make_shared<NodeVtable>();
+      v->control_type = &kGroupType;
+      v->announcements = {NodeAnnouncement([name] { return name; }, false, announcement_kinds::kLabel),
+                          NodeAnnouncement([value] { return value; }, true, announcement_kinds::kValue)};
+      v->on_tooltip = [copy] { speak_lines(gameapi::constellation_tooltip(copy)); };
+      b.begin_group(ControlId::structural(id), v);
+      for (unsigned i : gameapi::star_order(c)) for (const gameapi::DevotionStar& s : c.stars) if (s.index == i) add_star(b, id, c, s, reclaim, cost);
+      b.end_group();
+    }
+  }
+  void build_powers(GraphBuilder& b, const std::vector<gameapi::DevotionConstellation>& cons) {
+    bool any = false;
+    for (const gameapi::DevotionConstellation& c : cons)
+      for (const gameapi::DevotionStar& s : c.stars) {
+        if (!s.power || !s.learned) continue;
+        any = true;
+        unsigned sid = s.skill_id;
+        gameapi::DevotionStar star = s;
+        std::string from = c.name;
+        MessageBuilder m;
+        strings::push_skill_level(m, s.dev_level, s.dev_max);
+        if (!s.host_name.empty()) m.list_item().fragment(strings::kAttachedTo).fragment(s.host_name); else m.list_item().fragment(strings::kNotAttached);
+        m.list_item().fragment(strings::kFrom).fragment(from);
+        std::string value = m.build();
+        auto v = row_item(s.name.empty() ? star_label(s) : s.name, [value] { return value; }, [this, star] { open_host_picker(star); }, [sid] { speak_lines(gameapi::star_tooltip(sid)); });
+        b.add_item(ControlId::structural(std::format("skills.power{}", sid)), v);
+      }
+    if (!any) b.add_item(ControlId::structural("skills.nopowers"), line_item(std::string(strings::kNoCelestialPowers)));
+  }
+
   Snapshot<std::vector<gameapi::SkillInfo>> skills_;
   Snapshot<std::vector<gameapi::MasteryChoice>> choices_;
+  Snapshot<std::vector<gameapi::DevotionConstellation>> constellations_;
   int chosen_[2] = {-1, -1};   // the class put on each tab this session but not yet committed (ours; the game's pane follows)
 };
 

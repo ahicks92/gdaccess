@@ -256,19 +256,11 @@ Count/DisplayName`, `GetCreationCost`, `ControllerCharacter::SendCreateArtifactC
 `GameEngine::GetPlayerTransmutes()`, `SendTransmuteItemsCmd`; altar `GetAltarInclusiveRecipes`,
 `SendAltarOfferCmd`, `AscendantAltarFormula::GetReagentText`. Opened by `GameEngine::Display*Window(npcId)`.
 
-### Devotion (`+0x813a0`) -- HARD
-The constellation map is drawn procedurally (Render exe+0x189450 with `GraphicsPrimitiveDrawer`; loader names
-only `emptySkillBitmap +0x128`, `levelTextString +0x148`); no widget list. Stars ARE `Skill`s
-(`records/skills/devotion/tierN_XXy.dbr`) in the normal skill list; state `Character::GetDevotionPoints/
-GetTotalDevotionPoints/GetMaxDevotionPoints/GetAffinity(AffinityType)`, `SkillManager::GetNumDevotionPointsSpent`,
-per star `Skill::GetDevotionLevel/GetDevotionMaxLevel/GetDevotionParent/GetConstellationDependencies/
-GetAffinityBonus/GetAffinityDependencies`; text `GameEngine::GenerateUIDevotionText(star, parent?, out, reasons,
-...)` (argument order inferred). Constellation structure is ONLY in `database.arz`
-(`records/ui/skills/devotion/devotion_mastertable.dbr`, 87 constellations, `constellationDisplayTag`,
-`affinityGiven/Required`, `devotionButton1..5`, `devotionLinks`). Act (exe commit path exe+0x18c0a0):
-`Character::SubtractDevotionPoint`, `AddAffinity/SubtractAffinity`, `Skill::IncrementDevotionLevel` (vtable
-`+0xa0`), `SkillManager::UseDevotionReclamationPoints`, `SendReclaimDevotionPointCmd`. A screen would be
-built from the .arz graph + Skill state; the game's own hit-test (exe+0x18a820) is not needed.
+### Devotion (`+0x813a0`) -- MAPPED 2026-08-27, see `docs/devotion.md`
+Superseded: the exe DOES build a full object graph (constellations at `window+0xa8/+0xb0`, each with its Star
+objects carrying skill id, bound host id, link indices and eligibility flags), clicks apply immediately (no
+commit path; exe+0x18c0a0 is the Undo button), and celestial powers are bound through a picker owned by this
+window via `Skill::SetAutocastSkill` + `SetDevotionParent`. Details: `docs/re_devotion_{data,gamedll,exe}.md`.
 
 ### Minimap (`+0x42260`) -- HARD (raster); riftgate list maybe EASY
 `+0xb08` aerialMap, `+0x7940` riftGateMap sub-object (the only window overriding HandleKeyEvent,
@@ -288,6 +280,18 @@ Confirmed in disassembly by two further passes and, where marked, live through t
   `tagSkillClassName01..06` / `tagSkillClassDescription01..06`. First mastery allowed at level 1, second at 10
   (`masteryIncrementLevel` in the pc records). The window's only dialog is `tagConfirmSkillChanges` (party 0x16).
   The HUD skills button (`+0x9db0`) is disabled at level 1 (verified live: N shows the "Using Skills" tip instead).
+- **Undo buttons (seen live 2026-08-27; the skills one is modelled)**: the mastery pane has an **Undo Points** button under
+  Undo Class Selection (`records/ui/skills/classcommon/skills_classpanelconfiguration.dbr` `undoButton` ->
+  `skills_buttonundopointallocation.dbr`, `tagSkillUndoPoints`; loader string at exe+0x24539a), the devotion
+  window has **Undo** (`devotion_mastertable.dbr` `undoButton`, top-left next to the tabs) and the character
+  sheet has an attribute undo (`charinfo_mastertable_tab1.dbr` `tab1AttributeChangeUndoButton`). All three revert
+  the points spent since the window opened -- spends apply immediately, the window just holds the save.
+  The pane is a heap `UISkillPane` (0x1ea8, vtable exe+0x31bd18) at skills window +0x100 / +0x108 per tab (the
+  class-selection pane, 0x3d0 / vtable exe+0x31a1d8, sits in the same slot): +0x80 its registry, +0x820 Undo Class
+  Selection, +0xbd0 Undo Points (enabled iff +0x1e45 "pending changes"), +0x1e4c reclaim mode (the REAL flag;
+  window +0x1f4c read before is the Devotion tab button's state byte), +0x68/+0x70 the icon entries (stride 0x78:
+  +0 control, +0x10 pending delta, +0x50 skill id). `exe_ui::skills_press_skill` presses an icon through the
+  registry = the game's own learn/reclaim click, which records the delta Undo Points reverts.
 - **Skills window, reclaim + requirements (2026-08-24, verified live)**: the icon click handler exe+0x248380
   branches on the reclaim flag at **skills window +0x1f4c** (its `this` is the embedded controller at
   window+0x130, so the handler reads `[this+0x1e1c]`): set -> reclaim (`DecrementSkillLevel` +

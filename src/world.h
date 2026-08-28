@@ -48,6 +48,7 @@ std::vector<MapMarker> map_markers();   // nearest first; needs the aerial map o
 std::string map_markers_dump();         // dev: /mapmarkers
 
 std::string debug_dump();        // for the dev server: pointers, raw coordinate bytes, probes
+const void* object_rtti(const void* obj);   // the object's dynamic RTTI_ClassInfo (virtual GetRTTIClassInfo); null-safe
 std::string classinfo_dump();    // dev: the game's RTTI_ClassInfo layout (parent pointer?)
 
 // What stopped a probe: an OBSTACLE has walkable navmesh a few units beyond it along the probe direction

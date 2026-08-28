@@ -73,8 +73,10 @@ const Signature kSignatures[] = {
   {0x291520, "WorldMapWindow travel", "\x48\x89\x5c\x24\x08\x48\x89\x74\x24\x10\x57\x48\x81\xec\xa0\x00"},
   {0x28ed20, "WorldMap Icon ctor", "\x48\x89\x5c\x24\x08\x48\x89\x6c\x24\x10\x48\x89\x74\x24\x18\x48"},
   {0x8a040, "CharacterPicker::HandleMouseEvent", "\x40\x53\x56\x57\x48\x83\xec\x50\x0f\x29\x74\x24\x40\x48\x8b\xd9"},
+  {0x185640, "DevotionWindow ctor", "\x48\x89\x4c\x24\x08\x55\x56\x57\x41\x54\x41\x55\x41\x56\x41\x57"},
+  {0x17ea10, "Star::HandleMouseEvent", "\x48\x8b\xc4\x55\x56\x57\x41\x54\x41\x55\x41\x56\x41\x57\x48\x81"},
 };
-const size_t kSignatureLens[] = {5, 16, 12, 12, 12, 12, 12, 12, 16, 16, 16, 16, 16, 16};   // each <= kSignatureMax
+const size_t kSignatureLens[] = {5, 16, 12, 12, 12, 12, 12, 12, 16, 16, 16, 16, 16, 16, 16, 16};   // each <= kSignatureMax
 constexpr size_t kSignatureMax = 16;
 
 uintptr_t g_base = 0;
@@ -595,7 +597,36 @@ unsigned vendor_market_id(const WindowB& w) {
 }
 int quickbar_page() { void* ui = ingame_ui(); int p = ui ? rd_or<int>(ui, 0x72f0, -1) : -1; return p >= 0 && p < 4 ? p : (ui ? 0 : -1); }
 int skills_tab() { void* ui = ingame_ui(); return ui ? rd_or<int>((char*)ui + ingame::kSkills, kSkillsWindow_Tab, -1) : -1; }
-bool skills_reclaim_mode() { void* ui = ingame_ui(); return ui && g_available && rd_or<uint8_t>((char*)ui + ingame::kSkills, kSkillsWindow_Reclaim, 0) != 0; }
+// The skills window's mastery panes (UISkillPane, ctor exe+0x243510, 0x1ea8 bytes, vtable exe+0x31bd18; RE
+// 2026-08-27): heap objects at window+0x100 (tab 0) / +0x108 (tab 1), replaced by the 0x3d0-byte class-selection
+// pane (vtable exe+0x31a1d8) while no class is chosen -- so the vtable is checked before any offset is used.
+// +0x80 the pane's own listener registry; +0x820 "Undo Class Selection" and +0xbd0 "Undo Points" (TextButtons;
+// Undo Points is enabled by Update exe+0x247a71 exactly while +0x1e45 "pending changes" is set, and its press
+// runs UISkillPane::UndoPoints exe+0x2494d0: every pending delta reverted + Character::AddToSkillPoints);
+// +0x1e4c reclaim mode (the spirit guide's flag, per pane).
+namespace {
+constexpr uintptr_t kSkillPaneVt = 0x31bd18;
+constexpr size_t kSkillsWindow_Pane0 = 0x100, kSkillsWindow_Pane1 = 0x108;
+constexpr size_t kPane_Registry = 0x80, kPane_UndoPoints = 0xbd0, kPane_ReclaimMode = 0x1e4c;
+void* skills_pane() {
+  void* ui = ingame_ui();
+  if (!ui || !g_available) return nullptr;
+  char* w = (char*)ui + ingame::kSkills;
+  int tab = rd_or<int>(w, kSkillsWindow_Tab, -1);
+  if (tab != 0 && tab != 1) return nullptr;   // 2 = the Devotion tab: no pane
+  void* pane = rdp(w, tab == 1 ? kSkillsWindow_Pane1 : kSkillsWindow_Pane0);
+  return pane && vtable_rva_of(pane) == kSkillPaneVt ? pane : nullptr;
+}
+}  // namespace
+// The reclaim flag is per pane (+0x1e4c; RE 2026-08-27). The window byte +0x1f4c read before is the Devotion tab
+// button's state byte, which the game greys in reclaim mode -- a proxy that happened to agree; kept as the fallback
+// while the tab shows no mastery pane.
+bool skills_reclaim_mode() {
+  void* ui = ingame_ui();
+  if (!ui || !g_available) return false;
+  if (void* pane = skills_pane()) return rd_or<uint8_t>(pane, kPane_ReclaimMode, 0) != 0;
+  return rd_or<uint8_t>((char*)ui + ingame::kSkills, kSkillsWindow_Reclaim, 0) != 0;
+}
 bool ingame_key_action(int action) {
   void* ui = ingame_ui();
   if (!ui || !g_available) return false;
@@ -606,6 +637,97 @@ bool ingame_key_action(int action) {
   return true;
 }
 bool ExitWindow::visible() const { return WindowB{p}.visible(); }
+// The pane's skill icons: vector<SkillEntry> at pane+0x68/+0x70, stride 0x78 -- entry+0x00 the icon control,
+// +0x10 the pending undo delta (learn = -1, reclaim = +1), +0x50 the skill object id (RE 2026-08-27). Pressing an
+// icon through the pane's registry is the game's own learn / reclaim click (exe+0x248380, event 0): its gates, its
+// sound, and the pending delta that makes Undo Points work.
+namespace {
+constexpr size_t kPane_EntriesBegin = 0x68, kPane_EntriesEnd = 0x70, kEntry_Stride = 0x78, kEntry_Control = 0x00, kEntry_Delta = 0x10, kEntry_SkillId = 0x50;
+std::vector<char*> pane_entries(void* pane) {
+  std::vector<char*> out;
+  char* b = (char*)rdp(pane, kPane_EntriesBegin); char* e = (char*)rdp(pane, kPane_EntriesEnd);
+  if (!b || !e || e < b || (size_t)(e - b) / kEntry_Stride > 64) return out;
+  for (char* p = b; p + kEntry_Stride <= e; p += kEntry_Stride) out.push_back(p);
+  return out;
+}
+}  // namespace
+bool skills_press_skill(unsigned skill_id) {
+  void* pane = skills_pane();
+  if (!pane) return false;
+  for (char* en : pane_entries(pane)) {
+    if (rd_or<unsigned>(en, kEntry_SkillId, 0) != skill_id) continue;
+    WidgetB icon{rdp(en, kEntry_Control)};
+    if (!icon) return false;
+    bool ok = icon.press((char*)pane + kPane_Registry);
+    log::writef("exe_ui: skills icon press skill {} ok={}", skill_id, ok);
+    return ok;
+  }
+  return false;
+}
+std::string skills_pane_dump() {
+  void* pane = skills_pane();
+  if (!pane) return "no mastery pane on the current tab\n";
+  std::string out = std::format("pane {} dirty={} reclaim={} undo_points enabled={}\n", pane, rd_or<uint8_t>(pane, 0x1e45, 0xff), rd_or<uint8_t>(pane, kPane_ReclaimMode, 0xff), WidgetB{(char*)pane + kPane_UndoPoints}.enabled());
+  for (char* en : pane_entries(pane)) {
+    WidgetB icon{rdp(en, kEntry_Control)};
+    out += std::format("  entry {} control={} vt=exe+{:#x} delta={} skill={} {}\n", (void*)en, icon.p, icon ? icon.vtable_rva() : 0, rd_or<int>(en, kEntry_Delta, 0), rd_or<unsigned>(en, kEntry_SkillId, 0), icon ? icon.state_bytes() : std::string());
+  }
+  return out;
+}
+bool skills_undo_points_enabled() { void* p = skills_pane(); return p && WidgetB{(char*)p + kPane_UndoPoints}.enabled(); }
+bool skills_undo_points() { void* p = skills_pane(); return p && WidgetB{(char*)p + kPane_UndoPoints}.press((char*)p + kPane_Registry); }
+
+// ---- the devotion window's constellation graph (docs/re_devotion_exe.md sections 1.2-1.4) ----
+// window+0xa8 = std::vector<Constellation*>; Constellation: +0x38 name tag, +0x58 info tag (std::string), +0x78 stars
+// (std::vector<Star*>), +0x90 / +0xa8 required / given affinity pairs (mem::vector<{int type, unsigned amount}>);
+// Star: +0x108 skill id, +0x10c bound host skill id, +0x118 links (mem::vector<int>, 1-based).
+namespace {
+constexpr size_t kDev_Constellations = 0xa8, kCon_NameTag = 0x38, kCon_InfoTag = 0x58, kCon_Stars = 0x78, kCon_Required = 0x90, kCon_Given = 0xa8,
+                 kStar_SkillId = 0x108, kStar_HostId = 0x10c, kStar_Links = 0x118;
+std::string read_a(const void* base, size_t off) {
+  MsvcStringA s{};
+  if (!rd(base, off, s) || s.size > 512) return {};
+  if (s.capacity < 16) return std::string(s.u.buf, s.size);
+  std::string out(s.size, '\0');
+  return s.u.ptr && read_mem(s.u.ptr, out.data(), s.size) ? out : std::string();
+}
+template <class T> std::vector<T> read_vec(const void* base, size_t off, size_t max_items) {
+  std::vector<T> out;
+  void* b = rdp(base, off); void* e = rdp(base, off + 8);
+  if (!b || !e || e < b) return out;
+  size_t n = ((char*)e - (char*)b) / sizeof(T);
+  if (n > max_items) return out;
+  out.resize(n);
+  if (n && !read_mem(b, out.data(), n * sizeof(T))) out.clear();
+  return out;
+}
+struct AffPair { int type; unsigned amount; };
+}  // namespace
+std::vector<DevotionConstellationB> devotion_constellations() {
+  std::vector<DevotionConstellationB> out;
+  void* ui = ingame_ui();
+  if (!ui || !g_available) return out;
+  void* w = (char*)ui + ingame::kDevotion;
+  for (void* c : read_vec<void*>(w, kDev_Constellations, 110)) {
+    if (!c) continue;
+    DevotionConstellationB con{c};
+    con.name_tag = read_a(c, kCon_NameTag);
+    con.info_tag = read_a(c, kCon_InfoTag);
+    for (const AffPair& a : read_vec<AffPair>(c, kCon_Required, 3)) if (a.type >= 0 && a.type < kAffinityCount) con.required.push_back({a.type, a.amount});
+    for (const AffPair& a : read_vec<AffPair>(c, kCon_Given, 3)) if (a.type >= 0 && a.type < kAffinityCount) con.given.push_back({a.type, a.amount});
+    unsigned i = 0;
+    for (void* st : read_vec<void*>(c, kCon_Stars, 10)) {
+      ++i;
+      if (!st) continue;
+      DevotionStarB s{st, i, rd_or<unsigned>(st, kStar_SkillId, 0), rd_or<unsigned>(st, kStar_HostId, 0), read_vec<int>(st, kStar_Links, 10)};
+      con.stars.push_back(std::move(s));
+    }
+    if (con.stars.empty()) continue;   // constellation87 is background art with no stars
+    out.push_back(std::move(con));
+  }
+  return out;
+}
+bool devotion_set_star_host(void* star, unsigned host_id) { return star && write_int(star, kStar_HostId, (int)host_id); }
 
 // ---- options value controls ----
 namespace {

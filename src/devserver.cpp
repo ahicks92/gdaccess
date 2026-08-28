@@ -364,11 +364,22 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     if (q.count("learn")) return gameapi::learn_skill(gameapi::object_by_id((unsigned)parse_int(q.at("learn"), 0))) ? "ok\n" : "failed\n";
     if (q.count("refund")) return gameapi::refund_skill(gameapi::object_by_id((unsigned)parse_int(q.at("refund"), 0))) ? "ok\n" : "failed\n";
     if (q.count("itemskills")) return gameapi::dump_item_skills();
+    if (q.count("panedump")) return exe_ui::skills_pane_dump();   // the current mastery pane's icon entries
+    if (q.count("press")) return exe_ui::skills_press_skill((unsigned)parse_int(q.at("press"), 0)) ? "ok\n" : "failed\n";
     return gameapi::dump_skills();
   }
   if (path == "/sheet") return gameapi::dump_sheet();
+  if (path == "/devotion") {   // ?take=<star skill id> | ?tip=<star skill id> | ?hosts=<power id> | ?bind=<power id>&host=<skill id|0>
+    if (q.count("take")) { bool done = false; bool ok = gameapi::take_star((unsigned)parse_int(q.at("take"), 0), done); return std::format("{} completed={}\n", ok ? "ok" : "failed", done); }
+    if (q.count("why")) { unsigned id = (unsigned)parse_int(q.at("why"), 0); std::vector<gameapi::DevotionConstellation> all = gameapi::constellations(); for (const auto& c : all) for (const auto& s : c.stars) if (s.skill_id == id) return std::format("take: '{}'  reclaim: '{}'\n", gameapi::can_take_star(c, s), gameapi::can_reclaim_star(c, s, all)); return "no such star\n"; }
+    if (q.count("reclaim")) { bool un = false; bool ok = gameapi::reclaim_star((unsigned)parse_int(q.at("reclaim"), 0), un); return std::format("{} uncompleted={}\n", ok ? "ok" : "failed", un); }
+    if (q.count("tip")) { std::string out; for (const std::string& l : gameapi::star_tooltip((unsigned)parse_int(q.at("tip"), 0))) out += l + "\n"; return out.empty() ? "no text\n" : out; }
+    if (q.count("hosts")) { std::string out; for (const gameapi::SkillInfo& s : gameapi::power_host_candidates((unsigned)parse_int(q.at("hosts"), 0))) out += std::format("  id={} '{}' lvl {}\n", s.id, s.name, s.level); return out.empty() ? "no candidates\n" : out; }
+    if (q.count("bind")) { std::string replaced; bool ok = gameapi::bind_power((unsigned)parse_int(q.at("bind"), 0), (unsigned)parse_int(q.count("host") ? q.at("host") : "0", 0), &replaced); return std::format("{} replaced='{}'\n", ok ? "ok" : "failed", replaced); }
+    return gameapi::dump_devotion();
+  }
   if (path == "/lua") { std::string code = q.count("code") ? q.at("code") : body; if (code.empty()) return "?code= or POST body\n"; return gameapi::lua_run(code) ? "ok\n" : "failed (see /log)\n"; }   // dev: a chunk in the game's Lua state
-  if (path == "/cheat") { if (q.count("xp")) return gameapi::dev_add_experience((unsigned)parse_int(q.at("xp"), 0)) ? "ok\n" : "failed\n"; if (q.count("bits")) return gameapi::dev_add_money((unsigned)parse_int(q.at("bits"), 0)) ? "ok\n" : "failed\n"; return std::string("?xp=N | ?bits=N\n"); }
+  if (path == "/cheat") { if (q.count("xp")) return gameapi::dev_add_experience((unsigned)parse_int(q.at("xp"), 0)) ? "ok\n" : "failed\n"; if (q.count("bits")) return gameapi::dev_add_money((unsigned)parse_int(q.at("bits"), 0)) ? "ok\n" : "failed\n"; if (q.count("devotion")) return gameapi::dev_add_devotion((unsigned)parse_int(q.at("devotion"), 0)) ? "ok\n" : "failed\n"; if (q.count("aether")) return gameapi::dev_add_aether((unsigned)parse_int(q.at("aether"), 0)) ? "ok\n" : "failed\n"; return std::string("?xp=N | ?bits=N | ?devotion=N | ?aether=N\n"); }
   if (path == "/reclaim") return gameapi::dev_open_skill_reclaim() ? "ok\n" : "failed\n";   // open skills in spirit-guide reclaim mode
   if (path == "/obj" && q.count("find")) return gameapi::find_objects(q.at("find"), q.count("max") ? (size_t)parse_int(q.at("max"), 50) : 50);
   if (path == "/obj") return q.count("id") ? gameapi::dump_object((unsigned)parse_int(q.at("id"), 0)) : gameapi::dump_objects_stats();

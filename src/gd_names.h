@@ -976,6 +976,117 @@ inline constexpr const char* Player_GetClassNameA = "?GetClassNameA@Player@GAME@
 // public: unsigned int const __cdecl GAME::Character::GetDevotionPoints(void)const __ptr64
 inline constexpr const char* Character_GetDevotionPoints_DLL = "Game.dll";
 inline constexpr const char* Character_GetDevotionPoints = "?GetDevotionPoints@Character@GAME@@QEBA?BIXZ";
+// public: unsigned int const __cdecl GAME::Character::GetTotalDevotionPoints(void)const __ptr64
+inline constexpr const char* Character_GetTotalDevotionPoints_DLL = "Game.dll";
+inline constexpr const char* Character_GetTotalDevotionPoints = "?GetTotalDevotionPoints@Character@GAME@@QEBA?BIXZ";
+// public: unsigned int const __cdecl GAME::Character::GetMaxDevotionPoints(void)const __ptr64
+inline constexpr const char* Character_GetMaxDevotionPoints_DLL = "Game.dll";
+inline constexpr const char* Character_GetMaxDevotionPoints = "?GetMaxDevotionPoints@Character@GAME@@QEBA?BIXZ";
+// public: void __cdecl GAME::Character::SubtractDevotionPoint(void) __ptr64
+inline constexpr const char* Character_SubtractDevotionPoint_DLL = "Game.dll";
+inline constexpr const char* Character_SubtractDevotionPoint = "?SubtractDevotionPoint@Character@GAME@@QEAAXXZ";
+// public: void __cdecl GAME::Character::AddDevotionPoints(unsigned int) __ptr64
+inline constexpr const char* Character_AddDevotionPoints_DLL = "Game.dll";
+inline constexpr const char* Character_AddDevotionPoints = "?AddDevotionPoints@Character@GAME@@QEAAXI@Z";
+// public: void __cdecl GAME::Character::AddTotalDevotionPoints(unsigned int) __ptr64
+inline constexpr const char* Character_AddTotalDevotionPoints_DLL = "Game.dll";
+inline constexpr const char* Character_AddTotalDevotionPoints = "?AddTotalDevotionPoints@Character@GAME@@QEAAXI@Z";
+// public: unsigned int const __cdecl GAME::Character::GetAffinity(enum GAME::AffinityType)const __ptr64
+inline constexpr const char* Character_GetAffinity_DLL = "Game.dll";
+inline constexpr const char* Character_GetAffinity = "?GetAffinity@Character@GAME@@QEBA?BIW4AffinityType@2@@Z";
+// public: void __cdecl GAME::Character::AddAffinity(enum GAME::AffinityType,unsigned int) __ptr64
+inline constexpr const char* Character_AddAffinity_DLL = "Game.dll";
+inline constexpr const char* Character_AddAffinity = "?AddAffinity@Character@GAME@@QEAAXW4AffinityType@2@I@Z";
+// public: void __cdecl GAME::Character::SubtractAffinity(enum GAME::AffinityType,unsigned int) __ptr64
+inline constexpr const char* Character_SubtractAffinity_DLL = "Game.dll";
+inline constexpr const char* Character_SubtractAffinity = "?SubtractAffinity@Character@GAME@@QEAAXW4AffinityType@2@I@Z";
+// public: class mem::vector<class GAME::Skill * __ptr64> const & __ptr64 __cdecl GAME::Character::GetSkillList(void)const __ptr64
+inline constexpr const char* Character_GetSkillList_DLL = "Game.dll";
+inline constexpr const char* Character_GetSkillList = "?GetSkillList@Character@GAME@@QEBAAEBV?$vector@PEAVSkill@GAME@@@mem@@XZ";
+// public: class mem::vector<class GAME::Skill * __ptr64> const & __ptr64 __cdecl GAME::Character::GetItemSkillList(void)const __ptr64
+inline constexpr const char* Character_GetItemSkillList_DLL = "Game.dll";
+inline constexpr const char* Character_GetItemSkillList = "?GetItemSkillList@Character@GAME@@QEBAAEBV?$vector@PEAVSkill@GAME@@@mem@@XZ";
+// public: class mem::vector<class GAME::Skill * __ptr64> const & __ptr64 __cdecl GAME::Character::GetItemSkillCache(void)const __ptr64
+inline constexpr const char* Character_GetItemSkillCache_DLL = "Game.dll";
+inline constexpr const char* Character_GetItemSkillCache = "?GetItemSkillCache@Character@GAME@@QEBAAEBV?$vector@PEAVSkill@GAME@@@mem@@XZ";
+// public: unsigned int const __cdecl GAME::Skill::GetDevotionLevel(void)const __ptr64
+inline constexpr const char* Skill_GetDevotionLevel_DLL = "Game.dll";
+inline constexpr const char* Skill_GetDevotionLevel = "?GetDevotionLevel@Skill@GAME@@QEBA?BIXZ";
+// public: unsigned int const __cdecl GAME::Skill::GetDevotionMaxLevel(void)const __ptr64
+inline constexpr const char* Skill_GetDevotionMaxLevel_DLL = "Game.dll";
+inline constexpr const char* Skill_GetDevotionMaxLevel = "?GetDevotionMaxLevel@Skill@GAME@@QEBA?BIXZ";
+// public: unsigned int const __cdecl GAME::Skill::GetDevotionExperience(void)const __ptr64
+inline constexpr const char* Skill_GetDevotionExperience_DLL = "Game.dll";
+inline constexpr const char* Skill_GetDevotionExperience = "?GetDevotionExperience@Skill@GAME@@QEBA?BIXZ";
+// public: unsigned int const __cdecl GAME::Skill::GetRequiredExperience(unsigned int)const __ptr64
+inline constexpr const char* Skill_GetRequiredExperience_DLL = "Game.dll";
+inline constexpr const char* Skill_GetRequiredExperience = "?GetRequiredExperience@Skill@GAME@@QEBA?BII@Z";
+// public: unsigned int const __cdecl GAME::Skill::GetDevotionParent(void)const __ptr64
+inline constexpr const char* Skill_GetDevotionParent_DLL = "Game.dll";
+inline constexpr const char* Skill_GetDevotionParent = "?GetDevotionParent@Skill@GAME@@QEBA?BIXZ";
+// public: void __cdecl GAME::Skill::SetDevotionParent(unsigned int) __ptr64
+inline constexpr const char* Skill_SetDevotionParent_DLL = "Game.dll";
+inline constexpr const char* Skill_SetDevotionParent = "?SetDevotionParent@Skill@GAME@@QEAAXI@Z";
+// public: virtual void __cdecl GAME::Skill::IncrementDevotionLevel(void) __ptr64
+inline constexpr const char* Skill_IncrementDevotionLevel_DLL = "Game.dll";
+inline constexpr const char* Skill_IncrementDevotionLevel = "?IncrementDevotionLevel@Skill@GAME@@UEAAXXZ";
+// public: virtual void __cdecl GAME::Skill::SetSkillLevel(unsigned int) __ptr64
+inline constexpr const char* Skill_SetSkillLevel_DLL = "Game.dll";
+inline constexpr const char* Skill_SetSkillLevel = "?SetSkillLevel@Skill@GAME@@UEAAXI@Z";
+// public: virtual void __cdecl GAME::Skill::SetAutocastSkill(class GAME::Skill * __ptr64,class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const & __ptr64,bool) __ptr64
+inline constexpr const char* Skill_SetAutocastSkill_DLL = "Game.dll";
+inline constexpr const char* Skill_SetAutocastSkill = "?SetAutocastSkill@Skill@GAME@@UEAAXPEAV12@AEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@_N@Z";
+// public: class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > __cdecl GAME::Skill::GetTemplateAutoCast(void)const __ptr64
+inline constexpr const char* Skill_GetTemplateAutoCast_DLL = "Game.dll";
+inline constexpr const char* Skill_GetTemplateAutoCast = "?GetTemplateAutoCast@Skill@GAME@@QEBA?AV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@XZ";
+// public: class GAME::Skill * __ptr64 __cdecl GAME::Skill::GetAutoCastSkill(void)const __ptr64
+inline constexpr const char* Skill_GetAutoCastSkill_DLL = "Game.dll";
+inline constexpr const char* Skill_GetAutoCastSkill = "?GetAutoCastSkill@Skill@GAME@@QEBAPEAV12@XZ";
+// public: bool __cdecl GAME::Skill::HasAutocastSkill(void)const __ptr64
+inline constexpr const char* Skill_HasAutocastSkill_DLL = "Game.dll";
+inline constexpr const char* Skill_HasAutocastSkill = "?HasAutocastSkill@Skill@GAME@@QEBA_NXZ";
+// public: bool __cdecl GAME::Skill::HasAutocastInDbr(void)const __ptr64
+inline constexpr const char* Skill_HasAutocastInDbr_DLL = "Game.dll";
+inline constexpr const char* Skill_HasAutocastInDbr = "?HasAutocastInDbr@Skill@GAME@@QEBA_NXZ";
+// public: enum GAME::Skill_Operation __cdecl GAME::Skill::GetSkillOperation(void)const __ptr64
+inline constexpr const char* Skill_GetSkillOperation_DLL = "Game.dll";
+inline constexpr const char* Skill_GetSkillOperation = "?GetSkillOperation@Skill@GAME@@QEBA?AW4Skill_Operation@2@XZ";
+// public: bool __cdecl GAME::Skill::IsSkillA(class GAME::RTTI_ClassInfo const * __ptr64)const __ptr64
+inline constexpr const char* Skill_IsSkillA_DLL = "Game.dll";
+inline constexpr const char* Skill_IsSkillA = "?IsSkillA@Skill@GAME@@QEBA_NPEBVRTTI_ClassInfo@2@@Z";
+// public: bool __cdecl GAME::Skill::IsSkillBlackListed(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> >)const __ptr64
+inline constexpr const char* Skill_IsSkillBlackListed_DLL = "Game.dll";
+inline constexpr const char* Skill_IsSkillBlackListed = "?IsSkillBlackListed@Skill@GAME@@QEBA_NV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z";
+// public: class GAME::SkillState const & __ptr64 __cdecl GAME::Skill::GetSkillState(void)const __ptr64
+inline constexpr const char* Skill_GetSkillState_DLL = "Game.dll";
+inline constexpr const char* Skill_GetSkillState = "?GetSkillState@Skill@GAME@@QEBAAEBVSkillState@2@XZ";
+// public: bool __cdecl GAME::SkillManager::IsDefaultSkill(unsigned int)const __ptr64
+inline constexpr const char* SkillManager_IsDefaultSkill_DLL = "Game.dll";
+inline constexpr const char* SkillManager_IsDefaultSkill = "?IsDefaultSkill@SkillManager@GAME@@QEBA_NI@Z";
+// public: unsigned int __cdecl GAME::SkillManager::GetNumDevotionPointsSpent(void)const __ptr64
+inline constexpr const char* SkillManager_GetNumDevotionPointsSpent_DLL = "Game.dll";
+inline constexpr const char* SkillManager_GetNumDevotionPointsSpent = "?GetNumDevotionPointsSpent@SkillManager@GAME@@QEBAIXZ";
+// public: static void __cdecl GAME::GameEngine::GenerateUIDevotionText(class GAME::Skill const * __ptr64,class GAME::Skill const * __ptr64,class mem::vector<struct GAME::GameTextLine> & __ptr64,struct GAME::SkillReasons co
+inline constexpr const char* GameEngine_GenerateUIDevotionText_DLL = "Game.dll";
+inline constexpr const char* GameEngine_GenerateUIDevotionText = "?GenerateUIDevotionText@GameEngine@GAME@@SAXPEBVSkill@2@0AEAV?$vector@UGameTextLine@GAME@@@mem@@PEBUSkillReasons@2@_N3HHW4GameTextClass@2@@Z";
+// public: unsigned int __cdecl GAME::SkillManager::GetCurrentDevotionReclamationCost(void)const __ptr64
+inline constexpr const char* SkillManager_GetCurrentDevotionReclamationCost_DLL = "Game.dll";
+inline constexpr const char* SkillManager_GetCurrentDevotionReclamationCost = "?GetCurrentDevotionReclamationCost@SkillManager@GAME@@QEBAIXZ";
+// public: unsigned int __cdecl GAME::SkillManager::GetDevotionReclamationAetherCost(void)const __ptr64
+inline constexpr const char* SkillManager_GetDevotionReclamationAetherCost_DLL = "Game.dll";
+inline constexpr const char* SkillManager_GetDevotionReclamationAetherCost = "?GetDevotionReclamationAetherCost@SkillManager@GAME@@QEBAIXZ";
+// public: bool __cdecl GAME::SkillManager::UseDevotionReclamationPoints(int) __ptr64
+inline constexpr const char* SkillManager_UseDevotionReclamationPoints_DLL = "Game.dll";
+inline constexpr const char* SkillManager_UseDevotionReclamationPoints = "?UseDevotionReclamationPoints@SkillManager@GAME@@QEAA_NH@Z";
+// public: unsigned int const __cdecl GAME::Player::GetCurrentAether(void)const __ptr64
+inline constexpr const char* Player_GetCurrentAether_DLL = "Game.dll";
+inline constexpr const char* Player_GetCurrentAether = "?GetCurrentAether@Player@GAME@@QEBA?BIXZ";
+// public: void __cdecl GAME::Player::AddAether(unsigned int) __ptr64
+inline constexpr const char* Player_AddAether_DLL = "Game.dll";
+inline constexpr const char* Player_AddAether = "?AddAether@Player@GAME@@QEAAXI@Z";
+// public: virtual unsigned int const __cdecl GAME::Skill::GetCurrentLevel(void)const __ptr64
+inline constexpr const char* Skill_GetCurrentLevel_DLL = "Game.dll";
+inline constexpr const char* Skill_GetCurrentLevel = "?GetCurrentLevel@Skill@GAME@@UEBA?BIXZ";
 // public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::StaticShrine::GetStaticClassInfo(void)
 inline constexpr const char* StaticShrine_GetStaticClassInfo_DLL = "Game.dll";
 inline constexpr const char* StaticShrine_GetStaticClassInfo = "?GetStaticClassInfo@StaticShrine@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";

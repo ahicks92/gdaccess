@@ -571,6 +571,22 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   select, Backspace disband, Space where, attack-locked-target / recall rows), F2-F6/F7 = OUR selection toggles
   (the game's swallowed), Shift+Backspace = attack from the world, "<pet> summoned/down" in Zira from list
   polling; Pet Attack listed by the hotbar manager. Decided: no pet health (nothing heals them).
+- Devotion BUILT (2026-08-27, `docs/devotion.md` section 4, verified through the loop): the skills window gets
+  Constellations (tree per constellation, stars BFS from the root, Enter spends, Space tooltips) and Celestial
+  Powers (host picker) tabs, affinities on the sheet; `src/gameapi_devotion.cpp`, `exe_ui::devotion_constellations`.
+  Skills window: spends now go through the pane's own icon click (`exe_ui::skills_press_skill`) and the game's
+  **Undo Points** button is a row (`skills_undo_points`); reclaim flag corrected to the per-pane byte. Devotion
+  reclaim at a spirit guide: Backspace on a star (`reclaim_star`, gates `can_reclaim_star`), verified live. **Affinity
+  is not saved by the game** -- it is derived from complete constellations when the map is shown; `constellations()`
+  reconciles the counters itself (a loaded character read affinity 0 with a learned Crossroads until then). Lesson: a
+  by-value `std::string` argument is destroyed by the CALLEE (MSVC x64) -- never free it after the call. Known
+  pre-existing quirk: switching tabs while focused on a row that vanishes speaks a stray "<tab>, N of N" landing
+  (inventory too). The mapping notes (static RE): stars are `Skill`s (`GetSkillOperation` 2 = star, 3 = celestial power), the exe holds the whole
+  constellation graph at `devotion window+0xa8`, spending/reclaiming are immediate export calls (no command),
+  `Skill::GetDevotionParent` = the HOST skill a power is bound to, binding = `host->SetAutocastSkill(power,
+  power->GetTemplateAutoCast(), false)` + `SetDevotionParent`, reclaim mode is opened by a SPIRIT GUIDE's
+  Devotion tab as well as a Tonic of Clarity (verified live: `GetUI()->vt[0x90](id)` sets `window+0x2419`; the
+  wiki was right, the exe note's "tonic only" was wrong), AffinityType 0..4 = Ascendant/Chaos/Eldritch/Order/Primordial.
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.
