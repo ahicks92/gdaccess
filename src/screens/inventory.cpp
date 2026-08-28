@@ -103,7 +103,7 @@ class InventoryScreen : public WindowScreen, public AssignSource {
     for (const gameapi::EquipSlot& s : eq) {
       std::string label = s.label.empty() ? std::format("slot {}", s.loc) : s.label;
       std::string name = s.name.empty() ? std::string(strings::kEmptySlot) : s.name;
-      if (s.component) { MessageBuilder cm; cm.list_item().fragment(name).list_item().fragment(strings::kWithComponent); name = cm.build(); }   // "Splintered Club, with component"
+      if (s.component) { MessageBuilder cm; cm.fragment(name).fragment(strings::kWithComponent); name = cm.build(); }   // "Splintered Club with component": part of the name
       unsigned id = s.item_id; int loc = s.loc;
       // Enter opens the equip picker: everything across all bags that fits this slot (weapons/off-hands go to
       // the ACTIVE weapon set, since equip() uses the current EquipmentCtrl). Its first entry, "empty",
@@ -131,8 +131,9 @@ class InventoryScreen : public WindowScreen, public AssignSource {
   void build_bag(GraphBuilder& b, const gameapi::Bag& bag) {
     if (bag.items.empty()) { b.add_item(ControlId::structural(std::format("inventory.bag{}.empty", bag.index)), line_item(std::string(strings::kEmpty))); return; }
     for (const gameapi::BagItem& it : bag.items) {
-      MessageBuilder m; m.list_item(); strings::push_stack(m, it.name.empty() ? std::format("item {}", it.id) : it.name, it.stack);
-      if (it.component) m.list_item().fragment(strings::kWithComponent);   // the grid tile's component badge: "Gladius, with component"
+      std::string nm = it.name.empty() ? std::format("item {}", it.id) : it.name;
+      if (it.component) { MessageBuilder cm; cm.fragment(nm).fragment(strings::kWithComponent); nm = cm.build(); }   // the grid tile's badge, as part of the name: "Gladius with component"
+      MessageBuilder m; strings::push_stack(m, nm, it.stack);
       unsigned id = it.id;
       auto activate = [this, id] {
         if (gameapi::is_component(id)) { open_component_picker(id); return; }   // components attach; they aren't "used"
