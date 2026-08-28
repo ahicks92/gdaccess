@@ -42,7 +42,7 @@ inline constexpr std::string_view Up = "ui.up", Down = "ui.down", Left = "ui.lef
 inline constexpr std::string_view Next = "ui.next", Prev = "ui.prev", Home = "ui.home", End = "ui.end";
 inline constexpr std::string_view RegionPrev = "ui.regionPrev", RegionNext = "ui.regionNext";
 inline constexpr std::string_view Activate = "ui.activate", Secondary = "ui.secondary", Back = "ui.back";
-inline constexpr std::string_view Tooltip = "ui.tooltip", TooltipDetail = "ui.tooltipDetail", Drag = "ui.drag";
+inline constexpr std::string_view Tooltip = "ui.tooltip", TooltipDetail = "ui.tooltipDetail", Compare = "ui.compare";
 }  // namespace ui_actions
 
 class GraphNavigator {

@@ -199,10 +199,10 @@ bool GraphNavigator::on_action(std::string_view key) {
     speak(strings::kNoTooltip, false);
     return true;
   }
-  if (key == Drag) {
+  if (key == Compare) {
     if (!node) return false;
-    if (node->vtable && node->vtable->on_drag) { graph_->drag(); return true; }
-    speak(strings::kNothingToDrag, false);
+    if (node->vtable && node->vtable->on_compare) { graph_->compare(); return true; }
+    speak(strings::kNothingToCompare, false);
     return true;
   }
   return false;

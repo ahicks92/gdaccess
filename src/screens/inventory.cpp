@@ -142,7 +142,9 @@ class InventoryScreen : public WindowScreen, public AssignSource {
         gameapi::use_item(id, g_bag_source);
         invalidate();
       };
-      b.add_item(ControlId::structural(std::format("inventory.item{}", it.id)), row_item(m.build(), {}, activate, item_tip(id, false), {}, item_tip(id, true)));
+      auto v = row_item(m.build(), {}, activate, item_tip(id, false), {}, item_tip(id, true));
+      v->on_compare = item_compare(id);   // Backslash: the equipped item in the slot this one fits
+      b.add_item(ControlId::structural(std::format("inventory.item{}", it.id)), v);
     }
   }
   void build_sheet(GraphBuilder& b) {

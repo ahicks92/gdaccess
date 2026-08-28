@@ -155,7 +155,7 @@ class KeyGraph {
   /// Run the focused control's tooltip behavior. False = it has none.
   bool tooltip();
   /// Run the focused control's drag behavior. False = it has none.
-  bool drag();
+  bool compare();
   /// If the focused control adjusts horizontally (a slider), adjust and return true; false = the caller
   /// should navigate instead.
   bool try_adjust(int sign, bool large);

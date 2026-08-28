@@ -550,11 +550,11 @@ bool KeyGraph::tooltip() {
   return true;
 }
 
-bool KeyGraph::drag() {
+bool KeyGraph::compare() {
   if (!rerender()) return false;
   GraphNode* node = current_node();
-  if (node == nullptr || node->vtable == nullptr || !node->vtable->on_drag) return false;
-  node->vtable->on_drag();
+  if (node == nullptr || node->vtable == nullptr || !node->vtable->on_compare) return false;
+  node->vtable->on_compare();
   return true;
 }
 

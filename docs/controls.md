@@ -119,7 +119,8 @@ difficulty, game mode, Delete). Tab into the list lands on the selected characte
 Each game window is a screen of the mod while the game shows it (Ctrl+C/I inventory, Ctrl+N skills, Ctrl+Q
 codex, Ctrl+J factions; NPC windows when an NPC opens them). Layout rule: a tab list across the top (Left/Right
 moves AND opens the tab it lands on (2026-08-26; Enter is a no-op re-select); **Ctrl+Tab / Ctrl+Shift+Tab switch tabs from anywhere**), one vertical column below it
-(Up/Down; Tab moves between the tab row and the column). Escape closes the window. Everything is read from the
+(Up/Down; Tab moves between the tab row and the column). Escape closes the window. Backslash on an item row = the
+game's comparison: the equipped item in each slot the focused item fits, with its tooltip (2026-08-27). Everything is read from the
 game's own objects, never from the screen.
 | Window | Tabs | Rows and keys |
 |---|---|---|

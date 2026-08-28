@@ -119,9 +119,9 @@ struct NodeVtable {
   /// Optional. The long form of the tooltip (Ctrl+Space) -- what the game shows with its modifier held.
   /// Falls back to on_tooltip when unset.
   std::function<void()> on_tooltip_detail;
-  /// Optional. Drag/drop participation (Backslash) -- pick up here, or place the held thing here. The
-  /// action owns the whole pick-up/place state machine; the core only dispatches.
-  std::function<void()> on_drag;
+  /// Optional. Compare (Backslash): speak the equipped counterpart of this item (the slot it would go to). The
+  /// screen decides what "equipped counterpart" means; the core only dispatches.
+  std::function<void()> on_compare;
   /// Optional. Horizontal value adjust (a slider): sign is -1 (decrease) / +1 (increase), large
   /// requests a coarse step. When set, left/right do NOT navigate.
   std::function<void(int sign, bool large)> on_adjust;

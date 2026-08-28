@@ -95,7 +95,7 @@ static void register_actions() {
     {ui_actions::Activate, "Activate", keys::Enter, false, false, false}, {ui_actions::Secondary, "Secondary action", keys::Backspace, false, false, false},
     {ui_actions::Back, "Back", keys::Escape, false, false, false}, {ui_actions::Tooltip, "Tooltip", keys::Space, false, false, false},
     {ui_actions::TooltipDetail, "Detailed tooltip", keys::Space, false, true, false},
-    {ui_actions::Drag, "Drag", keys::Backslash, false, false, false},
+    {ui_actions::Compare, "Compare with equipped", keys::Backslash, false, false, false},
   };
   for (const Ui& u : ui) {
     auto& a = m.register_action(std::string(u.id), u.label, InputCategory::UI).bind(u.key, u.ctrl, u.shift, false);

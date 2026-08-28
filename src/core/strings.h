@@ -37,7 +37,7 @@ inline constexpr std::string_view kCollapsed = "collapsed";
 
 // ---- feedback ----
 inline constexpr std::string_view kNoTooltip = "no tooltip";
-inline constexpr std::string_view kNothingToDrag = "nothing to drag";
+inline constexpr std::string_view kNothingToCompare = "nothing to compare";
 inline constexpr std::string_view kNoDetails = "no details";
 inline constexpr std::string_view kNoMatch = "no match for";
 inline constexpr std::string_view kSearchCleared = "search cleared";
@@ -181,6 +181,8 @@ inline constexpr std::string_view kBag = "bag";
 inline constexpr std::string_view kStats = "stats";
 inline constexpr std::string_view kEmptySlot = "empty";
 inline constexpr std::string_view kWithComponent = "with component";   // the bag tile's component badge, on the row label
+inline constexpr std::string_view kNothingEquipped = "nothing equipped";   // Backslash on an item: the slot it fits holds nothing
+inline constexpr std::string_view kNotEquipment = "not equipment";         // Backslash on a potion / component / note
 inline constexpr std::string_view kIronBits = "iron bits";
 inline constexpr std::string_view kSkills = "skills";
 inline constexpr std::string_view kSkillPointsLeft = "skill points";

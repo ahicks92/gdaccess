@@ -71,6 +71,26 @@ inline std::function<void()> item_tip(unsigned id, bool details) {
   };
 }
 
+// Backslash on an item row: the game's comparison, spoken -- for every equipment slot this item fits
+// (EquipmentCtrl::CanItemBePlaced, the equip picker's filter): "Right Hand, Splintered Club, <its tooltip>", or
+// "nothing equipped"; "not equipment" when no slot takes it. The game shows the two tooltips side by side and
+// computes no difference except weapon DPS (docs/re_item_components_compare.md).
+inline std::function<void()> item_compare(unsigned id) {
+  return [id] {
+    if (!gd::gameapi::object_by_id(id)) { speech::speak(gd::strings::kNothingToCompare, true); return; }
+    gd::core::MessageBuilder m;
+    bool any = false;
+    for (const gd::gameapi::EquipSlot& s : gd::gameapi::equipment()) {
+      if (s.item_id == id || !gd::gameapi::can_equip(id, s.loc)) continue;
+      any = true;
+      m.list_item().fragment(s.label);
+      if (!s.item_id) { m.list_item().fragment(gd::strings::kNothingEquipped); continue; }
+      for (const std::string& l : gd::gameapi::item_tooltip(s.item, false, false)) m.list_item().fragment(l);   // its first line is the name
+    }
+    speech::speak(any ? m.build() : std::string(gd::strings::kNotEquipment), true);
+  };
+}
+
 // A snapshot refreshed every `ttl` frames or on demand.
 template <class T> struct Snapshot {
   T value{};
