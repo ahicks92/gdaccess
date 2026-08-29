@@ -104,11 +104,11 @@ The game assumes you already know what you are getting into, so a few things are
 - Health and energy potions are `R` and `E`. They are not items in your inventory; they are modelled as
   skills every character has, with a cooldown, so you never run out.
 - `Space` reads tooltips in menus and evades in the world. You will not really need evade for a long time,
-  if ever, but to dodge:
+  if ever, but to dodge, first turn OFF "Evade To Cursor" in Options -> Gameplay (it is on by default and makes
+  Space dash toward the mouse cursor, ignoring WASD). With it off:
   - Space while holding WASD dodges in that direction.
-  - Space while targeting something, but not holding WASD, dodges toward it.
-  - Space while not targeting anything and not holding WASD dodges toward wherever the mod last hovered
-    your cursor.
+  - Space while not holding WASD dodges the way your character faces (toward the thing you are attacking, or
+    the way you last walked).
 
 ## Controls
 
@@ -140,7 +140,7 @@ character; Enter selects); then Start / difficulty / game mode / Delete.
 | Key | Description |
 |---|---|
 | W A S D | Move |
-| Space | Evade (in the movement direction while moving, toward the reviewed target when standing) |
+| Space | Evade (with Options -> Gameplay -> Evade To Cursor OFF: in the movement direction while moving, the way you face when standing) |
 | J or Enter | Left mouse button at the reviewed thing: attack / talk / open / move, whatever a click does. Hold to hold (sustained attack). On a reviewed ground item, the game's walk-and-pick-up instead. "Too far away" when the camera does not show the thing |
 | I | Right mouse button at the reviewed thing (the right-hand skill), same rules |
 | U | Interact with the nearest usable thing within 10 units (door, chest, shrine, NPC), no aiming |

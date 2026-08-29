@@ -486,11 +486,13 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   every item it fits via the game's own `Player::GetCompatibleItems` (bags + equipped + stash); picking one
   calls `Character::UseItemOn(player, comp, target, ItemSource, 0,0,false)` -- a pure inventory op, NO
   blacksmith (the NPC path is removal only). Verified live: Chilled Steel 3->2, target's tooltip shows it
-  attached. Arg order confirmed. Dev: `/inv?compat=<id>`, `/inv?attach=<id>&target=<id>`. (5) **Evade
-  understood, left as-is** (docs/evade.md): evade aims by the WASD movement vector while moving, else a
-  standing-still fallback that reads the cursor -- and the mod already parks the virtual cursor on the locked
-  review target, so evade lands on a good scheme with NO mod: WASD held -> dodge that direction, standing ->
-  dodge toward the locked target (confirmed by the user in play). A diagnostic hook on the exported
+  attached. Arg order confirmed. Dev: `/inv?compat=<id>`, `/inv?attach=<id>&target=<id>`. (5) **Evade**
+  (docs/evade.md, corrected 2026-08-28): the game option `evadeFollowCursor` ("Evade To Cursor", Gameplay tab,
+  default ON) makes `HotSlotOptionEvade::Activate` dash toward the cursor's mouse-repeat point (+0x440) and
+  IGNORE WASD entirely; only with it OFF is it WASD direction while moving, facing when standing. The
+  2026-08-25 "WASD steers it" note was wrong (it coincided with the locked target). Player-side fix: turn the
+  option off; do NOT use movementType 2 (Keyboard Only) -- that also disables the per-frame cursor pick the
+  J/I/lock scheme rides on. `Options::SetBool(0x4b,false)` would force it if ever wanted. A diagnostic hook on the exported
   `ControllerPlayer::EvadeAction` forwarder was tried and removed -- it never fired (the exe calls the state's
   `RequestEvadeAction`/`DefaultRequestEvadeAction` directly; that is the seam if we ever force the direction).
 - Options from the pause menu (2026-08-25, verified by the user): the exit window's Options Menu builds the SAME

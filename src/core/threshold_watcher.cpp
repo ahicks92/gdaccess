@@ -12,7 +12,7 @@ bool ThresholdWatcher::update(double fraction, int& out_percent) {
   if (bucket_ < 0) { bucket_ = b; return false; }
   if (b == bucket_) return false;
   bucket_ = b;
-  out_percent = (int)std::lround(b * step_ * 100.0);
+  out_percent = (int)std::lround(fraction * 100.0);   // the actual value at the crossing, not the bucket's floor
   return true;
 }
 }  // namespace gd::core

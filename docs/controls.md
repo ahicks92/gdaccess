@@ -38,7 +38,7 @@ screenshots. Rows in the game's order; "-" = unassigned.
 | Switch Weapons | - | Gamepad LThumb |
 | Interact | U | - |
 | Pickup | - | - |
-| Evade | Space | Gamepad B |
+| Evade (see docs/evade.md: turn Evade To Cursor off) | Space | Gamepad B |
 | Show Items (No Filter) | Alt | Right Alt |
 | Show Item Tooltips | X | - |
 | Show Items (Filter Common) | Z | - |

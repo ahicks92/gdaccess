@@ -100,22 +100,22 @@ TEST_CASE("coalescer: a debuff adopts an effect-only bucket then the number join
   CHECK(out[0].is_number); CHECK(out[0].amount == doctest::Approx(8));
   REQUIRE(out[0].tags.size() == 1); CHECK(out[0].tags[0] == "burning");
 }
-TEST_CASE("threshold watcher fires once per decade in both directions") {
+TEST_CASE("threshold watcher fires once per decade in both directions, speaking the actual value") {
   ThresholdWatcher w;
   int pct = -1;
   CHECK_FALSE(w.update(1.0, pct));       // first sample only records
-  CHECK(w.update(0.95, pct)); CHECK(pct == 90);   // full is its own bucket: the first scratch says "90"
+  CHECK(w.update(0.99, pct)); CHECK(pct == 99);   // full is its own bucket: the first scratch fires, and says 99, not 90
   CHECK_FALSE(w.update(0.91, pct));
-  CHECK(w.update(0.89, pct)); CHECK(pct == 80);
+  CHECK(w.update(0.89, pct)); CHECK(pct == 89);
   CHECK_FALSE(w.update(0.81, pct));
-  CHECK(w.update(0.799, pct)); CHECK(pct == 70);
+  CHECK(w.update(0.799, pct)); CHECK(pct == 80);  // rounds: 79.9 -> 80 (still the 70 bucket for triggering)
   CHECK_FALSE(w.update(0.701, pct));     // jitter inside the decade
   CHECK_FALSE(w.update(0.72, pct));
-  CHECK(w.update(0.25, pct)); CHECK(pct == 20);   // a big hit skips decades: one announcement, the landing
-  CHECK(w.update(0.05, pct)); CHECK(pct == 0);
-  CHECK(w.update(0.31, pct)); CHECK(pct == 30);   // recovery
+  CHECK(w.update(0.25, pct)); CHECK(pct == 25);   // a big hit skips decades: one announcement, the landing
+  CHECK(w.update(0.05, pct)); CHECK(pct == 5);
+  CHECK(w.update(0.31, pct)); CHECK(pct == 31);   // recovery
   CHECK(w.update(1.0, pct)); CHECK(pct == 100);
   w.reset();
   CHECK_FALSE(w.update(0.5, pct));
-  CHECK(w.update(0.49, pct)); CHECK(pct == 40);
+  CHECK(w.update(0.49, pct)); CHECK(pct == 49);
 }
