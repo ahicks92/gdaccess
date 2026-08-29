@@ -1653,6 +1653,11 @@ bool in_group(const void* e, const void* ci, const std::string& cls, ScanGroup g
     case ScanGroup::Transitions: return is_named_kind(ci, "DungeonEntrance");
     case ScanGroup::Destructibles: return is_live_destructible(e, ci);   // sonar: breakables only (no flavour NPCs)
     case ScanGroup::Shrines: return g_api.StaticShrine_StaticClassInfo && is_kind_of(ci, g_api.StaticShrine_StaticClassInfo());
+    // Sonar: the rest of N's objects of interest -- everything the Interact key would use that is not loot, a
+    // dungeon entrance, a shrine or a breakable (those have their own cues); NPCs are people, not interactables.
+    case ScanGroup::Interactables:
+      return is_of_interest(e, ci) && !is_loot(ci, cls) && !is_named_kind(ci, "DungeonEntrance") && !is_live_destructible(e, ci) &&
+             !(g_api.StaticShrine_StaticClassInfo && is_kind_of(ci, g_api.StaticShrine_StaticClassInfo()));
     default: break;
   }
   return false;

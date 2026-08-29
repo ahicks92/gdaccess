@@ -88,7 +88,7 @@ SkillAim skill_aim(const void* skill_obj);   // skill_obj from gameapi::object_b
 // from ObjectManager::CreateObjectID) and re-found in a fresh query on every step -- never by pointer --
 // so a despawned target simply drops out and the next step enters at the nearest. The landing also
 // parks the virtual cursor on the thing, so the game hovers / targets it natively.
-enum class ScanGroup { Enemies, Neutrals, Bystanders, Objects, Exits, Loot, Transitions, Pets, Destructibles, Shrines };   // Pets: the player's own summons ([ / ]), note = stance; Destructibles / Shrines: sonar only   // Loot/Transitions: the sonar sweep only
+enum class ScanGroup { Enemies, Neutrals, Bystanders, Objects, Exits, Loot, Transitions, Pets, Destructibles, Shrines, Interactables };   // Interactables: sonar only -- N's objects of interest with no cue of their own (doors, levers, riftgates, notes...)   // Pets: the player's own summons ([ / ]), note = stance; Destructibles / Shrines: sonar only   // Loot/Transitions: the sonar sweep only
 // note: an extra spoken list item ("blocked" for an exit whose opening the live mesh refuses), normally empty.
 // level/classification are filled for enemies only (classification -1 = not read: not an enemy, or unknown);
 // classification is the MonsterClassification enum (0 Common, 1 Champion, 2 Hero, 3 Boss, 4 Quest, 5 SuperBoss).

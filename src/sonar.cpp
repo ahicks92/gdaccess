@@ -20,14 +20,15 @@ core::SonarField g_field;
 // One cue per kind (assets/audio/interactables). Shrines: a ruined / desecrated one has its own cue, a restored one
 // the loot "search point" cue. kTrimDb: per-file level trims so the cues sit at one perceived loudness without
 // editing the files (tools/loudness.py, K-weighted; see docs/sonar-loudness.md) -- live: /sonar?trim=<kind>,<dB>.
-enum Kind { kEnemy = 0, kLoot = 1, kTransition = 2, kDestructible = 3, kShrineRuined = 4, kShrineRestored = 5, kKinds = 6 };
-constexpr const char* kCue[kKinds] = {"units-enemy.wav", "unknown.wav", "transition.wav", "destructible.wav", "shrine-ruined.wav", "unknown.wav"};
-constexpr const char* kKindName[kKinds] = {"enemy", "loot", "transition", "destructible", "shrine-ruined", "shrine-restored"};
+enum Kind { kEnemy = 0, kLoot = 1, kTransition = 2, kDestructible = 3, kShrineRuined = 4, kShrineRestored = 5, kInteractable = 6, kKinds = 7 };
+constexpr const char* kCue[kKinds] = {"units-enemy.wav", "unknown.wav", "transition.wav", "destructible.wav", "shrine-ruined.wav", "unknown.wav", "interactable.wav"};
+constexpr const char* kKindName[kKinds] = {"enemy", "loot", "transition", "destructible", "shrine-ruined", "shrine-restored", "interactable"};
 // Measured 2026-08-26 (tools/loudness.py, K-weighted, reference = units-enemy at -13.9 LKFS): unknown -18.2,
 // door05 -22.5 (peak -1.6 dBFS, so only +1.5 fits without clipping; it stays ~7 dB under by the meter),
-// push33 -12.6, push17 -12.7 (peak +0.4 raw). Order = Kind.
-constexpr float kDefaultTrimDb[kKinds] = {0.0f, 4.3f, 1.5f, -1.3f, -1.2f, 4.3f};
-float g_trim_db[kKinds] = {0.0f, 4.3f, 1.5f, -1.3f, -1.2f, 4.3f};
+// push33 -12.6, push17 -12.7 (peak +0.4 raw), interactable (se_old_pack00 buble05) -18.6 (peak -5.5, +4.7 leaves
+// 0.8 dB headroom). Order = Kind.
+constexpr float kDefaultTrimDb[kKinds] = {0.0f, 4.3f, 1.5f, -1.3f, -1.2f, 4.3f, 4.7f};
+float g_trim_db[kKinds] = {0.0f, 4.3f, 1.5f, -1.3f, -1.2f, 4.3f, 4.7f};
 float db_to_gain(float db) { return std::pow(10.0f, db / 20.0f); }
 long long g_fired = 0;
 
@@ -61,6 +62,7 @@ void tick() {
   collect(world::ScanGroup::Transitions, kTransition, items);
   collect(world::ScanGroup::Destructibles, kDestructible, items);
   collect(world::ScanGroup::Shrines, kShrineRuined, items);
+  collect(world::ScanGroup::Interactables, kInteractable, items);
   auto pings = g_field.update(items, now);   // each thing pulses on its own period, phase-staggered
   if (pings.empty() || !audible()) return;
   for (const core::SonarField::Ping& p : pings) {
@@ -101,7 +103,8 @@ std::string status() {
                               p.period_near, p.dist_near, p.period_far, p.dist_far, g_field.tracked(), g_fired);
   s += "trims dB:"; for (int i = 0; i < kKinds; ++i) s += std::format(" {}={:+.1f}", kKindName[i], g_trim_db[i]); s += "\n";
   for (auto [group, kind] : {std::pair{world::ScanGroup::Enemies, kEnemy}, std::pair{world::ScanGroup::Loot, kLoot}, std::pair{world::ScanGroup::Transitions, kTransition},
-                             std::pair{world::ScanGroup::Destructibles, kDestructible}, std::pair{world::ScanGroup::Shrines, kShrineRuined}})
+                             std::pair{world::ScanGroup::Destructibles, kDestructible}, std::pair{world::ScanGroup::Shrines, kShrineRuined},
+                             std::pair{world::ScanGroup::Interactables, kInteractable}})
     for (const world::ScanItem& it : world::scan(group, g_radius)) {
       float pan, gain, ahead; world::ear_frame(it.pos, pan, gain, &ahead);
       const char* name = kKindName[group == world::ScanGroup::Shrines ? (world::shrine_restored(it.id) ? kShrineRestored : kShrineRuined) : kind];
