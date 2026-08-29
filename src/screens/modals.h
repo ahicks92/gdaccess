@@ -7,5 +7,6 @@ namespace gd::screens {
 // the three offering lines, Offer / Cancel / Close): InGameUI windows read by offset, buttons pressed through
 // each window's own listener registry (docs/ingame-ui-survey.md; registries read out of the ctors 2026-08-22).
 std::unique_ptr<gd::core::Screen> make_quest_reward();
-std::unique_ptr<gd::core::Screen> make_shrine();
+std::unique_ptr<gd::core::Screen> make_shrine();             // ruined shrine (offerings)
+std::unique_ptr<gd::core::Screen> make_corrupted_shrine();   // desecrated shrine (summon + fight)
 }  // namespace gd::screens

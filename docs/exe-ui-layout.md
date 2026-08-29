@@ -135,7 +135,7 @@ Tips are gated on `Options::GetBool(0x1a)`.
 
 - 2026-08-22 additions (details in `docs/ingame-ui-survey.md`): the C/I inventory-character window is
   `+0xbbf0` (`+0x52258` is the multiplayer Inspect twin); more windows: faction vendor `+0x2e188`, caravan
-  `+0x4fd08`, shrine `+0x7da50`, crafting `+0x3aa80`, item ascension `+0x8baa8`. Vtable `+0xf0` is not
+  `+0x4fd08`, shrine `+0x7da50` (ruined) / `+0x7f6f8` (desecrated, its own class), crafting `+0x3aa80`, item ascension `+0x8baa8`. Vtable `+0xf0` is not
   universally OnControlEvent (the stack-split window has setters there). The game's key-binding actions are
   `InGameUI::HandleKeyAction(ui, action, bool, bool, bool)` = exe+0x211980 (signature-checked; `ingame_key_action`).
 

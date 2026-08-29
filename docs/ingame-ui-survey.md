@@ -143,9 +143,16 @@ choose (no ChooseReward export exists), only Accept.
 ### Stack split (`+0x83ed8`) -- EASY, modal
 `+0x160` ok, `+0x510` cancel, `+0xbf8` decrease, `+0xf30` increase; `GameEngine::GetItemMaxStackSize`.
 
-### Shrine (`+0x7da50`) -- EASY, worth doing (progression gate)
+### Shrine (`+0x7da50` ruined, `+0x7f6f8` desecrated) -- DONE (both verified live 2026-08-28)
 `+0x540` title, `+0x638` info, `+0x8e0/+0xbd0/+0xec0` offering boxes, `+0x11f8` shrine button, `+0x15a8`
-cancel, `+0x1958` close. Model: `StaticShrine::GetDevotionPoints/GetXpReward/IsCleansed/IsLocked/
+cancel, `+0x1958` close, `+0xa4` the shrine object's id. **Two windows of this shape**: the ruined shrine
+(`+0x7da50`, vt exe+0x318230, "Offer" + offerings) and the desecrated shrine (`+0x7f6f8`, its own class, vt
+exe+0x318128, loader exe+0x1d3ec0 with "shrineCorruptedBitmap"; info = `tagShrineConfirmProxy` "This shrine is
+corrupted and needs to be cleansed. Summon what is trapped within?", button `tagShrineButton02` "Start"). The
+game opens the inventory window alongside either; the desecrated one was invisible to the mod until 2026-08-28
+(the user's "can't do desecrated shrines"), so the inventory screen won. Start closes both windows and spawns
+the record's `normalMonsterSpawn` proxy (verified: Flooded Passage a04). The title (vt exe+0x31c2b0, u16 at
++0x40) and info (vt exe+0x31b830, u16 at +0x38) elements are their own classes, now read by `WidgetB::text`. Model: `StaticShrine::GetDevotionPoints/GetXpReward/IsCleansed/IsLocked/
 IsActiveForMainPlayer`, `GetOffering1..3Id`, `GetOffering1..3DisplayName` (u16 by value); act
 `ControllerCharacter::SendCleanseShrineCmd` / `StaticShrine::RequestToUse(id)`.
 

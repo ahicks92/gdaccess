@@ -47,11 +47,15 @@ class QuestRewardScreen : public WindowScreen {
   }
 };
 
-// Shrine (InGameUI+0x7da50): title +0x540, info +0x638, offering boxes +0x8e0 / +0xbd0 / +0xec0 (their text
-// elements), shrine button +0x11f8, cancel +0x15a8, close +0x1958, registry +0x11b0.
+// Shrine: title +0x540, info +0x638, offering boxes +0x8e0 / +0xbd0 / +0xec0 (their text elements), shrine
+// button +0x11f8, cancel +0x15a8, close +0x1958, registry +0x11b0, the shrine object's id +0xa4. TWO windows of
+// this shape exist (found live 2026-08-28): the ruined shrine (InGameUI+0x7da50, "Offer" + offerings) and the
+// desecrated one (InGameUI+0x7f6f8, its own class with "shrineCorruptedBitmap", info = tagShrineConfirmProxy
+// "Summon what is trapped within?", button "Start"). The game shows the inventory window alongside both; this
+// screen's layer (24) outranks it. Button labels come from the widgets' own captions.
 class ShrineScreen : public WindowScreen {
  public:
-  ShrineScreen() : WindowScreen("shrine", std::string(strings::kShrine), exe_ui::ingame::kShrine, 24) {}
+  ShrineScreen(const char* key, unsigned window_off) : WindowScreen(key, std::string(strings::kShrine), window_off, 24) {}
   void build(GraphBuilder& b) override {
     exe_ui::WindowB w = window();
     if (!w) return;
@@ -78,5 +82,6 @@ class ShrineScreen : public WindowScreen {
 };
 
 std::unique_ptr<Screen> make_quest_reward() { return std::make_unique<QuestRewardScreen>(); }
-std::unique_ptr<Screen> make_shrine() { return std::make_unique<ShrineScreen>(); }
+std::unique_ptr<Screen> make_shrine() { return std::make_unique<ShrineScreen>("shrine", exe_ui::ingame::kShrine); }
+std::unique_ptr<Screen> make_corrupted_shrine() { return std::make_unique<ShrineScreen>("shrine_corrupted", exe_ui::ingame::kShrineCorrupted); }
 }  // namespace gd::screens

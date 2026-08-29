@@ -257,6 +257,7 @@ void init() {
   g_screens.register_screen(screens::make_skills());
   g_screens.register_screen(screens::make_quest_reward());
   g_screens.register_screen(screens::make_shrine());
+  g_screens.register_screen(screens::make_corrupted_shrine());
   g_screens.register_screen(screens::make_vendor());
   g_screens.register_screen(screens::make_stash());
   g_screens.register_screen(screens::make_hotbar_manager());

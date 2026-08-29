@@ -153,7 +153,7 @@ constexpr unsigned kPromptBox = 0x7378, kCharacter = 0x52258 /*the multiplayer I
                    kFactions = 0x6c9b8, kAchievements = 0x7d150, kDevotion = 0x813a0, kStack = 0x83ed8,
                    kPotions = 0x8a300, kQuestReward = 0x8efd8, kObjective = 0x90390, kLootFilter = 0xab410,
                    kTrade = 0x29cc8, kMarket = 0x2b538, kEnchanter = 0x30dd8, kTransmuter = 0x85378, kAltar = 0x87628,
-                   kFactionVendor = 0x2e188, kCaravan = 0x4fd08, kShrine = 0x7da50, kCrafting = 0x3aa80, kAscension = 0x8baa8;
+                   kFactionVendor = 0x2e188, kCaravan = 0x4fd08, kShrine = 0x7da50 /*ruined: offerings*/, kShrineCorrupted = 0x7f6f8 /*desecrated: summon monsters; its own window class (vt exe+0x318128), same widget offsets*/, kCrafting = 0x3aa80, kAscension = 0x8baa8;
 constexpr unsigned kHost = 0x7338;  // the widget host whose vtable +0x80 presses a child button
 // The pause menu's Options: InGameUI+0x4def8 holds a POINTER to a 0x98-byte host window (ctor exe+0x29efc0,
 // vtable exe+0x31dd90; visible byte +0x68) whose +0x90 is the framework-A Options screen itself (allocated

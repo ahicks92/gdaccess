@@ -589,6 +589,15 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   power->GetTemplateAutoCast(), false)` + `SetDevotionParent`, reclaim mode is opened by a SPIRIT GUIDE's
   Devotion tab as well as a Tonic of Clarity (verified live: `GetUI()->vt[0x90](id)` sets `window+0x2419`; the
   wiki was right, the exe note's "tonic only" was wrong), AffinityType 0..4 = Ascendant/Chaos/Eldritch/Order/Primordial.
+- Desecrated shrines (2026-08-28, verified live at the Flooded Passage shrine): the "summon what is trapped within"
+  shrine is a SECOND window of the shrine shape at InGameUI+0x7f6f8 (own class, vt exe+0x318128; same widget
+  offsets as the ruined shrine's +0x7da50), so `screens/modals.cpp` now runs the ShrineScreen over both offsets.
+  Start = the window's own button; the game also opens the inventory next to either shrine window (why the bug
+  looked like "the wrong window"). The shrine title/info text elements are two more framework-B text classes
+  (`kTitleTextB` u16 +0x40, `kTextBlockB` u16 +0x38) -- `WidgetB::text` reads them now (the ruined shrine's
+  title/info were silently empty before). Dev: `/shrine` prints both windows; `/ingame` lists them.
+  Finding an in-world window's offset: scan the live InGameUI for a vtable with `/peek` (the map header's
+  per-region shrine record + `tools/gdmap` locate the shrine; the chunk needs `/teleport?check=1` polling to load).
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.

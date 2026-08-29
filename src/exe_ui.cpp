@@ -29,6 +29,8 @@ constexpr uintptr_t kPopupWindowVt = 0x30d650;  // the popup window itself (text
 constexpr uintptr_t kButtonB = 0x313e78;        // framework B button vtable (ctor exe+0x124d60, size 0x388)
 constexpr uintptr_t kTextButtonB = 0x313ce8;    // framework B TextButton vtable (ctor exe+0x126fe0, size 0x3b0; caption +0x358)
 constexpr uintptr_t kTextB = 0x31c7c0;          // framework B text element vtable (draw exe+0x25b700)
+constexpr uintptr_t kTitleTextB = 0x31c2b0;     // framework B title/caption text element (the shrine windows' title +0x540; u16 at +0x40; set through vt+0x18 exe+0x1adb30)
+constexpr uintptr_t kTextBlockB = 0x31b830;     // framework B multi-line text block (the shrine windows' info +0x638; u16 at +0x38; set through vt+0xa0 exe+0x2401e0)
 }  // namespace rva
 namespace off {
 constexpr size_t kMainObj_UiRoot = 0x88;        // MenuManager (DisplayWidget) -- exe+0xa02f6
@@ -545,6 +547,8 @@ bool WidgetB::is_text() const { return vtable_rva() == rva::kTextB; }
 std::string WidgetB::text() const {
   if (is_text()) return read_u16(p, off::kB_Text);
   if (is_text_button()) return read_u16(p, off::kTB_Caption);
+  if (vtable_rva() == rva::kTitleTextB) return read_u16(p, 0x40);   // measured live on the desecrated shrine window 2026-08-28
+  if (vtable_rva() == rva::kTextBlockB) return read_u16(p, 0x38);
   return {};
 }
 bool WidgetB::visible() const { return rd_or<uint8_t>(p, off::kB_Visible, 0) != 0; }
@@ -982,7 +986,7 @@ std::string ingame_dump() {
                                                         {"Quest", ingame::kQuest}, {"Skills", ingame::kSkills}, {"MiniMap", ingame::kMiniMap}, {"Exit", ingame::kExit}, {"Party", ingame::kParty},
                                                         {"Factions", ingame::kFactions}, {"Achievements", ingame::kAchievements}, {"Devotion", ingame::kDevotion}, {"Stack", ingame::kStack},
                                                         {"Potions", ingame::kPotions}, {"QuestReward", ingame::kQuestReward}, {"Objective", ingame::kObjective}, {"LootFilter", ingame::kLootFilter},
-                                                        {"Trade", ingame::kTrade}, {"Market", ingame::kMarket}, {"Enchanter", ingame::kEnchanter}, {"Transmuter", ingame::kTransmuter}, {"Altar", ingame::kAltar}};
+                                                        {"Trade", ingame::kTrade}, {"Market", ingame::kMarket}, {"Enchanter", ingame::kEnchanter}, {"Transmuter", ingame::kTransmuter}, {"Altar", ingame::kAltar}, {"Shrine", ingame::kShrine}, {"ShrineCorrupt", ingame::kShrineCorrupted}};
   for (auto& w : wins) {
     WindowB win = ingame_window(w.off);
     out += std::format("  {:<14} +{:#x} vt=exe+{:#x} visible={}\n", w.name, w.off, vtable_rva_of(win.p), (int)win.visible());
