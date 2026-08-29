@@ -19,6 +19,6 @@ Cues and measurements (reference = units-enemy, -13.9 LKFS):
 Kinds: enemies (`ScanGroup::Enemies`), loot, dungeon entrances (Transitions), live breakables
 (`ScanGroup::Destructibles`, the same predicate as the B group's destructibles), devotion shrines
 (`ScanGroup::Shrines` = is-a `StaticShrine`; restored = `StaticShrine::IsCleansed`, state 6, the one branch its
-`GetGameDescription` takes), and interactables (`ScanGroup::Interactables`: the rest of the N group's objects of
-interest -- `IsOfInterest` and not loot / dungeon entrance / shrine / breakable; NPCs excluded -- doors, levers,
+`GetGameDescription` takes), and interactables (`ScanGroup::Interactables`: the rest of the N group -- quest NPCs and merchants,
+and objects of interest -- minus dungeon entrances and shrines, which have their own cues: doors, levers,
 riftgates, lore notes, graves).

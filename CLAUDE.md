@@ -598,8 +598,8 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   title/info were silently empty before). Dev: `/shrine` prints both windows; `/ingame` lists them.
   Finding an in-world window's offset: scan the live InGameUI for a vtable with `/peek` (the map header's
   per-region shrine record + `tools/gdmap` locate the shrine; the chunk needs `/teleport?check=1` polling to load).
-- Sonar interactables (2026-08-28): `ScanGroup::Interactables` = N's objects of interest with no cue of their own
-  (IsOfInterest, not loot / DungeonEntrance / StaticShrine / live Destructible; no NPCs) ping on
+- Sonar interactables (2026-08-28): `ScanGroup::Interactables` = the N group (quest NPCs, merchants, objects of interest)
+  minus DungeonEntrance / StaticShrine, which have their own cues, ping on
   `assets/audio/interactables/interactable.wav` (se_old_pack00 buble05, copied into the repo; trim +4.7 dB by
   tools/loudness.py). Verified live: the character's grave marker pings. Sound files are copied into the repo, never
   referenced from outside it.
