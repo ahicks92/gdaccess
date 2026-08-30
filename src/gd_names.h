@@ -1132,6 +1132,18 @@ inline constexpr const char* Player_GetLootFilter = "?GetLootFilter@Player@GAME@
 // public: void __cdecl GAME::Player::SetLootFilter(enum GAME::LootFilterOption,bool) __ptr64
 inline constexpr const char* Player_SetLootFilter_DLL = "Game.dll";
 inline constexpr const char* Player_SetLootFilter = "?SetLootFilter@Player@GAME@@QEAAXW4LootFilterOption@2@_N@Z";
+// public: void __cdecl GAME::Player::SetLootFilterDefaults(void) __ptr64
+inline constexpr const char* Player_SetLootFilterDefaults_DLL = "Game.dll";
+inline constexpr const char* Player_SetLootFilterDefaults = "?SetLootFilterDefaults@Player@GAME@@QEAAXXZ";
+// public: bool __cdecl GAME::Item::PassLootFilter(enum GAME::InGameUIActorCapture::ItemIgnore)const __ptr64
+inline constexpr const char* Item_PassLootFilter_DLL = "Game.dll";
+inline constexpr const char* Item_PassLootFilter = "?PassLootFilter@Item@GAME@@QEBA_NW4ItemIgnore@InGameUIActorCapture@2@@Z";
+// public: virtual enum GAME::Visibility __cdecl GAME::Entity::GetVisibility(void)const __ptr64
+inline constexpr const char* Entity_GetVisibility_DLL = "Engine.dll";
+inline constexpr const char* Entity_GetVisibility = "?GetVisibility@Entity@GAME@@UEBA?AW4Visibility@2@XZ";
+// public: bool __cdecl GAME::Engine::IsExpansion3Loaded(void)const __ptr64
+inline constexpr const char* Engine_IsExpansion3Loaded_DLL = "Engine.dll";
+inline constexpr const char* Engine_IsExpansion3Loaded = "?IsExpansion3Loaded@Engine@GAME@@QEBA_NXZ";
 // public: float __cdecl GAME::Character::DesignerCalculateOffensiveAbility(float) __ptr64
 inline constexpr const char* Character_DesignerCalculateOffensiveAbility_DLL = "Game.dll";
 inline constexpr const char* Character_DesignerCalculateOffensiveAbility = "?DesignerCalculateOffensiveAbility@Character@GAME@@QEAAMM@Z";

@@ -424,6 +424,12 @@ ENTRIES = [
     ("Achievement_IsUnlocked", "Game", r"GAME::Achievement::IsUnlocked\("),
     ("Player_GetLootFilter", "Game", r"GAME::Player::GetLootFilter\("),
     ("Player_SetLootFilter", "Game", r"GAME::Player::SetLootFilter\(enum"),
+    # loot filter (docs/loot-filter.md): the defaults reset, the game's own pass/hide predicate, the entity
+    # visibility a collected placed quest item is hidden by, and the expansion-3 check that adds option 39
+    ("Player_SetLootFilterDefaults", "Game", r"GAME::Player::SetLootFilterDefaults\(void\)"),
+    ("Item_PassLootFilter", "Game", r"GAME::Item::PassLootFilter\("),
+    ("Entity_GetVisibility", "Engine", r"GAME::Entity::GetVisibility\(void\)"),
+    ("Engine_IsExpansion3Loaded", "Engine", r"GAME::Engine::IsExpansion3Loaded\(void\)"),
     # character sheet / attribute points / dev experience (docs/ingame-ui-survey.md, the 2026-08-22 exe readout)
     ("Character_DesignerCalculateOffensiveAbility", "Game", r"GAME::Character::DesignerCalculateOffensiveAbility\(float\)"),
     ("Character_DesignerCalculateDefensiveAbility", "Game", r"GAME::Character::DesignerCalculateDefensiveAbility\(float\)"),

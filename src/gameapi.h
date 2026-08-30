@@ -245,4 +245,23 @@ bool pet_attack(unsigned pet_id, unsigned target_id);
 bool pet_move(unsigned pet_id, const world::Vec3& world_pos);
 bool release_pet(unsigned pet_id);               // Disband Pet
 std::string dump_pets();
+
+// ---- Loot filter (gameapi_loot.cpp; docs/loot-filter.md) ----
+constexpr int kLootFilterOptions = 42, kLootFilterColumns = 4;
+struct LootFilterOption {
+  int index;            // the LootFilterOption enum value (the bit)
+  const char* tag;      // caption tag (tooltip = tag + "Info")
+  const char* fallback; // the base game's English, for when localization is not up yet
+  int column;           // 0 Quality, 1 Type, 2 Damage, 3 Character (the window's columns)
+  bool default_on;
+};
+const std::vector<LootFilterOption>& loot_filter_options();   // window order; option 39 only with expansion 3 loaded
+const char* loot_filter_column_tag(int column);
+const char* loot_filter_column_fallback(int column);
+bool loot_filter(int option);                    // Player::GetLootFilter (clamped)
+bool set_loot_filter(int option, bool on);       // Player::SetLootFilter -- in effect immediately, saved with the character
+bool loot_filter_defaults(int column);           // column -1 = the game's SetLootFilterDefaults; else that column's factory bits
+bool item_passes_loot_filter(const void* item);  // Item::PassLootFilter(0): would the game label it (true when unknown)
+bool entity_hidden(const void* entity);          // Entity::GetVisibility() == 0: the game does not show it (a collected placed quest item)
+std::string dump_loot_filter();
 }  // namespace gd::gameapi

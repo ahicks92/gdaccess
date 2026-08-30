@@ -603,6 +603,19 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   `assets/audio/interactables/interactable.wav` (se_old_pack00 buble05, copied into the repo; trim +4.7 dB by
   tools/loudness.py). Verified live: the character's grave marker pings. Sound files are copied into the repo, never
   referenced from outside it.
+- Loot filter MAPPED + BUILT (2026-08-29, `docs/loot-filter.md`, verified live): Ctrl+O = the window as four Tab stops
+  (column header, toggles in the game's order, "set to defaults" per column; Enter = `Player::SetLootFilter` + a mirror
+  write of the box, Space = the `tagLootFilterNNInfo` tooltip); bare O = "show all items" latch (groups + sonar ignore the
+  filter, the actor capture's Alt byte `[[main_obj+0x90]+0x110]+0x129` re-asserted per frame). `world::scan` drops ground
+  Items failing `Item::PassLootFilter(0)` and EVERY entity with `Entity::GetVisibility()==0` -- the "Strange Key you already
+  have" ghost: a placed quest item is hidden by `QuestItem::InitialUpdate` -> `SetVisibility(GetQuestVisibility())` once its
+  `requiredTaskUID` task is done, but `IsOfInterest` still says yes (not yet seen live on a real key). Model facts: 42 `LootFilterOption` bits per character at
+  `Player+0x4c00` (`Player::Get/SetLootFilter`, `SetLootFilterDefaults`, no range check, saved in the .gdc); the
+  window `InGameUI+0xab410` holds a `std::map<CheckBox*, option>` at `+0xd58` (checked byte `+0x282`, caption tag
+  `+0x338`; 41 boxes, option 39 = expansion 3 only) and calls SetLootFilter on each click, so a screen is
+  `SetLootFilter` + a mirror write of `+0x282`. Full index -> tag -> semantics table in the doc, verified live by
+  walking the map. Only the Pickup key (G) and the label pass honour the filter; J on a reviewed item and our review
+  groups ignore it (product decision open).
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.

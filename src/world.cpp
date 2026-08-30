@@ -1073,6 +1073,8 @@ std::string entities_dump(float max_dist, bool frustum) {
     else if (g_api.Item_StaticClassInfo && is_kind_of(r.ci, g_api.Item_StaticClassInfo())) kind = " [Item";
     if (!kind.empty()) kind += is_of_interest(e, r.ci) ? " interest]" : " no-interest]";
     if (cls == "Monster" && g_api.Character_IsAlive && !g_api.Character_IsAlive(e)) kind += " [dead]";   // a corpse: not an enemy
+    if (gameapi::entity_hidden(e)) kind += " [hidden]";   // Entity visibility 0: a collected placed quest item, never listed
+    else if (g_api.Item_StaticClassInfo && is_kind_of(r.ci, g_api.Item_StaticClassInfo()) && !gameapi::item_passes_loot_filter(e)) kind += " [filtered]";
     // Render stamp: Entity::InRenderPreLoadFrustum() == (entity+0x17c == gEngine+0x640); the render preload
     // stamps every entity it considers with the frame counter, so age = frames since the renderer last saw it.
     long long age = render_age(e);
@@ -1748,6 +1750,16 @@ unsigned find_skill_by_record(void* character, const char* record) {
   return id;
 }
 
+namespace { bool g_show_all_items = false; }
+bool show_all_items() { return g_show_all_items; }
+void toggle_show_all_items() {
+  g_show_all_items = !g_show_all_items;
+  exe_ui::set_show_all_items(g_show_all_items);
+  speech::speak(std::string(g_show_all_items ? gd::strings::kShowingAllItems : gd::strings::kLootFilterOn), true);
+}
+// The game's Alt handler clears the byte on every Alt release, so the latch re-asserts it each frame.
+void show_all_tick() { if (g_show_all_items) exe_ui::set_show_all_items(true); }
+
 std::vector<ScanItem> scan(ScanGroup group, float radius) {
   std::vector<ScanItem> out;
   Vec3 me; Buf base; void* region = nullptr;
@@ -1784,6 +1796,13 @@ std::vector<ScanItem> scan(ScanGroup group, float radius) {
     if (!in_group(e, r.ci, cls, group)) continue;
     float d = std::sqrt((r.pos.x - me.x) * (r.pos.x - me.x) + (r.pos.z - me.z) * (r.pos.z - me.z));
     if (d > radius) continue;
+    // What the game does not show, we do not list: a placed quest item the player already collected stays in the
+    // world with visibility 0 (docs/loot-filter.md) -- the "Strange Key you already have" bug.
+    if (gameapi::entity_hidden(e)) continue;
+    // Ground items obey the player's loot filter like their floating labels do, unless O latched "show all".
+    if ((group == ScanGroup::Loot || group == ScanGroup::Objects) && !g_show_all_items && g_api.Item_StaticClassInfo && is_kind_of(r.ci, g_api.Item_StaticClassInfo()) &&
+        !gameapi::item_passes_loot_filter(e))
+      continue;
     // Enemies are Monsters the game's faction manager calls foes of the player (guards are Monsters too).
     int lvl = 0, cls_i = -1;
     if (group == ScanGroup::Enemies) {

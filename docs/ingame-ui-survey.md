@@ -251,9 +251,12 @@ struct to measure); `Achievement::GetTitle/GetDescription`, `IsUnlocked` (`byte[
 GetPlayerLevel/GetPlayerPing(id)` (u16 by value). Trade (`+0x29cc8`): `GameEngine::GetTradeManager()` ->
 `GetMyTradeState/GetHisTradeState` -> `TradeState::GetInventorySack/GetGoldAmount/GetFinalized`.
 
-### Loot filter (`+0xab410`) -- MEDIUM
-`Player::GetLootFilter(LootFilterOption)` / `SetLootFilter(opt, bool)` / `SetLootFilterDefaults()`; bitset at
-Player `+0x4c00`, 42 options; NO exported label per option (map by hand from the UI records / localization).
+### Loot filter (`+0xab410`) -- MAPPED 2026-08-29, see `docs/loot-filter.md`
+Superseded: the window keeps a `std::map<CheckBox*, LootFilterOption>` at `+0xd58` (41 boxes here; option 39 is
+expansion-3 only), each box a TextButton with the checked byte at `+0x282` and its caption tag at `+0x338`, so
+every option IS labelled from the window. Model: 42-bit bitset at Player `+0x4c00` (defaults at `+0x4c20`, no
+range check), `Item::PassLootFilter` = Quality AND Type AND (Damage|Character if any on). Details:
+`docs/re_lootfilter_exe.md`, `docs/re_lootfilter_gamedll.md`.
 
 ### Stations -- MEDIUM-HARD (enchanter `+0x30dd8`: tabs Recover/Dismantle/Convert/Reroll `+0xa38/+0x1af8/+0x2d98/+0x5970`,
 tab buttons `+0x8c08..+0x95b0`; crafting `+0x3aa80`; transmuter `+0x85378`; altar `+0x87628`; ascension `+0x8baa8`)

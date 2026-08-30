@@ -185,6 +185,23 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     hooks::click((float)atof(q.at("x").c_str()), (float)atof(q.at("y").c_str()), button);
     return "queued click\n";
   }
+  if (path == "/lootfilter") {   // ?set=<opt>&on=0|1 | ?defaults=<col|-1> | ?all=0|1 (the O latch) | (none) the options + the window's boxes
+    if (q.count("set")) {
+      int o = parse_int(q.at("set"), -1);
+      bool on = parse_int(q.count("on") ? q.at("on") : "1", 1) != 0;
+      bool ok = gameapi::set_loot_filter(o, on);
+      if (ok) exe_ui::loot_filter_mirror(o, on);
+      return ok ? "ok\n" : "failed\n";
+    }
+    if (q.count("defaults")) return gameapi::loot_filter_defaults(parse_int(q.at("defaults"), -1)) ? "ok\n" : "failed\n";
+    if (q.count("all")) {
+      if ((parse_int(q.at("all"), 0) != 0) != world::show_all_items()) world::toggle_show_all_items();
+      return std::format("show_all={}\n", world::show_all_items());
+    }
+    std::string out = std::format("show_all={}\n", world::show_all_items()) + gameapi::dump_loot_filter();
+    for (const exe_ui::LootFilterBox& b : exe_ui::loot_filter_boxes()) out += std::format("  box opt={:2} checked={} ctrl={}\n", b.option, b.checked, b.ctrl);
+    return out;
+  }
   if (path == "/pets") {   // ?stance=<pet id>&type=0|1|2 | ?attack=<pet id>&target=<id> | ?move=<pet id>&x=&y=&z= | ?release=<pet id> | (none) list
     if (q.count("stance")) return gameapi::set_pet_stance((unsigned)parse_int(q.at("stance"), 0), parse_int(q.count("type") ? q.at("type") : "1", 1)) ? "ok\n" : "failed\n";
     if (q.count("attack")) return gameapi::pet_attack((unsigned)parse_int(q.at("attack"), 0), (unsigned)parse_int(q.count("target") ? q.at("target") : "0", 0)) ? "ok\n" : "failed\n";

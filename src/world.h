@@ -94,6 +94,13 @@ enum class ScanGroup { Enemies, Neutrals, Bystanders, Objects, Exits, Loot, Tran
 // classification is the MonsterClassification enum (0 Common, 1 Champion, 2 Hero, 3 Boss, 4 Quest, 5 SuperBoss).
 struct ScanItem { unsigned id; std::string cls, label, record; Vec3 pos; float dist; std::string note; int level = 0; int classification = -1; };
 std::vector<ScanItem> scan(ScanGroup group, float radius = 40.0f);  // nearest first
+// The loot filter applies to the review groups and the sonar exactly as to the game's labels (docs/loot-filter.md):
+// a ground Item the filter hides is not listed and not pinged; an entity the game does not show at all
+// (visibility 0: a placed quest item already collected) is never listed in any group. O latches "show all":
+// the groups ignore the filter and the game draws every label (the Alt modifier byte, written per frame).
+bool show_all_items();
+void toggle_show_all_items();   // speaks the new state
+void show_all_tick();           // per frame from the in-game screen: keeps the game's modifier byte in step with the latch
 // Point items (room exits) are not entities: ids from kPointIdBase up, positions carried by the item. The
 // provider (src/rooms.cpp) returns the current room's exits; the scanner locks/pings/projects the point.
 constexpr unsigned kPointIdBase = 0x40000000u;

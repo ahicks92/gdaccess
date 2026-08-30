@@ -540,6 +540,46 @@ std::string map_nuggets_dump(int maxn) {
 }
 void WindowB::show(bool on) const { if (p) call_void_bool(p, off::kVt_Show, on); }
 WindowB ingame_window(unsigned o) { void* ui = ingame_ui(); return ui ? WindowB{(char*)ui + o} : WindowB{}; }
+
+// ---- loot filter window (static RE 2026-08-29, docs/re_lootfilter_exe.md; map + bytes verified live) ----
+namespace {
+constexpr size_t kLF_Boxes = 0xd58;                 // std::map<CheckBox*, int option>: {head*, size}; MSVC node = {left, parent, right, color, isnil, key +0x20, value +0x28}
+constexpr size_t kWorldScreen_ActorCapture = 0x110; // InGameUIActorCapture -- exe+0x20fd8
+constexpr size_t kCapture_ShowAllItems = 0x129;     // Alt held (key action 0x23) -- exe+0x28ac00; read by exe+0x20ff8
+bool write_byte(void* p, unsigned char v) {
+  __try { *(unsigned char*)p = v; return true; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+void walk_boxes(void* node, void* head, std::vector<LootFilterBox>& out, int depth) {
+  if (!node || node == head || depth > 64 || out.size() > 64) return;
+  unsigned char nil = 1;
+  if (!rd(node, 0x19, nil) || nil) return;
+  walk_boxes(rdp(node, 0x00), head, out, depth + 1);
+  LootFilterBox b;
+  b.ctrl = rdp(node, 0x20);
+  int opt = -1; unsigned char checked = 0;
+  if (rd(node, 0x28, opt) && b.ctrl && rd(b.ctrl, off::kB_Pressed, checked)) { b.option = opt; b.checked = checked != 0; out.push_back(b); }
+  walk_boxes(rdp(node, 0x10), head, out, depth + 1);
+}
+}  // namespace
+std::vector<LootFilterBox> loot_filter_boxes() {
+  std::vector<LootFilterBox> out;
+  WindowB w = ingame_window(ingame::kLootFilter);
+  if (!w) return out;
+  void* head = rdp(w.p, kLF_Boxes);
+  size_t size = rd_or<size_t>(w.p, kLF_Boxes + 8, 0);
+  if (!head || size == 0 || size > 64) return out;
+  walk_boxes(rdp(head, 0x08), head, out, 0);   // head->parent = root
+  return out;
+}
+bool loot_filter_mirror(int option, bool on) {
+  for (const LootFilterBox& b : loot_filter_boxes())
+    if (b.option == option) return write_byte((char*)b.ctrl + off::kB_Pressed, on ? 1 : 0);
+  return false;
+}
+bool set_show_all_items(bool on) {
+  void* cap = rdp(rdp(main_obj(), off::kMainObj_WorldScreen), kWorldScreen_ActorCapture);
+  return cap && write_byte((char*)cap + kCapture_ShowAllItems, on ? 1 : 0);
+}
 uintptr_t WidgetB::vtable_rva() const { return vtable_rva_of(p); }
 bool WidgetB::is_button() const { return vtable_rva() == rva::kButtonB; }
 bool WidgetB::is_text_button() const { return vtable_rva() == rva::kTextButtonB; }

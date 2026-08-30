@@ -197,6 +197,7 @@ popups are read once each.
 | Ctrl+- / Ctrl+= | Read the left / right mouse skill |
 | Ctrl+` | Hotbar manager: both bars and the mouse buttons of the current weapon set; activate a slot to pick a learned skill, or clear / default |
 | Alt (held) | Show item labels |
+| O | Show all items on / off ("showing all items" / "loot filter on"): while on, the loot review group (M), the loot sonar and the game's own labels ignore your loot filter -- the same as holding Alt, latched |
 | F2..F6 / F7 | Select pet 1..5 (toggle) / select all pets, announced; the selection applies to the next pet command only |
 | Shift+Backspace | The selected pets (all, if none are selected) attack the locked target |
 
@@ -220,7 +221,8 @@ quickbar slot from the hotbar manager and works against the locked target like a
 | Ctrl+J | Factions |
 | Ctrl+L | Personal riftgate |
 | Ctrl+1..0, Ctrl+J, Ctrl+I | Inside inventory / skills: put the focused skill (or, on a weapon slot, the weapon's basic attack) on quickbar slot 1..10 / the left mouse / the right mouse |
-| Ctrl+O, Ctrl+K, Ctrl+G, Ctrl+H, Ctrl+V, Ctrl+B, Ctrl+X, Ctrl+Z, Ctrl+P, Ctrl+], Ctrl+\, Ctrl+Enter | The game's own loot filter, group, game menu, help, achievements, drop item, item tooltips, show items, pause, toggle UI, party display, chat |
+| Ctrl+O | Loot filter: the game's four columns (Quality, Type, Damage, Character) as four Tab stops, each a list of toggles in the game's order ending in "set to defaults" for that column. Enter flips a box -- it takes effect at once and is saved with the character; Space reads the game's own explanation of the box. Rarity and type must each match a ticked box; the Damage / Character boxes only start filtering once one of them is ticked (an item then needs one of the ticked stats), and Epics / Legendaries always show while "Always Show Uniques" is on. The filter decides which items get a label in the game, which items G picks up, and now also which items M and the sonar tell you about (O overrides) |
+| Ctrl+K, Ctrl+G, Ctrl+H, Ctrl+V, Ctrl+B, Ctrl+X, Ctrl+Z, Ctrl+P, Ctrl+], Ctrl+\, Ctrl+Enter | The game's own group, game menu, help, achievements, drop item, item tooltips, show items, pause, toggle UI, party display, chat |
 
 NPC windows (vendor, stash, quest reward, shrine, riftgate travel, conversations) open when the NPC opens them
 and follow the menu keys above. In a vendor's Sell tab, Enter sells the whole item (a stack entire);

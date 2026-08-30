@@ -130,6 +130,14 @@ struct WindowB {
   void show(bool on) const;  // vtable +0xb0
 };
 WindowB ingame_window(unsigned off);   // InGameUI + off (kWin* below)
+// ---- the loot filter window (docs/re_lootfilter_exe.md): its check boxes are heap objects in a
+// std::map<CheckBox*, LootFilterOption> at window+0xd58; a box's checked byte is the TextButton pressed byte ----
+struct LootFilterBox { void* ctrl = nullptr; int option = -1; bool checked = false; };
+std::vector<LootFilterBox> loot_filter_boxes();      // empty outside the world
+bool loot_filter_mirror(int option, bool on);         // write the drawn box's state after Player::SetLootFilter (the game only refreshes on Show)
+// The actor capture's "show every item label" modifier byte (what holding Alt sets, key action 0x23; read by the
+// exe's ItemIgnore helper exe+0x20f70): written every frame while the mod's O latch is on.
+bool set_show_all_items(bool on);
 // ---- the riftgate travel map (docs/exe-ui-layout.md "Riftgate travel"): the world map in riftgate mode ----
 struct Riftgate {
   std::string name;      // the zone's localized name ("Devil's Crossing")

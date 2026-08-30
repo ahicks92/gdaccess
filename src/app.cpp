@@ -14,6 +14,7 @@
 #include "screens/create_character.h"
 #include "screens/delete_character.h"
 #include "screens/options.h"
+#include "screens/loot_filter.h"
 #include "screens/difficulty_select.h"
 #include "screens/in_game.h"
 #include "screens/loading.h"
@@ -110,6 +111,9 @@ static void register_actions() {
   m.register_action("ingame.objectives", "Objectives", InputCategory::InGame, [] { screens::speak_objectives(); }).bind(0x10);
   // G = the game's own Pickup action (nearest item within 10 units; the game leaves it unbound).
   m.register_action("ingame.pickup", "Pick up nearest item", InputCategory::InGame, [] { screens::pickup_nearest(); }).bind(0x22);
+  // O = show all items: the review groups and the sonar ignore the loot filter and the game draws every label (its
+  // Alt modifier, latched); the window itself is Ctrl+O (the lift below). docs/loot-filter.md.
+  m.register_action("ingame.showAllItems", "Show all items on or off", InputCategory::InGame, [] { world::toggle_show_all_items(); }).bind(0x18);
   // F = swap the active weapon set (the game's "Switch Weapons" is unbound); announces the new set + hands.
   m.register_action("ingame.swapWeapons", "Swap weapon set", InputCategory::InGame, [] { screens::swap_weapons(); }).bind(0x21);
   // Ctrl+` = the hotbar manager (assign skills to the number bars).
@@ -251,6 +255,7 @@ void init() {
   g_screens.register_screen(screens::make_conversation());
   g_screens.register_screen(screens::make_codex());
   g_screens.register_screen(screens::make_factions());
+  g_screens.register_screen(screens::make_loot_filter());
   g_screens.register_screen(screens::make_riftgate());
   g_screens.register_screen(screens::make_map_markers());
   g_screens.register_screen(screens::make_inventory());
