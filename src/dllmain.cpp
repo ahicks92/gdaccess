@@ -3,6 +3,7 @@
 #include "audio.h"
 #include "audio_mute.h"
 #include "combat.h"
+#include "gameapi.h"
 #include "notify.h"
 #include "rooms.h"
 #include "db.h"
@@ -33,6 +34,7 @@ static DWORD WINAPI init_thread(LPVOID) {
   gd::hooks::install();
   gd::world::install();
   gd::combat::install();
+  gd::gameapi::install_crafting_hooks();
   gd::notify::install();
   gd::exe_ui::install();
   gd::audio::init();
@@ -57,6 +59,7 @@ extern "C" __declspec(dllexport) DWORD WINAPI gdaccess_unload(LPVOID) {
   gd::app::shutdown();
   gd::rooms::shutdown();
   gd::db::shutdown();
+  gd::gameapi::remove_crafting_hooks();
   gd::combat::remove();
   gd::notify::remove();
   gd::voice::shutdown();  // joins the worker before the mixer it feeds goes away

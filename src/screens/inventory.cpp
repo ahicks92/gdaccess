@@ -1,6 +1,7 @@
 #include "screens/inventory.h"
 #include <cstdlib>
 #include <format>
+#include <set>
 #include <optional>
 #include "app.h"
 #include "core/navigator.h"
@@ -85,9 +86,12 @@ class InventoryScreen : public WindowScreen, public AssignSource {
   void open_component_picker(unsigned comp_id) {
     std::string comp_name = gameapi::item_name(gameapi::object_by_id(comp_id));
     std::vector<PickerItem> items;
+    // The game's list spans bags, equipped items and the stash; say "equipped" on the ones you are wearing.
+    std::set<unsigned> worn;
+    for (const gameapi::EquipSlot& sl : gameapi::equipment()) if (sl.item_id) worn.insert(sl.item_id);
     for (unsigned tid : gameapi::compatible_items(comp_id)) {
       std::string name = gameapi::item_name(gameapi::object_by_id(tid));
-      items.push_back({tid, name.empty() ? std::format("item {}", tid) : name, {}});
+      items.push_back({tid, name.empty() ? std::format("item {}", tid) : name, worn.count(tid) ? std::string(strings::kEquipped) : std::string()});
     }
     if (items.empty()) { speech::speak(strings::kNoCompatibleItems, true); return; }
     MessageBuilder title; title.fragment(strings::kAttach).fragment(comp_name.empty() ? std::string(strings::kComponent) : comp_name);

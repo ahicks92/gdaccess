@@ -202,6 +202,13 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     for (const exe_ui::LootFilterBox& b : exe_ui::loot_filter_boxes()) out += std::format("  box opt={:2} checked={} ctrl={}\n", b.option, b.checked, b.ctrl);
     return out;
   }
+  if (path == "/crafting") {   // ?formula=<id> details | ?select=<id> | ?tab=0..4 | ?combine=1 | (none) the window's rows
+    if (q.count("formula")) return gameapi::dump_formula((unsigned)parse_int(q.at("formula"), 0));
+    if (q.count("select")) return exe_ui::crafting_select((unsigned)parse_int(q.at("select"), 0)) ? "ok\n" : "failed\n";
+    if (q.count("tab")) return exe_ui::crafting_press_tab(parse_int(q.at("tab"), 0)) ? "ok\n" : "failed\n";
+    if (q.count("combine")) return exe_ui::crafting_combine() ? "ok\n" : "refused\n";
+    return exe_ui::crafting_dump();
+  }
   if (path == "/pets") {   // ?stance=<pet id>&type=0|1|2 | ?attack=<pet id>&target=<id> | ?move=<pet id>&x=&y=&z= | ?release=<pet id> | (none) list
     if (q.count("stance")) return gameapi::set_pet_stance((unsigned)parse_int(q.at("stance"), 0), parse_int(q.count("type") ? q.at("type") : "1", 1)) ? "ok\n" : "failed\n";
     if (q.count("attack")) return gameapi::pet_attack((unsigned)parse_int(q.at("attack"), 0), (unsigned)parse_int(q.count("target") ? q.at("target") : "0", 0)) ? "ok\n" : "failed\n";

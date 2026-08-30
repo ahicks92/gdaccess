@@ -265,6 +265,14 @@ Count/DisplayName`, `GetCreationCost`, `ControllerCharacter::SendCreateArtifactC
 `MainPlayerCanUseDismantle/Reroll/Convert`, `SendEnchanterDismantleCmd/RecoveryCmd/TinkerCmd`; transmutes
 `GameEngine::GetPlayerTransmutes()`, `SendTransmuteItemsCmd`; altar `GetAltarInclusiveRecipes`,
 `SendAltarOfferCmd`, `AscendantAltarFormula::GetReagentText`. Opened by `GameEngine::Display*Window(npcId)`.
+**Crafting (`+0x3aa80`) is MAPPED 2026-08-29 -- see `docs/re_crafting_exe.md`** (ctor exe+0x269e80, vt
+exe+0x31cf38, size 0x51a0; the crafter npc id at `window+0x9c`, the current tab category at `+0x19a8`, and one
+big sub-object, the crafting panel at `window+0x1e40`, holding the search box, the recipe list box
+(`panel+0x2fa0`, rows at `panel+0x3070`, `row+0x64` = the formula id), the 7 reagent slots + the result slot,
+the cost line and Combine (`panel+0x1ea8`, enabled iff `panel+0x2129 == 0`). Selected recipe =
+`panel+0x60`. Row label = `GetMaximumCraftable` + the result's rarity colour; reagent "0/2" =
+`GetReagentNCount` / `GetReagentNQuantityForFormula`.) Note the crafting AND enchanter windows share the
+record `records/ui/inventor/inventor_mastertable.dbr`; there is no `hudCraftingWindow` field.
 
 ### Devotion (`+0x813a0`) -- MAPPED 2026-08-27, see `docs/devotion.md`
 Superseded: the exe DOES build a full object graph (constellations at `window+0xa8/+0xb0`, each with its Star

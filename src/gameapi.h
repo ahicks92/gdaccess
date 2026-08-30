@@ -6,6 +6,8 @@
 // opaque object pointers the screens re-validate through object_by_id on use). Faults inside the game's
 // calls are caught (SEH) and logged; the call then reports empty / false.
 #include <cstdint>
+#include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 #include "world.h"
@@ -264,4 +266,24 @@ bool loot_filter_defaults(int column);           // column -1 = the game's SetLo
 bool item_passes_loot_filter(const void* item);  // Item::PassLootFilter(0): would the game label it (true when unknown)
 bool entity_hidden(const void* entity);          // Entity::GetVisibility() == 0: the game does not show it (a collected placed quest item)
 std::string dump_loot_filter();
+
+// ---- Crafting (gameapi_crafting.cpp; docs/crafting.md) ----
+struct Reagent { unsigned id = 0; std::string name; int need = 0; int have = 0; };   // have = bags + materials + stashes
+struct FormulaInfo {
+  unsigned id = 0;               // the ItemArtifactFormula object
+  unsigned result_id = 0;        // the unrolled template result item (tooltip = stat ranges)
+  std::string result_name;
+  int result_classification = -1;   // ItemClassification (docs/loot-filter.md): 0 common .. 4 legendary, 8 relic
+  unsigned cost = 0;             // iron bits
+  int max_craftable = 0;         // the window's "[N]"
+  std::vector<Reagent> reagents; // Base first, then slots 1..6 that are used
+};
+bool is_formula(const void* obj);
+std::optional<FormulaInfo> formula_info(unsigned formula_id);
+std::string dump_formula(unsigned formula_id);
+struct CrafterBonus { std::vector<std::string> blurb; std::vector<std::string> entries; };   // the smith's enhancementTag lines, then one game-rendered line per possible bonus
+std::optional<CrafterBonus> crafter_bonus(unsigned npc_id);
+bool install_crafting_hooks();                   // Player::GiveArtifactToCharacter (dllmain, with the other feature hooks)
+void remove_crafting_hooks();
+void set_craft_listener(std::function<void(void* item)> fn);   // called from the hook with the finished item (null fn = off)
 }  // namespace gd::gameapi

@@ -134,8 +134,8 @@ bool call_bool(void* obj, size_t vt_off, bool& out) {
 bool call_void_bool(void* obj, size_t vt_off, bool arg) {
   __try { ((VoidThisBool)(*(void***)obj)[vt_off / 8])(obj, arg); return true; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
 }
-bool call_host_click(void* host, void* child) {
-  __try { ((HostClickFn)(*(void***)host)[off::kVt_HostClick / 8])(host, child, true); return true; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+bool call_host_click(void* host, void* child, bool sound = true) {
+  __try { ((HostClickFn)(*(void***)host)[off::kVt_HostClick / 8])(host, child, sound); return true; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
 }
 
 void* main_obj() { return g_base ? rdp((void*)(g_base + rva::kMainObj), 0) : nullptr; }
@@ -580,6 +580,95 @@ bool set_show_all_items(bool on) {
   void* cap = rdp(rdp(main_obj(), off::kMainObj_WorldScreen), kWorldScreen_ActorCapture);
   return cap && write_byte((char*)cap + kCapture_ShowAllItems, on ? 1 : 0);
 }
+
+// ---- crafting window (static RE 2026-08-29, docs/re_crafting_exe.md; ids, category, rows, flags verified live) ----
+namespace {
+constexpr size_t kCW_Category = 0x19a8, kCW_TabRegistry = 0x4a0, kCW_NameText = 0x200 /* text element +0x1c0, u16 at +0x40 */, kCW_Panel = 0x1e40;
+constexpr size_t kCW_Tabs[kCraftingTabs] = {0x4e0, 0x818, 0xb50, 0xe88, 0x11c0};   // screen order; categories 6, 2, 3, 1, 4
+constexpr int kCW_Categories[kCraftingTabs] = {6, 2, 3, 1, 4};
+constexpr const char* kCW_TabTags[kCraftingTabs] = {"tagCraftTabArtifactA", "tagCraftTabMeleeA", "tagCraftTabRangedA", "tagCraftTabArmorA", "tagCraftTabMiscA"};
+constexpr size_t kCP_Selected = 0x60, kCP_Registry = 0x1e60, kCP_Combine = 0x1ea8, kCP_CombineDisabled = 0x2129, kCP_ListBox = 0x2fa0, kCP_RowsBegin = 0x3070, kCP_RowsEnd = 0x3078;
+constexpr size_t kRow_Stride = 0xd0, kRow_Text = 0x00, kRow_Selected = 0x58, kRow_New = 0x5e, kRow_Formula = 0x64;
+constexpr uintptr_t kListBox_SelectByData = 0x1f9f00;   // (listbox, int data) -> bool; signature-checked below
+typedef bool (*SelectByDataFn)(void*, int);
+char* crafting_window() { WindowB w = ingame_window(ingame::kCrafting); return w && w.visible() ? (char*)w.p : nullptr; }
+char* crafting_panel() { char* w = crafting_window(); return w ? w + kCW_Panel : nullptr; }
+bool crafting_sig_ok() {
+  static int ok = -1;
+  if (ok < 0) {
+    static const unsigned char sig[16] = {0x48, 0x89, 0x5c, 0x24, 0x08, 0x48, 0x89, 0x7c, 0x24, 0x10, 0x44, 0x8b, 0xd2, 0x4c, 0x8b, 0xc9};
+    unsigned char buf[16] = {};
+    ok = (kListBox_SelectByData + 16 <= g_image_size && read_mem((void*)(g_base + kListBox_SelectByData), buf, 16) && memcmp(buf, sig, 16) == 0) ? 1 : 0;
+    if (!ok) log::write("exe_ui: ListBox::SelectByData signature MISMATCH -- crafting selection disabled");
+  }
+  return ok == 1;
+}
+}  // namespace
+std::vector<CraftingRow> crafting_rows() {
+  std::vector<CraftingRow> out;
+  char* p = crafting_panel();
+  if (!p) return out;
+  char* b = (char*)rdp(p, kCP_RowsBegin); char* e = (char*)rdp(p, kCP_RowsEnd);
+  if (!b || !e || e < b || (size_t)(e - b) / kRow_Stride > 2000) return out;
+  for (char* r = b; r + kRow_Stride <= e; r += kRow_Stride) {
+    CraftingRow row;
+    row.text = read_u16(r, kRow_Text);
+    row.formula = rd_or<unsigned>(r, kRow_Formula, 0);
+    row.selected = rd_or<uint8_t>(r, kRow_Selected, 0) != 0;
+    row.is_new = rd_or<uint8_t>(r, kRow_New, 0) != 0;
+    out.push_back(std::move(row));
+  }
+  return out;
+}
+int crafting_tab() {
+  char* w = crafting_window();
+  if (!w) return -1;
+  int cat = rd_or<int>(w, kCW_Category, -1);
+  for (int i = 0; i < kCraftingTabs; ++i) if (kCW_Categories[i] == cat) return i;
+  return -1;
+}
+bool crafting_press_tab(int index) {
+  char* w = crafting_window();
+  if (!w || index < 0 || index >= kCraftingTabs) return false;
+  return WidgetB{w + kCW_Tabs[index]}.press(w + kCW_TabRegistry);
+}
+const char* crafting_tab_tag(int index) { return index >= 0 && index < kCraftingTabs ? kCW_TabTags[index] : ""; }
+std::string crafting_npc_name() { char* w = crafting_window(); return w ? read_u16(w, kCW_NameText) : std::string(); }
+unsigned crafting_npc_id() { char* w = crafting_window(); return w ? rd_or<unsigned>(w, 0x9c, 0) : 0; }
+unsigned crafting_selected() { char* p = crafting_panel(); return p ? rd_or<unsigned>(p, kCP_Selected, 0) : 0; }
+bool crafting_select(unsigned formula_id) {
+  char* p = crafting_panel();
+  if (!p || !crafting_sig_ok()) return false;
+  // Clear the old selection byte ourselves (the list box only sets the new one), then the game's SelectByData.
+  char* b = (char*)rdp(p, kCP_RowsBegin); char* e = (char*)rdp(p, kCP_RowsEnd);
+  if (b && e && e > b && (size_t)(e - b) / kRow_Stride <= 2000)
+    for (char* r = b; r + kRow_Stride <= e; r += kRow_Stride) if (rd_or<uint8_t>(r, kRow_Selected, 0)) write_byte(r + kRow_Selected, 0);
+  bool ok = false;
+  __try { ok = ((SelectByDataFn)(g_base + kListBox_SelectByData))(p + kCP_ListBox, (int)formula_id); } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+  return ok;
+}
+bool crafting_combine_enabled() { char* p = crafting_panel(); return p && rd_or<uint8_t>(p, kCP_CombineDisabled, 1) == 0; }
+bool crafting_craft(unsigned formula_id) {
+  char* p = crafting_panel();
+  if (!p || !crafting_select(formula_id)) return false;
+  unsigned id = formula_id;
+  __try { memcpy(p + kCP_Selected, &id, sizeof id); } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+  if (!write_byte(p + kCP_CombineDisabled, 0)) return false;
+  return WidgetB{p + kCP_Combine}.press(p + kCP_Registry, false);   // no button click: the game's craft sound follows anyway
+}
+bool crafting_combine() {
+  char* p = crafting_panel();
+  if (!p || !crafting_combine_enabled()) return false;
+  return WidgetB{p + kCP_Combine}.press(p + kCP_Registry, false);
+}
+std::string crafting_dump() {
+  char* w = crafting_window();
+  if (!w) return "crafting window not open\n";
+  std::string out = std::format("crafting window {} npc='{}' tab={} category={} selected={} combine_enabled={} sig_ok={}\n", (void*)w, crafting_npc_name(), crafting_tab(),
+                                rd_or<int>(w, kCW_Category, -1), crafting_selected(), crafting_combine_enabled(), crafting_sig_ok());
+  for (const CraftingRow& r : crafting_rows()) out += std::format("  {} formula={} sel={} new={} '{}'\n", r.header() ? "HEAD" : "row ", r.formula, r.selected, r.is_new, r.text);
+  return out;
+}
 uintptr_t WidgetB::vtable_rva() const { return vtable_rva_of(p); }
 bool WidgetB::is_button() const { return vtable_rva() == rva::kButtonB; }
 bool WidgetB::is_text_button() const { return vtable_rva() == rva::kTextButtonB; }
@@ -598,10 +687,10 @@ std::string WidgetB::state_bytes() const {
   return std::format("visible={} disabled={} pressed={} rollover={} +0x284={}", rd_or<uint8_t>(p, 0x28, 0xff), rd_or<uint8_t>(p, 0x281, 0xff), rd_or<uint8_t>(p, 0x282, 0xff),
                      rd_or<uint8_t>(p, 0x283, 0xff), rd_or<uint8_t>(p, 0x284, 0xff));
 }
-bool WidgetB::press(void* registry) const {
+bool WidgetB::press(void* registry, bool sound) const {
   if (!registry || !p) return false;
   if (!enabled()) { log::writef("exe_ui: press {} refused: disabled", p); return false; }
-  bool ok = call_host_click(registry, p);
+  bool ok = call_host_click(registry, p, sound);
   log::writef("exe_ui: pressed {} '{}' via registry {} ok={}", p, text(), registry, ok);
   return ok;
 }

@@ -616,6 +616,14 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   `SetLootFilter` + a mirror write of `+0x282`. Full index -> tag -> semantics table in the doc, verified live by
   walking the map. Only the Pickup key (G) and the label pass honour the filter; J on a reviewed item and our review
   groups ignore it (product decision open).
+- Blacksmith / crafting window MAPPED + BUILT (2026-08-29, `docs/crafting.md`, `screens/crafting.cpp`, a ribbon crafted live; RE in `docs/re_crafting_{exe,gamedll}.md`;
+  verified live with a Lua-spawned Angrim at the Outskirts camp): `InGameUI+0x3aa80` (vt exe+0x31cf38) is a frame around a
+  by-value crafting panel at `+0x1e40` (rows vector `+0x3070` stride 0xd0: text, selected `+0x58`, formula id `+0x64`;
+  Combine enabled iff `+0x2129==0`; select via the list box exe+0x1f9f00). Model is all exports: formulas are
+  `ItemArtifactFormula` items (`GetPlayerFormulas` + `NpcCrafter::GetRecipes` + defaults), `GetReagentNCount/QuantityForFormula`,
+  `GetCreationCost`, `GetMaximumCraftable` (the "[N]"), `GetArtifact()` = the unrolled template result (ranged tooltip).
+  `SendCreateArtifactCmd(CreateArtifactConfigInfo)` VALIDATES NOTHING -- press the window's Combine, never call it.
+  The only blacksmith window; dismantle/transmute are the Inventor's (unmapped).
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.

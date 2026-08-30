@@ -138,6 +138,25 @@ bool loot_filter_mirror(int option, bool on);         // write the drawn box's s
 // The actor capture's "show every item label" modifier byte (what holding Alt sets, key action 0x23; read by the
 // exe's ItemIgnore helper exe+0x20f70): written every frame while the mod's O latch is on.
 bool set_show_all_items(bool on);
+// ---- the crafting (blacksmith) window (docs/re_crafting_exe.md): a frame around a by-value crafting panel whose
+// list box holds the recipe rows in the game's own order and grouping ----
+struct CraftingRow { std::string text; unsigned formula = 0; bool selected = false; bool is_new = false; bool header() const { return formula == 0; } };
+constexpr int kCraftingTabs = 5;
+std::vector<CraftingRow> crafting_rows();       // the current category's rows, colour codes stripped, "[N] " prefix kept
+int crafting_tab();                             // 0..4 in screen order (Relics, Melee, Ranged, Armor, Accessories+Consumables), -1 when closed
+bool crafting_press_tab(int index);             // the tab button through the window's radio registry (rebuilds the rows)
+const char* crafting_tab_tag(int index);        // tagCraftTab*A
+std::string crafting_npc_name();                // the title text ("Angrim")
+unsigned crafting_npc_id();                     // window+0x9c: the crafter (SetCrafter, RTTI-checked)
+unsigned crafting_selected();                   // the selected formula id (0 = none)
+bool crafting_select(unsigned formula_id);      // the list box's own SelectByData (signature-checked RVA); the panel follows on the next Update
+bool crafting_combine_enabled();                // panel+0x2129 == 0
+bool crafting_combine();                        // press the Combine button through the panel's registry (refused while disabled)
+// The whole craft in one call, synchronous: select the row in the list box, write the panel's selected id and its
+// Combine-enabled byte ourselves (what the panel's next Update would do from the same inputs -- the caller has
+// already applied the game's gate, GetMaximumCraftable >= 1), then press Combine.
+bool crafting_craft(unsigned formula_id);
+std::string crafting_dump();
 // ---- the riftgate travel map (docs/exe-ui-layout.md "Riftgate travel"): the world map in riftgate mode ----
 struct Riftgate {
   std::string name;      // the zone's localized name ("Devil's Crossing")
@@ -184,7 +203,7 @@ struct WidgetB {
   // control (window + its registry offset) performs a complete click (events 0,1,2); InGameUI's HUD host at
   // +0x7338 toggles instead. Returns false when the registry refused (control unregistered or disabled) or
   // the call faulted. Game thread.
-  bool press(void* registry) const;
+  bool press(void* registry, bool sound = true) const;   // sound = the registry's playSound argument (the button click)
 };
 
 // The in-world Escape menu (hudExitWindow, ctor exe+0x26e060): Return to Game / Options Menu / Exit to Main

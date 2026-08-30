@@ -1186,6 +1186,147 @@ inline constexpr const char* GameEngine_CharacterExperienceOutbound = "?Characte
 // public: bool __cdecl GAME::GameEngine::DisplaySkillReallocationWindow(unsigned int) __ptr64
 inline constexpr const char* GameEngine_DisplaySkillReallocationWindow_DLL = "Game.dll";
 inline constexpr const char* GameEngine_DisplaySkillReallocationWindow = "?DisplaySkillReallocationWindow@GameEngine@GAME@@QEAA_NI@Z";
+// public: bool __cdecl GAME::GameEngine::DisplayCrafterWindow(unsigned int) __ptr64
+inline constexpr const char* GameEngine_DisplayCrafterWindow_DLL = "Game.dll";
+inline constexpr const char* GameEngine_DisplayCrafterWindow = "?DisplayCrafterWindow@GameEngine@GAME@@QEAA_NI@Z";
+// public: bool __cdecl GAME::GameEngine::DisplayEnchanterWindow(unsigned int) __ptr64
+inline constexpr const char* GameEngine_DisplayEnchanterWindow_DLL = "Game.dll";
+inline constexpr const char* GameEngine_DisplayEnchanterWindow = "?DisplayEnchanterWindow@GameEngine@GAME@@QEAA_NI@Z";
+// public: bool __cdecl GAME::GameEngine::DisplayTransmutesWindow(unsigned int) __ptr64
+inline constexpr const char* GameEngine_DisplayTransmutesWindow_DLL = "Game.dll";
+inline constexpr const char* GameEngine_DisplayTransmutesWindow = "?DisplayTransmutesWindow@GameEngine@GAME@@QEAA_NI@Z";
+// public: bool __cdecl GAME::GameEngine::DisplayItemAscensionWindow(unsigned int) __ptr64
+inline constexpr const char* GameEngine_DisplayItemAscensionWindow_DLL = "Game.dll";
+inline constexpr const char* GameEngine_DisplayItemAscensionWindow = "?DisplayItemAscensionWindow@GameEngine@GAME@@QEAA_NI@Z";
+// public: unsigned int __cdecl GAME::ItemArtifactFormula::GetArtifact(void)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetArtifact_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetArtifact = "?GetArtifact@ItemArtifactFormula@GAME@@QEBAIXZ";
+// public: unsigned int __cdecl GAME::ItemArtifactFormula::GetCreationCost(class GAME::Character const * __ptr64)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetCreationCost_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetCreationCost = "?GetCreationCost@ItemArtifactFormula@GAME@@QEBAIPEBVCharacter@2@@Z";
+// public: virtual int const __cdecl GAME::ItemArtifactFormula::GetMaximumCraftable(class GAME::Character const * __ptr64) __ptr64
+inline constexpr const char* ItemArtifactFormula_GetMaximumCraftable_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetMaximumCraftable = "?GetMaximumCraftable@ItemArtifactFormula@GAME@@UEAA?BHPEBVCharacter@2@@Z";
+// public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::ItemArtifactFormula::GetStaticClassInfo(void)
+inline constexpr const char* ItemArtifactFormula_GetStaticClassInfo_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetStaticClassInfo = "?GetStaticClassInfo@ItemArtifactFormula@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
+// public: enum GAME::ItemClassification __cdecl GAME::Item::GetDropClassification(void)const __ptr64
+inline constexpr const char* Item_GetDropClassification_DLL = "Game.dll";
+inline constexpr const char* Item_GetDropClassification = "?GetDropClassification@Item@GAME@@QEBA?AW4ItemClassification@2@XZ";
+// public: class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const & __ptr64 __cdecl GAME::NpcCrafter::GetEnhancementTableName(void)const __ptr64
+inline constexpr const char* NpcCrafter_GetEnhancementTableName_DLL = "Game.dll";
+inline constexpr const char* NpcCrafter_GetEnhancementTableName = "?GetEnhancementTableName@NpcCrafter@GAME@@QEBAAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@XZ";
+// public: class mem::vector<class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > > const & __ptr64 __cdecl GAME::NpcCrafter::GetEnhancementTags(void)const __ptr64
+inline constexpr const char* NpcCrafter_GetEnhancementTags_DLL = "Game.dll";
+inline constexpr const char* NpcCrafter_GetEnhancementTags = "?GetEnhancementTags@NpcCrafter@GAME@@QEBAAEBV?$vector@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@mem@@XZ";
+// public: class GAME::Object * __ptr64 __cdecl GAME::ObjectManager::CreateObjectFromFile(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const & __ptr64,unsigned int,bool) __ptr64
+inline constexpr const char* ObjectManager_CreateObjectFromFile_DLL = "Engine.dll";
+inline constexpr const char* ObjectManager_CreateObjectFromFile = "?CreateObjectFromFile@ObjectManager@GAME@@QEAAPEAVObject@2@AEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@I_N@Z";
+// public: class mem::vector<struct std::pair<class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> >,unsigned int> > const & __ptr64 __cdecl GAME::LootRandomizerTable::GetAllEntries(void)con
+inline constexpr const char* LootRandomizerTable_GetAllEntries_DLL = "Game.dll";
+inline constexpr const char* LootRandomizerTable_GetAllEntries = "?GetAllEntries@LootRandomizerTable@GAME@@QEBAAEBV?$vector@U?$pair@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@I@std@@@mem@@XZ";
+// public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::LootRandomizerTable::GetStaticClassInfo(void)
+inline constexpr const char* LootRandomizerTable_GetStaticClassInfo_DLL = "Game.dll";
+inline constexpr const char* LootRandomizerTable_GetStaticClassInfo = "?GetStaticClassInfo@LootRandomizerTable@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
+// public: __cdecl GAME::AttributeRange::AttributeRange(void) __ptr64
+inline constexpr const char* AttributeRange_ctor_DLL = "Game.dll";
+inline constexpr const char* AttributeRange_ctor = "??0AttributeRange@GAME@@QEAA@XZ";
+// public: __cdecl GAME::AttributeRange::~AttributeRange(void) __ptr64
+inline constexpr const char* AttributeRange_dtor_DLL = "Game.dll";
+inline constexpr const char* AttributeRange_dtor = "??1AttributeRange@GAME@@QEAA@XZ";
+// public: void __cdecl GAME::AttributeRange::LoadAffix(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const & __ptr64) __ptr64
+inline constexpr const char* AttributeRange_LoadAffix_DLL = "Game.dll";
+inline constexpr const char* AttributeRange_LoadAffix = "?LoadAffix@AttributeRange@GAME@@QEAAXAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z";
+// public: void __cdecl GAME::AttributeRange::CreateText(class mem::vector<class std::basic_string<unsigned short,struct std::char_traits<unsigned short>,class std::allocator<unsigned short> > > & __ptr64,class mem::vector<
+inline constexpr const char* AttributeRange_CreateText_DLL = "Game.dll";
+inline constexpr const char* AttributeRange_CreateText = "?CreateText@AttributeRange@GAME@@QEBAXAEAV?$vector@V?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@@mem@@0I@Z";
+// public: virtual void __cdecl GAME::Player::GiveArtifactToCharacter(class GAME::Item * __ptr64) __ptr64
+inline constexpr const char* Player_GiveArtifactToCharacter_DLL = "Game.dll";
+inline constexpr const char* Player_GiveArtifactToCharacter = "?GiveArtifactToCharacter@Player@GAME@@UEAAXPEAVItem@2@@Z";
+// public: unsigned int const __cdecl GAME::ItemArtifactFormula::GetReagentBaseId(void)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagentBaseId_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagentBaseId = "?GetReagentBaseId@ItemArtifactFormula@GAME@@QEBA?BIXZ";
+// public: class std::basic_string<unsigned short,struct std::char_traits<unsigned short>,class std::allocator<unsigned short> > const & __ptr64 __cdecl GAME::ItemArtifactFormula::GetReagentBaseDisplayName(bool)const __ptr6
+inline constexpr const char* ItemArtifactFormula_GetReagentBaseDisplayName_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagentBaseDisplayName = "?GetReagentBaseDisplayName@ItemArtifactFormula@GAME@@QEBAAEBV?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@_N@Z";
+// public: int __cdecl GAME::ItemArtifactFormula::GetReagentBaseQuantityForFormula(void)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagentBaseQuantityForFormula_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagentBaseQuantityForFormula = "?GetReagentBaseQuantityForFormula@ItemArtifactFormula@GAME@@QEBAHXZ";
+// public: int __cdecl GAME::ItemArtifactFormula::GetReagentBaseCount(class GAME::Character const & __ptr64,bool)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagentBaseCount_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagentBaseCount = "?GetReagentBaseCount@ItemArtifactFormula@GAME@@QEBAHAEBVCharacter@2@_N@Z";
+// public: unsigned int const __cdecl GAME::ItemArtifactFormula::GetReagent1Id(void)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent1Id_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent1Id = "?GetReagent1Id@ItemArtifactFormula@GAME@@QEBA?BIXZ";
+// public: class std::basic_string<unsigned short,struct std::char_traits<unsigned short>,class std::allocator<unsigned short> > const & __ptr64 __cdecl GAME::ItemArtifactFormula::GetReagent1DisplayName(bool)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent1DisplayName_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent1DisplayName = "?GetReagent1DisplayName@ItemArtifactFormula@GAME@@QEBAAEBV?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@_N@Z";
+// public: int __cdecl GAME::ItemArtifactFormula::GetReagent1QuantityForFormula(void)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent1QuantityForFormula_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent1QuantityForFormula = "?GetReagent1QuantityForFormula@ItemArtifactFormula@GAME@@QEBAHXZ";
+// public: int __cdecl GAME::ItemArtifactFormula::GetReagent1Count(class GAME::Character const & __ptr64,bool)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent1Count_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent1Count = "?GetReagent1Count@ItemArtifactFormula@GAME@@QEBAHAEBVCharacter@2@_N@Z";
+// public: unsigned int const __cdecl GAME::ItemArtifactFormula::GetReagent2Id(void)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent2Id_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent2Id = "?GetReagent2Id@ItemArtifactFormula@GAME@@QEBA?BIXZ";
+// public: class std::basic_string<unsigned short,struct std::char_traits<unsigned short>,class std::allocator<unsigned short> > const & __ptr64 __cdecl GAME::ItemArtifactFormula::GetReagent2DisplayName(bool)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent2DisplayName_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent2DisplayName = "?GetReagent2DisplayName@ItemArtifactFormula@GAME@@QEBAAEBV?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@_N@Z";
+// public: int __cdecl GAME::ItemArtifactFormula::GetReagent2QuantityForFormula(void)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent2QuantityForFormula_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent2QuantityForFormula = "?GetReagent2QuantityForFormula@ItemArtifactFormula@GAME@@QEBAHXZ";
+// public: int __cdecl GAME::ItemArtifactFormula::GetReagent2Count(class GAME::Character const & __ptr64,bool)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent2Count_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent2Count = "?GetReagent2Count@ItemArtifactFormula@GAME@@QEBAHAEBVCharacter@2@_N@Z";
+// public: unsigned int const __cdecl GAME::ItemArtifactFormula::GetReagent3Id(void)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent3Id_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent3Id = "?GetReagent3Id@ItemArtifactFormula@GAME@@QEBA?BIXZ";
+// public: class std::basic_string<unsigned short,struct std::char_traits<unsigned short>,class std::allocator<unsigned short> > const & __ptr64 __cdecl GAME::ItemArtifactFormula::GetReagent3DisplayName(bool)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent3DisplayName_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent3DisplayName = "?GetReagent3DisplayName@ItemArtifactFormula@GAME@@QEBAAEBV?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@_N@Z";
+// public: int __cdecl GAME::ItemArtifactFormula::GetReagent3QuantityForFormula(void)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent3QuantityForFormula_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent3QuantityForFormula = "?GetReagent3QuantityForFormula@ItemArtifactFormula@GAME@@QEBAHXZ";
+// public: int __cdecl GAME::ItemArtifactFormula::GetReagent3Count(class GAME::Character const & __ptr64,bool)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent3Count_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent3Count = "?GetReagent3Count@ItemArtifactFormula@GAME@@QEBAHAEBVCharacter@2@_N@Z";
+// public: unsigned int const __cdecl GAME::ItemArtifactFormula::GetReagent4Id(void)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent4Id_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent4Id = "?GetReagent4Id@ItemArtifactFormula@GAME@@QEBA?BIXZ";
+// public: class std::basic_string<unsigned short,struct std::char_traits<unsigned short>,class std::allocator<unsigned short> > const & __ptr64 __cdecl GAME::ItemArtifactFormula::GetReagent4DisplayName(bool)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent4DisplayName_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent4DisplayName = "?GetReagent4DisplayName@ItemArtifactFormula@GAME@@QEBAAEBV?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@_N@Z";
+// public: int __cdecl GAME::ItemArtifactFormula::GetReagent4QuantityForFormula(void)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent4QuantityForFormula_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent4QuantityForFormula = "?GetReagent4QuantityForFormula@ItemArtifactFormula@GAME@@QEBAHXZ";
+// public: int __cdecl GAME::ItemArtifactFormula::GetReagent4Count(class GAME::Character const & __ptr64,bool)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent4Count_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent4Count = "?GetReagent4Count@ItemArtifactFormula@GAME@@QEBAHAEBVCharacter@2@_N@Z";
+// public: unsigned int const __cdecl GAME::ItemArtifactFormula::GetReagent5Id(void)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent5Id_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent5Id = "?GetReagent5Id@ItemArtifactFormula@GAME@@QEBA?BIXZ";
+// public: class std::basic_string<unsigned short,struct std::char_traits<unsigned short>,class std::allocator<unsigned short> > const & __ptr64 __cdecl GAME::ItemArtifactFormula::GetReagent5DisplayName(bool)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent5DisplayName_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent5DisplayName = "?GetReagent5DisplayName@ItemArtifactFormula@GAME@@QEBAAEBV?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@_N@Z";
+// public: int __cdecl GAME::ItemArtifactFormula::GetReagent5QuantityForFormula(void)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent5QuantityForFormula_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent5QuantityForFormula = "?GetReagent5QuantityForFormula@ItemArtifactFormula@GAME@@QEBAHXZ";
+// public: int __cdecl GAME::ItemArtifactFormula::GetReagent5Count(class GAME::Character const & __ptr64,bool)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent5Count_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent5Count = "?GetReagent5Count@ItemArtifactFormula@GAME@@QEBAHAEBVCharacter@2@_N@Z";
+// public: unsigned int const __cdecl GAME::ItemArtifactFormula::GetReagent6Id(void)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent6Id_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent6Id = "?GetReagent6Id@ItemArtifactFormula@GAME@@QEBA?BIXZ";
+// public: class std::basic_string<unsigned short,struct std::char_traits<unsigned short>,class std::allocator<unsigned short> > const & __ptr64 __cdecl GAME::ItemArtifactFormula::GetReagent6DisplayName(bool)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent6DisplayName_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent6DisplayName = "?GetReagent6DisplayName@ItemArtifactFormula@GAME@@QEBAAEBV?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@_N@Z";
+// public: int __cdecl GAME::ItemArtifactFormula::GetReagent6QuantityForFormula(void)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent6QuantityForFormula_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent6QuantityForFormula = "?GetReagent6QuantityForFormula@ItemArtifactFormula@GAME@@QEBAHXZ";
+// public: int __cdecl GAME::ItemArtifactFormula::GetReagent6Count(class GAME::Character const & __ptr64,bool)const __ptr64
+inline constexpr const char* ItemArtifactFormula_GetReagent6Count_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetReagent6Count = "?GetReagent6Count@ItemArtifactFormula@GAME@@QEBAHAEBVCharacter@2@_N@Z";
 // public: unsigned int __cdecl GAME::Character::GetCurrentLifeInt(void)const __ptr64
 inline constexpr const char* Character_GetCurrentLifeInt_DLL = "Game.dll";
 inline constexpr const char* Character_GetCurrentLifeInt = "?GetCurrentLifeInt@Character@GAME@@QEBAIXZ";
