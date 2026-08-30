@@ -1,5 +1,6 @@
 #include "screens/inventory.h"
 #include <cstdlib>
+#include <algorithm>
 #include <format>
 #include <set>
 #include <optional>
@@ -94,6 +95,8 @@ class InventoryScreen : public WindowScreen, public AssignSource {
       items.push_back({tid, name.empty() ? std::format("item {}", tid) : name, worn.count(tid) ? std::string(strings::kEquipped) : std::string()});
     }
     if (items.empty()) { speech::speak(strings::kNoCompatibleItems, true); return; }
+    // Equipped targets first (what you most likely want to improve), the rest in the game's order.
+    std::stable_partition(items.begin(), items.end(), [&](const PickerItem& it) { return worn.count(it.id) != 0; });
     MessageBuilder title; title.fragment(strings::kAttach).fragment(comp_name.empty() ? std::string(strings::kComponent) : comp_name);
     open_picker(title.build(), std::move(items),
                 [this, comp_id](unsigned tid) {
