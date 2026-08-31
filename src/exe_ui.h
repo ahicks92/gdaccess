@@ -157,6 +157,49 @@ bool crafting_combine();                        // press the Combine button thro
 // already applied the game's gate, GetMaximumCraftable >= 1), then press Combine.
 bool crafting_craft(unsigned formula_id);
 std::string crafting_dump();
+
+// ---- the Inventor's window (the exe's "enchanter" window, InGameUI+0x30dd8; docs/inventor.md, RE in
+// docs/re_inventor_exe.md): a frame with up to four tab panels -- Salvage (recover a component / the item /
+// strip an augment), Dismantle (break an item into scrap + a component for dynamite and bits), and the
+// expansions' Convert / Reroll, absent from a base-game install. Each panel owns one "chamber" item box the
+// player drops an item into; the item LEAVES the inventory while it sits there (the drop = box SetItem +
+// PlayerInventoryCtrl::RemoveItem) and comes back when the panel hides or the box is clicked again.
+constexpr int kInventorTabs = 4;   // Salvage, Dismantle, Convert, Reroll (screen order = the exe's tab index +0x8bc0)
+struct InventorTab { bool present = false; bool enabled = false; std::string label; const char* info_tag = nullptr; };
+struct InventorButton { void* p = nullptr; std::string caption; bool enabled = false; const char* warning_tag = nullptr; };
+struct InventorSalvage {
+  unsigned item = 0;              // the chamber's item id (0 = empty)
+  std::string cost;               // the panel's own cost text ("1,234"), "" until an item is in
+  bool too_expensive = false;     // panel+0x10a9
+  bool dialog_pending = false;    // a confirm box is up for one of the buttons
+  InventorButton keep_item, keep_addon, remove_augment;
+};
+struct InventorDismantle {
+  unsigned item = 0;              // the chamber's item id
+  unsigned result1 = 0, result2 = 0;   // the two output boxes (scrap; the bonus component)
+  std::string cost, dynamite;     // the panel's own texts
+  bool no_money = false, no_dynamite = false, dialog_pending = false;
+  InventorButton dismantle;
+};
+bool inventor_open();                              // the window is visible
+std::string inventor_npc_name();                   // "Darlet" (enchanterNameText +0x2e0)
+unsigned inventor_npc_id();                        // window+0x9c
+int inventor_tab();                                // the exe's current tab index (+0x8bc0), -1 when closed
+std::vector<InventorTab> inventor_tabs();          // kInventorTabs entries; present = built by this game's records, enabled = the tab button not greyed
+bool inventor_press_tab(int index);                // through the window's radio registry (+0x8bc8): the game's own listener shows/hides the panels
+InventorSalvage inventor_salvage();
+InventorDismantle inventor_dismantle();
+// The chamber: put a bag item in (the exe's drop sequence without the cursor: box SetItem(id) + RemoveItem from the
+// inventory ctrl + the box's "holds a detached item" byte), or give the chamber's item back (the exe's own return
+// helper sequence: SetItem(0) + ControllerPlayer::GiveItemToPlayer). `which`: 0 = the current tab's chamber,
+// 1 / 2 = the dismantle tab's result boxes (take only).
+bool inventor_put(unsigned item_id);
+bool inventor_take(int which);
+// Press a panel button through the panel's own registry: the game's listener opens its confirm dialog (a
+// DialogManager box the message_box screen answers) or, for a plain dismantle, acts at once.
+enum class InventorAction { KeepItem, KeepAddon, RemoveAugment, Dismantle };
+bool inventor_press(InventorAction a);
+std::string inventor_dump();
 // ---- the riftgate travel map (docs/exe-ui-layout.md "Riftgate travel"): the world map in riftgate mode ----
 struct Riftgate {
   std::string name;      // the zone's localized name ("Devil's Crossing")

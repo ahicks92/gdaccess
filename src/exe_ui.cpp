@@ -4,6 +4,7 @@
 #include <cstring>
 #include <format>
 #include <set>
+#include "gameapi.h"
 #include "gd_names.h"
 #include "hooks.h"
 #include "log.h"
@@ -30,6 +31,8 @@ constexpr uintptr_t kButtonB = 0x313e78;        // framework B button vtable (ct
 constexpr uintptr_t kTextButtonB = 0x313ce8;    // framework B TextButton vtable (ctor exe+0x126fe0, size 0x3b0; caption +0x358)
 constexpr uintptr_t kTextB = 0x31c7c0;          // framework B text element vtable (draw exe+0x25b700)
 constexpr uintptr_t kTitleTextB = 0x31c2b0;     // framework B title/caption text element (the shrine windows' title +0x540; u16 at +0x40; set through vt+0x18 exe+0x1adb30)
+constexpr uintptr_t kNumberTextB = 0x31c4d0;    // framework B number/name text element (same ctor exe+0x2595c0 as the title text: string at +0x40; the Inventor's cost / dynamite numbers and NPC name)
+constexpr uintptr_t kEnchanterBoxSalvage = 0x316c28, kEnchanterBoxDismantle = 0x3169f8, kEnchanterBoxResult = 0x316878;   // the Inventor's item boxes (ctor exe+0x1ad7b0; item id +0xa0, SetItem = vt+0xa8)
 constexpr uintptr_t kTextBlockB = 0x31b830;     // framework B multi-line text block (the shrine windows' info +0x638; u16 at +0x38; set through vt+0xa0 exe+0x2401e0)
 }  // namespace rva
 namespace off {
@@ -669,6 +672,166 @@ std::string crafting_dump() {
   for (const CraftingRow& r : crafting_rows()) out += std::format("  {} formula={} sel={} new={} '{}'\n", r.header() ? "HEAD" : "row ", r.formula, r.selected, r.is_new, r.text);
   return out;
 }
+
+// ---- the Inventor's window (static RE 2026-08-30, docs/re_inventor_exe.md; ids, tab, flags and texts verified live) ----
+namespace {
+// Window (ctor exe+0x26bd00, vtable exe+0x31d050): the frame's loader exe+0x26cd80 binds the record fields in this order.
+constexpr size_t kEW_NameText = 0x2e0 /*enchanterNameText, the NPC*/, kEW_HeadingText = 0x3d8 /*enchanterHeadingText "Inventor"*/, kEW_NpcId = 0x9c;
+constexpr size_t kEW_Tab = 0x8bc0, kEW_TabRegistry = 0x8bc8;
+constexpr size_t kEW_TabButtons[kInventorTabs] = {0x8c08, 0x8f40, 0x9278, 0x95b0};   // Salvage, Dismantle, Convert, Reroll (the listener exe+0x26cad0 maps them to tab 0..3)
+constexpr size_t kEW_Panels[kInventorTabs] = {0xa38, 0x1af8, 0x2d98, 0x5970};
+constexpr const char* kEW_TabTags[kInventorTabs] = {"tagDividerTab01", "tagDividerTab02", "tagConvertTab", "tagRerollTab"};
+constexpr const char* kEW_TabInfoTags[kInventorTabs] = {"tagDividerRoll01", "tagDividerRoll02B", "tagConvertInfoB", "tagRerollInfoB"};
+// Salvage ("recover") panel, ctor exe+0x1b1a40, vtable exe+0x316b90, size 0x10c0: loader exe+0x1b2700.
+constexpr size_t kSP_Visible = 0x38, kSP_Box = 0x40, kSP_Registry = 0x268, kSP_KeepAddon = 0x2b0 /*recoverRelicButton*/, kSP_KeepItem = 0x660 /*recoverItemButton*/,
+                 kSP_RemoveAugment = 0xa10, kSP_CostNumber = 0xdc0, kSP_DialogPending = 0x10a8, kSP_TooExpensive = 0x10a9;
+// Dismantle panel, ctor exe+0x1a97b0, vtable exe+0x316950, size 0x12a0.
+constexpr size_t kDP_Visible = 0x40, kDP_Box = 0x108, kDP_Result1 = 0x330, kDP_Result2 = 0x558, kDP_Registry = 0x780, kDP_Button = 0x7c8, kDP_CostNumber = 0xb78,
+                 kDP_DynamiteNumber = 0xd68, kDP_DialogPending = 0x1148, kDP_Cannot = 0x1149, kDP_NoMoney = 0x114a, kDP_NoDynamite = 0x114b;
+// The item box (ctor exe+0x1ad7b0, size 0x228): item id +0xa0, "holds an item detached from the inventory" +0x61,
+// "item is invalid" +0x220; SetItem(id) = vt+0xa8 (exe+0x1afc30), HasItem = vt+0xa0.
+constexpr size_t kBox_ItemId = 0xa0, kBox_Detached = 0x61, kBox_Invalid = 0x220, kBox_SetItemSlot = 0xa8;
+constexpr size_t kBtn_Disabled = 0x281;
+typedef void (*BoxSetItemFn)(void*, unsigned);
+char* inventor_window() { WindowB w = ingame_window(ingame::kEnchanter); return w && w.visible() ? (char*)w.p : nullptr; }
+char* inventor_panel(int tab) { char* w = inventor_window(); return w && tab >= 0 && tab < kInventorTabs ? w + kEW_Panels[tab] : nullptr; }
+bool is_enchanter_box(const void* box) {
+  uintptr_t v = vtable_rva_of(box);
+  return v == rva::kEnchanterBoxSalvage || v == rva::kEnchanterBoxDismantle || v == rva::kEnchanterBoxResult;
+}
+unsigned box_item(const void* box) { return box && is_enchanter_box(box) ? rd_or<unsigned>(box, kBox_ItemId, 0) : 0; }
+bool box_set_item(void* box, unsigned id) {   // POD only: SEH cannot unwind C++ objects
+  if (!box || !is_enchanter_box(box)) return false;
+  void** vt = (void**)rdp(box, 0);
+  void* f = vt ? rdp(vt, kBox_SetItemSlot) : nullptr;
+  if (!f) return false;
+  __try { ((BoxSetItemFn)f)(box, id); return true; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+InventorButton read_button(char* p, const char* warning_tag) {
+  InventorButton b;
+  b.p = p;
+  WidgetB w{p};
+  b.caption = w.text();
+  b.enabled = w.enabled();
+  b.warning_tag = warning_tag;
+  return b;
+}
+}  // namespace
+bool inventor_open() { return inventor_window() != nullptr; }
+std::string inventor_npc_name() { char* w = inventor_window(); return w ? WidgetB{w + kEW_NameText}.text() : std::string(); }
+unsigned inventor_npc_id() { char* w = inventor_window(); return w ? rd_or<unsigned>(w, kEW_NpcId, 0) : 0; }
+int inventor_tab() { char* w = inventor_window(); return w ? rd_or<int>(w, kEW_Tab, -1) : -1; }
+std::vector<InventorTab> inventor_tabs() {
+  std::vector<InventorTab> out;
+  char* w = inventor_window();
+  if (!w) return out;
+  for (int i = 0; i < kInventorTabs; ++i) {
+    InventorTab t;
+    WidgetB b{w + kEW_TabButtons[i]};
+    // All four buttons are constructed (ctor exe+0x10aee0, a bitmap button class of its own); the two the master
+    // table always has are present, the expansions' Convert / Reroll count as present only once the game enables
+    // them (Show(true) greys them unless MainPlayerCanUseConvert/Reroll, which need the expansion loaded).
+    t.enabled = b.enabled();
+    t.present = i < 2 || t.enabled;
+    t.label = kEW_TabTags[i];
+    t.info_tag = kEW_TabInfoTags[i];
+    out.push_back(t);
+  }
+  return out;
+}
+bool inventor_press_tab(int index) {
+  char* w = inventor_window();
+  if (!w || index < 0 || index >= kInventorTabs) return false;
+  if (inventor_tab() == index) return true;
+  return WidgetB{w + kEW_TabButtons[index]}.press(w + kEW_TabRegistry);
+}
+InventorSalvage inventor_salvage() {
+  InventorSalvage s;
+  char* p = inventor_panel(0);
+  if (!p) return s;
+  s.item = box_item(p + kSP_Box);
+  s.cost = s.item ? WidgetB{p + kSP_CostNumber}.text() : std::string();
+  s.too_expensive = rd_or<uint8_t>(p, kSP_TooExpensive, 0) != 0;
+  s.dialog_pending = rd_or<uint8_t>(p, kSP_DialogPending, 0) != 0;
+  s.keep_item = read_button(p + kSP_KeepItem, "tagDividingKeepItemWarning");
+  s.keep_addon = read_button(p + kSP_KeepAddon, "tagDividingKeepComponentWarning");
+  s.remove_augment = read_button(p + kSP_RemoveAugment, "tagDividingRemoveAugmentWarning");
+  return s;
+}
+InventorDismantle inventor_dismantle() {
+  InventorDismantle d;
+  char* p = inventor_panel(1);
+  if (!p) return d;
+  d.item = box_item(p + kDP_Box);
+  d.result1 = box_item(p + kDP_Result1);
+  d.result2 = box_item(p + kDP_Result2);
+  d.cost = d.item ? WidgetB{p + kDP_CostNumber}.text() : std::string();
+  d.dynamite = WidgetB{p + kDP_DynamiteNumber}.text();
+  d.no_money = rd_or<uint8_t>(p, kDP_NoMoney, 0) != 0;
+  d.no_dynamite = rd_or<uint8_t>(p, kDP_NoDynamite, 0) != 0;
+  d.dialog_pending = rd_or<uint8_t>(p, kDP_DialogPending, 0) != 0;
+  d.dismantle = read_button(p + kDP_Button, "tagDismantleButton");
+  return d;
+}
+// The exe's drop handlers (salvage exe+0x1afc70, dismantle exe+0x1b0190) after their own accept test: box
+// SetItem(id), PlayerInventoryCtrl::RemoveItem(id, true), box+0x220 = 0, box+0x61 = 1, then the cursor is cleared.
+// The accept test is the caller's (gameapi::inventor_accepts); here only "one item per chamber".
+bool inventor_put(unsigned item_id) {
+  int tab = inventor_tab();
+  char* p = inventor_panel(tab);
+  if (!p || !item_id || (tab != 0 && tab != 1)) return false;
+  char* box = p + (tab == 0 ? kSP_Box : kDP_Box);
+  if (box_item(box)) { log::writef("exe_ui: inventor chamber already holds {}", box_item(box)); return false; }
+  if (!box_set_item(box, item_id)) return false;
+  if (!gameapi::inventory_detach(item_id)) { box_set_item(box, 0); return false; }
+  write_byte(box + kBox_Invalid, 0);
+  write_byte(box + kBox_Detached, 1);
+  log::writef("exe_ui: inventor chamber <- {} (tab {})", item_id, tab);
+  return true;
+}
+// The exe's return helper exe+0x1ae9b0 (a Shift-click on a box, and every panel's Hide): SetItem(0), +0x61 = 0,
+// ControllerPlayer::GiveItemToPlayer(id, false) -- SendDropItemRandom if that fails (a full bag), which we leave
+// to the game's own Hide.
+bool inventor_take(int which) {
+  int tab = inventor_tab();
+  char* p = inventor_panel(tab);
+  if (!p || (tab != 0 && tab != 1)) return false;
+  char* box = nullptr;
+  if (which == 0) box = p + (tab == 0 ? kSP_Box : kDP_Box);
+  else if (tab == 1 && which == 1) box = p + kDP_Result1;
+  else if (tab == 1 && which == 2) box = p + kDP_Result2;
+  unsigned id = box_item(box);
+  if (!id) return false;
+  if (!box_set_item(box, 0)) return false;
+  write_byte(box + kBox_Detached, 0);
+  bool ok = gameapi::give_item_to_player(id);
+  log::writef("exe_ui: inventor chamber {} -> bag ok={}", id, ok);
+  return ok;
+}
+bool inventor_press(InventorAction a) {
+  int tab = inventor_tab();
+  char* p = inventor_panel(tab);
+  if (!p) return false;
+  if (a == InventorAction::Dismantle) return tab == 1 && WidgetB{p + kDP_Button}.press(p + kDP_Registry);
+  if (tab != 0) return false;
+  size_t off = a == InventorAction::KeepItem ? kSP_KeepItem : a == InventorAction::KeepAddon ? kSP_KeepAddon : kSP_RemoveAugment;
+  return WidgetB{p + off}.press(p + kSP_Registry);
+}
+std::string inventor_dump() {
+  char* w = inventor_window();
+  if (!w) return "inventor window not open\n";
+  std::string out = std::format("inventor window {} npc='{}' id={} heading='{}' tab={}\n", (void*)w, inventor_npc_name(), inventor_npc_id(), WidgetB{w + kEW_HeadingText}.text(), inventor_tab());
+  std::vector<InventorTab> tabs = inventor_tabs();
+  for (int i = 0; i < (int)tabs.size(); ++i) out += std::format("  tab {} {} present={} enabled={} {}\n", i, tabs[(size_t)i].label, tabs[(size_t)i].present, tabs[(size_t)i].enabled, WidgetB{w + kEW_TabButtons[i]}.state_bytes());
+  InventorSalvage s = inventor_salvage();
+  out += std::format("  salvage: item={} cost='{}' too_expensive={} dialog_pending={} visible={}\n", s.item, s.cost, s.too_expensive, s.dialog_pending, rd_or<uint8_t>(w + kEW_Panels[0], kSP_Visible, 0));
+  for (const InventorButton* b : {&s.keep_item, &s.keep_addon, &s.remove_augment}) out += std::format("    button {} '{}' enabled={} {}\n", b->p, b->caption, b->enabled, WidgetB{b->p}.state_bytes());
+  InventorDismantle d = inventor_dismantle();
+  out += std::format("  dismantle: item={} results={},{} cost='{}' dynamite='{}' no_money={} no_dynamite={} cannot={} dialog_pending={} visible={}\n", d.item, d.result1, d.result2, d.cost, d.dynamite,
+                     d.no_money, d.no_dynamite, rd_or<uint8_t>(w + kEW_Panels[1], kDP_Cannot, 0), d.dialog_pending, rd_or<uint8_t>(w + kEW_Panels[1], kDP_Visible, 0));
+  out += std::format("    button {} '{}' enabled={} {}\n", d.dismantle.p, d.dismantle.caption, d.dismantle.enabled, WidgetB{d.dismantle.p}.state_bytes());
+  return out;
+}
 uintptr_t WidgetB::vtable_rva() const { return vtable_rva_of(p); }
 bool WidgetB::is_button() const { return vtable_rva() == rva::kButtonB; }
 bool WidgetB::is_text_button() const { return vtable_rva() == rva::kTextButtonB; }
@@ -677,6 +840,7 @@ std::string WidgetB::text() const {
   if (is_text()) return read_u16(p, off::kB_Text);
   if (is_text_button()) return read_u16(p, off::kTB_Caption);
   if (vtable_rva() == rva::kTitleTextB) return read_u16(p, 0x40);   // measured live on the desecrated shrine window 2026-08-28
+  if (vtable_rva() == rva::kNumberTextB) return read_u16(p, 0x40);
   if (vtable_rva() == rva::kTextBlockB) return read_u16(p, 0x38);
   return {};
 }

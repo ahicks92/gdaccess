@@ -75,6 +75,21 @@ int selected_bag();
 bool select_bag(int index);
 struct EquipSlot { int loc; std::string label; unsigned item_id; void* item; std::string name; bool component = false; };   // loc = EquipmentCtrlLocation 1..14
 bool has_component(const void* item);            // ItemEquipment::HasRelic, after an is-a ItemEquipment check (false for anything else)
+bool has_augment(const void* item);              // ItemEquipment::HasEnchantment, same guard (an augment = the game's "enchantment")
+int item_classification(const void* item);       // Item::GetItemClassification(true) (virtual): 0 common, 1 magical, 2 rare, 3 epic, 4 legendary, 5 quest...; -1 unknown
+// The Inventor's window (docs/inventor.md) -- the game's own gates and item moves:
+unsigned dynamite_count();                       // Player::GetCurrentDynamite (the bags' quest_dynamite stacks)
+bool dismantle_unlocked();                       // GameEngine::MainPlayerCanUseDismantle (the DISMANTLING_UNLOCKED token)
+bool inventory_detach(unsigned id);              // PlayerInventoryCtrl::RemoveItem(id, true): the item leaves the grid but lives on (a station chamber holds it)
+bool give_item_to_player(unsigned id);           // ControllerPlayer::GiveItemToPlayer(id, false): a detached item back into the bags (the exe's chamber-return call)
+bool is_equipment(const void* item);             // is-a ItemEquipment
+std::string component_name(const void* item);    // the attached component's name (ItemEquipment::GetRelic), "" when none
+// The window's own arithmetic, so the rows can say the price before the item is in the chamber (the game's panel
+// recomputes it from the same inputs once it is): salvage = trunc(enchanterRecoveryFactor 0.05 x GetItemCost(false))
+// (records/game/gameengine.dbr); dismantle = itemLevel*10+150 (dismantle_table.dbr's dismantleCost) + the salvage
+// cost when a component is attached (the exe adds it, panel+0x11a0).
+unsigned salvage_cost(const void* item);
+unsigned dismantle_cost(const void* item);
 std::vector<EquipSlot> equipment();
 bool alternate_weapons();                        // the weapon-swap set in use (EquipmentCtrl::GetIsAlternate)
 bool can_equip(unsigned item_id, int loc);       // EquipmentCtrl::CanItemBePlaced -- the equip picker's filter

@@ -273,6 +273,10 @@ the cost line and Combine (`panel+0x1ea8`, enabled iff `panel+0x2129 == 0`). Sel
 `panel+0x60`. Row label = `GetMaximumCraftable` + the result's rarity colour; reagent "0/2" =
 `GetReagentNCount` / `GetReagentNQuantityForFormula`.) Note the crafting AND enchanter windows share the
 record `records/ui/inventor/inventor_mastertable.dbr`; there is no `hudCraftingWindow` field.
+**The enchanter (`+0x30dd8`) is the Inventor and is MAPPED + BUILT 2026-08-30 -- see `docs/inventor.md` /
+`docs/re_inventor_exe.md`** (tabs Salvage `+0xa38` / Dismantle `+0x1af8` / Convert `+0x2d98` / Reroll `+0x5970`; the
+Convert/Reroll panels are expansion-only and unmapped). The transmuter `+0x85378` is the Illusionist (item
+illusions, `tagTransmute*`), not an Inventor service.
 
 ### Devotion (`+0x813a0`) -- MAPPED 2026-08-27, see `docs/devotion.md`
 Superseded: the exe DOES build a full object graph (constellations at `window+0xa8/+0xb0`, each with its Star

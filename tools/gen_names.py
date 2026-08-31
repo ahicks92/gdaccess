@@ -447,6 +447,14 @@ ENTRIES = [
     ("GameEngine_DisplaySkillReallocationWindow", "Game", r"GAME::GameEngine::DisplaySkillReallocationWindow\("),
     ("GameEngine_DisplayCrafterWindow", "Game", r"GAME::GameEngine::DisplayCrafterWindow\("),
     ("GameEngine_DisplayEnchanterWindow", "Game", r"GAME::GameEngine::DisplayEnchanterWindow\("),
+    # the Inventor (enchanter) window, docs/inventor.md: what its panels and the exe's chamber drop call
+    ("ItemEquipment_HasEnchantment", "Game", r"GAME::ItemEquipment::HasEnchantment\(void\)"),
+    ("ControllerPlayer_GiveItemToPlayer", "Game", r"GAME::ControllerPlayer::GiveItemToPlayer\("),
+    ("Player_GetCurrentDynamite", "Game", r"GAME::Player::GetCurrentDynamite\(void\)"),
+    ("GameEngine_MainPlayerCanUseDismantle", "Game", r"GAME::GameEngine::MainPlayerCanUseDismantle\(void\)"),
+    ("Item_GetItemCost", "Game", r"GAME::Item::GetItemCost\(bool\)"),            # virtual: the base body, used to find the slot
+    ("Item_GetItemLevel", "Game", r"GAME::Item::GetItemLevel\(void\)"),
+    ("ItemEquipment_GetRelic", "Game", r"GAME::ItemEquipment::GetRelic\(void\)"),
     ("GameEngine_DisplayTransmutesWindow", "Game", r"GAME::GameEngine::DisplayTransmutesWindow\("),
     ("GameEngine_DisplayItemAscensionWindow", "Game", r"GAME::GameEngine::DisplayItemAscensionWindow\("),
     # crafting (docs/crafting.md): the formula getters the crafting window itself calls

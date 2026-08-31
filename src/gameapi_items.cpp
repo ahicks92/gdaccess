@@ -74,11 +74,19 @@ struct Api {
   MsvcStringW* (*Item_GetGameDescription)(const void*, MsvcStringW*, bool, bool) = nullptr;
   const void* (*ItemEquipment_GetStaticClassInfo)() = nullptr;
   bool (*ItemEquipment_HasRelic)(const void*) = nullptr;   // a raw field read (+0x1558): only after the is-a check
+  bool (*ItemEquipment_HasEnchantment)(const void*) = nullptr;   // same shape (+0x1560): the augment
+  void* (*ItemEquipment_GetRelic)(const void*) = nullptr;
+  unsigned (*Item_GetItemLevel)(const void*) = nullptr;
+  unsigned (*Item_GetItemCost)(const void*, bool) = nullptr;            // virtual base body (slot lookup only)
+  int (*Item_GetItemClassification)(const void*, bool) = nullptr;     // virtual base body (slot lookup only)
+  unsigned (*Player_GetCurrentDynamite)(const void*) = nullptr;
+  bool (*GameEngine_MainPlayerCanUseDismantle)(const void*) = nullptr;
+  bool (*GiveItemToPlayer)(void*, unsigned, bool) = nullptr;          // ControllerPlayer
   void** Item_vftable = nullptr;
   void** Item_vftable_plain = nullptr;
   bool loaded = false;
 } g;
-int g_s_ui = -1, g_s_simple = -1, g_s_stack = -1, g_s_req = -1, g_s_desc = -1;
+int g_s_ui = -1, g_s_simple = -1, g_s_stack = -1, g_s_req = -1, g_s_desc = -1, g_s_cost = -1, g_s_class = -1;
 int slot_in(const void* f) { int s = vslot(g.Item_vftable, f); return s >= 0 ? s : vslot(g.Item_vftable_plain, f); }
 constexpr int kBagSource = 1;   // ItemSource: 1 bag, 2 private stash, 3 transfer, 4 trade, 5 station slot, 7 caravan reagents
 
@@ -146,6 +154,14 @@ void load_items() {
   GAPI_LOAD(g, Item_GetGameDescription, Item_GetGameDescription);
   GAPI_LOAD(g, ItemEquipment_GetStaticClassInfo, ItemEquipment_GetStaticClassInfo);
   GAPI_LOAD(g, ItemEquipment_HasRelic, ItemEquipment_HasRelic);
+  GAPI_LOAD(g, ItemEquipment_HasEnchantment, ItemEquipment_HasEnchantment);
+  GAPI_LOAD(g, ItemEquipment_GetRelic, ItemEquipment_GetRelic);
+  GAPI_LOAD(g, Item_GetItemLevel, Item_GetItemLevel);
+  GAPI_LOAD(g, Item_GetItemCost, Item_GetItemCost);
+  GAPI_LOAD(g, Item_GetItemClassification, Item_GetItemClassification);
+  GAPI_LOAD(g, Player_GetCurrentDynamite, Player_GetCurrentDynamite);
+  GAPI_LOAD(g, GameEngine_MainPlayerCanUseDismantle, GameEngine_MainPlayerCanUseDismantle);
+  GAPI_LOAD(g, GiveItemToPlayer, ControllerPlayer_GiveItemToPlayer);
   GAPI_LOAD(g, Item_vftable, Item_vftable);
   GAPI_LOAD(g, Item_vftable_plain, Item_vftable_plain);
   g_s_ui = slot_in((const void*)g.Item_GetUIDisplayText);
@@ -153,7 +169,9 @@ void load_items() {
   g_s_stack = slot_in((const void*)g.Item_GetStackSize);
   g_s_req = slot_in((const void*)g.Item_AreRequirementsMet);
   g_s_desc = slot_in((const void*)g.Item_GetGameDescription);
-  log::writef("gameapi: Item slots ui={} simple={} stack={} req={} desc={}", g_s_ui, g_s_simple, g_s_stack, g_s_req, g_s_desc);
+  g_s_cost = slot_in((const void*)g.Item_GetItemCost);              // the Inventor's Update calls vt+0x598 (ItemEquipment overrides it)
+  g_s_class = slot_in((const void*)g.Item_GetItemClassification);   // vt+0x5b0
+  log::writef("gameapi: Item slots ui={} simple={} stack={} req={} desc={} cost={} class={}", g_s_ui, g_s_simple, g_s_stack, g_s_req, g_s_desc, g_s_cost, g_s_class);
 }
 void* inv_ctrl() { load_items(); void* c = controller(); return c && g.GetInventoryCtrl ? g.GetInventoryCtrl(c) : nullptr; }
 void* equip_ctrl() { load_items(); void* c = controller(); return c && g.GetEquipmentCtrl ? g.GetEquipmentCtrl(c) : nullptr; }
@@ -180,6 +198,73 @@ bool has_component(const void* item) {
     if (world::object_is_a(item, ci)) yes = g.ItemEquipment_HasRelic(item);
   });
   return yes;
+}
+bool is_equipment(const void* item) {
+  load_items();
+  if (!item || !g.ItemEquipment_GetStaticClassInfo) return false;
+  bool yes = false;
+  guarded("is_equipment", [&] { yes = world::object_is_a(item, g.ItemEquipment_GetStaticClassInfo()); });
+  return yes;
+}
+bool has_augment(const void* item) {
+  load_items();
+  if (!g.ItemEquipment_HasEnchantment || !is_equipment(item)) return false;
+  bool yes = false;
+  guarded("HasEnchantment", [&] { yes = g.ItemEquipment_HasEnchantment(item); });
+  return yes;
+}
+std::string component_name(const void* item) {
+  load_items();
+  if (!g.ItemEquipment_GetRelic || !has_component(item)) return {};
+  void* relic = nullptr;
+  guarded("GetRelic", [&] { relic = g.ItemEquipment_GetRelic(item); });
+  return relic ? item_name(relic) : std::string();
+}
+int item_classification(const void* item) {
+  load_items();
+  int c = -1;
+  auto f = (int (*)(const void*, bool))(item ? vfn(item, g_s_class) : nullptr);
+  if (f) guarded("Item::GetItemClassification", [&] { c = f(item, true); });
+  return c;
+}
+unsigned salvage_cost(const void* item) {
+  load_items();
+  unsigned cost = 0;
+  auto f = (unsigned (*)(const void*, bool))(item ? vfn(item, g_s_cost) : nullptr);
+  if (f) guarded("Item::GetItemCost", [&] { cost = f(item, false); });
+  return (unsigned)(0.05f * (float)cost);   // enchanterRecoveryFactor, gameengine.dbr; the exe truncates (cvttss2si)
+}
+unsigned dismantle_cost(const void* item) {
+  load_items();
+  unsigned level = 0;
+  if (item && g.Item_GetItemLevel) guarded("Item::GetItemLevel", [&] { level = g.Item_GetItemLevel(item); });
+  return level * 10 + 150 + (has_component(item) ? salvage_cost(item) : 0);
+}
+unsigned dynamite_count() {
+  load_items();
+  unsigned n = 0; void* p = player();
+  if (p && g.Player_GetCurrentDynamite) guarded("Player::GetCurrentDynamite", [&] { n = g.Player_GetCurrentDynamite(p); });
+  return n;
+}
+bool dismantle_unlocked() {
+  load_items();
+  bool ok = false; void* e = engine();
+  if (e && g.GameEngine_MainPlayerCanUseDismantle) guarded("MainPlayerCanUseDismantle", [&] { ok = g.GameEngine_MainPlayerCanUseDismantle(e); });
+  return ok;
+}
+bool inventory_detach(unsigned id) {
+  void* ic = inv_ctrl();
+  bool ok = false;
+  if (ic && id && g.Inv_RemoveItem) guarded("PlayerInventoryCtrl::RemoveItem", [&] { ok = g.Inv_RemoveItem(ic, id, true); });
+  return ok;
+}
+bool give_item_to_player(unsigned id) {
+  load_items();
+  void* c = controller();
+  bool ok = false;
+  if (c && id && g.GiveItemToPlayer) guarded("ControllerPlayer::GiveItemToPlayer", [&] { ok = g.GiveItemToPlayer(c, id, false); });
+  if (ok) invalidate_objects();
+  return ok;
 }
 unsigned item_stack(const void* item) {
   load_items();

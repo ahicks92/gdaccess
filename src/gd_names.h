@@ -1192,6 +1192,27 @@ inline constexpr const char* GameEngine_DisplayCrafterWindow = "?DisplayCrafterW
 // public: bool __cdecl GAME::GameEngine::DisplayEnchanterWindow(unsigned int) __ptr64
 inline constexpr const char* GameEngine_DisplayEnchanterWindow_DLL = "Game.dll";
 inline constexpr const char* GameEngine_DisplayEnchanterWindow = "?DisplayEnchanterWindow@GameEngine@GAME@@QEAA_NI@Z";
+// public: bool __cdecl GAME::ItemEquipment::HasEnchantment(void)const __ptr64
+inline constexpr const char* ItemEquipment_HasEnchantment_DLL = "Game.dll";
+inline constexpr const char* ItemEquipment_HasEnchantment = "?HasEnchantment@ItemEquipment@GAME@@QEBA_NXZ";
+// public: bool __cdecl GAME::ControllerPlayer::GiveItemToPlayer(unsigned int,bool) __ptr64
+inline constexpr const char* ControllerPlayer_GiveItemToPlayer_DLL = "Game.dll";
+inline constexpr const char* ControllerPlayer_GiveItemToPlayer = "?GiveItemToPlayer@ControllerPlayer@GAME@@QEAA_NI_N@Z";
+// public: unsigned int const __cdecl GAME::Player::GetCurrentDynamite(void)const __ptr64
+inline constexpr const char* Player_GetCurrentDynamite_DLL = "Game.dll";
+inline constexpr const char* Player_GetCurrentDynamite = "?GetCurrentDynamite@Player@GAME@@QEBA?BIXZ";
+// public: bool __cdecl GAME::GameEngine::MainPlayerCanUseDismantle(void)const __ptr64
+inline constexpr const char* GameEngine_MainPlayerCanUseDismantle_DLL = "Game.dll";
+inline constexpr const char* GameEngine_MainPlayerCanUseDismantle = "?MainPlayerCanUseDismantle@GameEngine@GAME@@QEBA_NXZ";
+// public: virtual unsigned int __cdecl GAME::Item::GetItemCost(bool)const __ptr64
+inline constexpr const char* Item_GetItemCost_DLL = "Game.dll";
+inline constexpr const char* Item_GetItemCost = "?GetItemCost@Item@GAME@@UEBAI_N@Z";
+// public: unsigned int __cdecl GAME::Item::GetItemLevel(void)const __ptr64
+inline constexpr const char* Item_GetItemLevel_DLL = "Game.dll";
+inline constexpr const char* Item_GetItemLevel = "?GetItemLevel@Item@GAME@@QEBAIXZ";
+// public: class GAME::ItemRelic * __ptr64 __cdecl GAME::ItemEquipment::GetRelic(void)const __ptr64
+inline constexpr const char* ItemEquipment_GetRelic_DLL = "Game.dll";
+inline constexpr const char* ItemEquipment_GetRelic = "?GetRelic@ItemEquipment@GAME@@QEBAPEAVItemRelic@2@XZ";
 // public: bool __cdecl GAME::GameEngine::DisplayTransmutesWindow(unsigned int) __ptr64
 inline constexpr const char* GameEngine_DisplayTransmutesWindow_DLL = "Game.dll";
 inline constexpr const char* GameEngine_DisplayTransmutesWindow = "?DisplayTransmutesWindow@GameEngine@GAME@@QEAA_NI@Z";

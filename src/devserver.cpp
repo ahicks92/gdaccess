@@ -202,6 +202,24 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     for (const exe_ui::LootFilterBox& b : exe_ui::loot_filter_boxes()) out += std::format("  box opt={:2} checked={} ctrl={}\n", b.option, b.checked, b.ctrl);
     return out;
   }
+  if (path == "/inventor") {   // ?tab=0..3 | ?put=<id> | ?take=0|1|2 | ?press=keepitem|keepaddon|removeaugment|dismantle | (none) the window's state
+    if (q.count("tab")) return exe_ui::inventor_press_tab(parse_int(q.at("tab"), 0)) ? "ok\n" : "failed\n";
+    if (q.count("put")) return exe_ui::inventor_put((unsigned)parse_int(q.at("put"), 0)) ? "ok\n" : "failed\n";
+    if (q.count("take")) return exe_ui::inventor_take(parse_int(q.at("take"), 0)) ? "ok\n" : "failed\n";
+    if (q.count("press")) {
+      const std::string& a = q.at("press");
+      exe_ui::InventorAction act = a == "keepitem" ? exe_ui::InventorAction::KeepItem : a == "keepaddon" ? exe_ui::InventorAction::KeepAddon
+                                 : a == "removeaugment" ? exe_ui::InventorAction::RemoveAugment : exe_ui::InventorAction::Dismantle;
+      return exe_ui::inventor_press(act) ? "ok\n" : "refused\n";
+    }
+    std::string out = exe_ui::inventor_dump();
+    out += std::format("dynamite={} dismantle_unlocked={} money={}\n", gameapi::dynamite_count(), gameapi::dismantle_unlocked(), gameapi::money());
+    for (const gameapi::Bag& bag : gameapi::bags())
+      for (const gameapi::BagItem& it : bag.items)
+        out += std::format("  item {} '{}' equipment={} component={} augment={} class={} salvage={} dismantle={}\n", it.id, it.name, gameapi::is_equipment(it.p), gameapi::has_component(it.p),
+                           gameapi::has_augment(it.p), gameapi::item_classification(it.p), gameapi::salvage_cost(it.p), gameapi::dismantle_cost(it.p));
+    return out;
+  }
   if (path == "/crafting") {   // ?formula=<id> details | ?select=<id> | ?tab=0..4 | ?combine=1 | (none) the window's rows
     if (q.count("formula")) return gameapi::dump_formula((unsigned)parse_int(q.at("formula"), 0));
     if (q.count("select")) return exe_ui::crafting_select((unsigned)parse_int(q.at("select"), 0)) ? "ok\n" : "failed\n";

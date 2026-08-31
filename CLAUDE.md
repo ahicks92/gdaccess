@@ -633,7 +633,23 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   `ItemArtifactFormula` items (`GetPlayerFormulas` + `NpcCrafter::GetRecipes` + defaults), `GetReagentNCount/QuantityForFormula`,
   `GetCreationCost`, `GetMaximumCraftable` (the "[N]"), `GetArtifact()` = the unrolled template result (ranged tooltip).
   `SendCreateArtifactCmd(CreateArtifactConfigInfo)` VALIDATES NOTHING -- press the window's Combine, never call it.
-  The only blacksmith window; dismantle/transmute are the Inventor's (unmapped).
+  The only blacksmith window; dismantle/salvage are the Inventor's (below); "transmute" is the Illusionist (unmapped).
+- Inventor window MAPPED + BUILT (2026-08-30, `docs/inventor.md`, RE `docs/re_inventor_exe.md`, `screens/inventor.cpp`;
+  verified live with a Lua-spawned Darlet: Keep Add-on, Keep Item answered No, Dismantle with a component): the exe's
+  "enchanter" window `InGameUI+0x30dd8` (vt exe+0x31d050), tab index `+0x8bc0`, tab buttons `+0x8c08/+0x8f40/+0x9278/
+  +0x95b0` through the radio registry `+0x8bc8`; Salvage panel `+0xa38` (chamber `+0x40`, Keep Add-on `+0x2b0`, Keep
+  Item `+0x660`, Remove Augment `+0xa10`, registry `+0x268`, cost text `+0xdc0`, dialog pending `+0x10a8`), Dismantle
+  panel `+0x1af8` (chamber `+0x108`, results `+0x330/+0x558`, button `+0x7c8`, registry `+0x780`, pending `+0x1148`).
+  Convert / Reroll are expansion tabs (greyed by `MainPlayerCanUseConvert/Reroll`; base install has no records for
+  them) -- listed only when enabled, unmapped. **The chamber owns its item**: the drop is box `SetItem` (vt+0xa8) +
+  `PlayerInventoryCtrl::RemoveItem`, the return `ControllerPlayer::GiveItemToPlayer`; results (the kept component /
+  item, scrap + bonus) come back INTO the boxes and must be taken out -- the screen does that and names them. The
+  screen is item-first (rows = eligible bag items with the computed price; Enter = action picker / dismantle; the
+  game's confirm box is answered through message_box; `on_update` reconciles done / cancelled). Prices are computed
+  (`0.05 x GetItemCost`, `itemLevel*10+150` + component salvage) and matched the panel's own texts live. Dismantle
+  needs the `DISMANTLING_UNLOCKED` token (Lua `GiveToken` for tests) and a re-open of the window. Dev: `/inventor`.
+  Lesson: `WindowScreen::add_tabs` with an empty label list throws inside `GraphBuilder::end_row` and takes the game
+  down with the mod's exception -- never call it with no tabs.
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.

@@ -1,8 +1,8 @@
 # The blacksmith / crafting window (mapped and BUILT 2026-08-29, verified live)
 
 The one window a blacksmith (Angrim / Duncan, `NpcCrafter`) opens: the game's crafting window, "Forgemaster"
-(`InGameUI+0x3aa80`). There is no second blacksmith window -- dismantling / transmuting are the Inventor's
-(enchanter `+0x30dd8`, transmuter `+0x85378`), unmapped. The static RE is `docs/re_crafting_exe.md` (window) and
+(`InGameUI+0x3aa80`). There is no second blacksmith window -- salvaging / dismantling are the Inventor's
+(enchanter `+0x30dd8`, docs/inventor.md); the "transmuter" `+0x85378` is the Illusionist (unmapped). The static RE is `docs/re_crafting_exe.md` (window) and
 `docs/re_crafting_gamedll.md` (model); everything marked **live** below was checked on the running game with a
 spawned Angrim (see "Getting a crafter for testing").
 
