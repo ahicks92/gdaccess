@@ -455,6 +455,19 @@ bool bind_power(unsigned power_skill_id, unsigned host_skill_id, std::string* re
 }
 // ---- reclaiming (a spirit guide's reclaim mode; the star map's own RECLAIM branch, re_devotion_exe.md 2.2/2.3) ----
 unsigned devotion_reclaim_cost() { load_devotion(); void* p = player(); const void* sm = p && g.GetSkillManager ? g.GetSkillManager(p) : nullptr; unsigned n = 0; if (sm && g.SM_GetCurrentDevotionReclamationCost) guarded("devotion reclaim cost", [&] { n = g.SM_GetCurrentDevotionReclamationCost(sm); }); return n; }
+// The celestial power a skill hosts, the way the skills window's SkillReasons byte 7 (exe+0x249445..) decides it: an
+// autocast that is NOT the skill's own DBR autocast and whose operation is a power. 0 when it hosts none.
+unsigned hosted_power_id(const void* host_skill) {
+  load_devotion();
+  unsigned id = 0;
+  if (!host_skill || !g.Skill_HasAutocastSkill || !g.Skill_HasAutocastInDbr || !g.Skill_GetAutoCastSkill) return 0;
+  guarded("hosted_power_id", [&] {
+    if (!g.Skill_HasAutocastSkill(host_skill) || g.Skill_HasAutocastInDbr(host_skill)) return;
+    void* ac = g.Skill_GetAutoCastSkill(host_skill);
+    if (ac && is_power(ac)) id = obj_id(ac);
+  });
+  return id;
+}
 unsigned devotion_reclaim_aether_cost() { load_devotion(); void* p = player(); const void* sm = p && g.GetSkillManager ? g.GetSkillManager(p) : nullptr; unsigned n = 0; if (sm && g.SM_GetDevotionReclamationAetherCost) guarded("devotion aether cost", [&] { n = g.SM_GetDevotionReclamationAetherCost(sm); }); return n; }
 unsigned aether() { load_devotion(); void* p = player(); unsigned n = 0; if (p && g.Player_GetCurrentAether) guarded("GetCurrentAether", [&] { n = g.Player_GetCurrentAether(p); }); return n; }
 bool dev_add_aether(unsigned n) { load_devotion(); void* p = player(); bool ok = p && g.Player_AddAether && guarded("AddAether", [&] { g.Player_AddAether(p, n); }); log::writef("gameapi: dev aether +{} ok={}", n, ok); return ok; }

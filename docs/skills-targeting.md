@@ -110,12 +110,24 @@ gate, which is why learning ignored requirements.
     (fixing the old "refund anywhere, silently charging iron bits" bug). Cost is
     `SkillManager::GetCurrentSkillReclamationCost()` (`gameapi::reclaim_cost()`), the same for every skill and
     rising as you reclaim; there is **no clear-all**, it is one point at a time.
+  - **Where the game validates a reclaim (RE 2026-08-30):** NOT in Game.dll and NOT in the click. Base
+    `Skill::DecrementSkillLevel` (Game.dll 0x46d520) is level > 0 -> subtract -> notify -> return true, no checks;
+    the exe's "-" branch (exe+0x248459) only refuses a mastery at level 1. The gate is the pane update greying the
+    icon (`[icon+0x281] = 1`, exe+0x247bf6..0x247cde) from the SkillReasons block at icon+0x4c0: byte 8 cost > money,
+    byte 0xa level 1 with a skill whose `GetSkillDependancies` names it still holding points (tagReclaimBase), byte 7
+    level 1 hosting a celestial power (autocast not from the DBR, operation 3; tagReclaimDevotion), byte 0xb level 0;
+    for the mastery additionally `Engine::IsExpansion1Loaded`, byte 0xd (a learned skill of the pane with
+    `GetMasteryLevelRequirement >= the bar`, helper exe+0x2491a0) and level == 1. `WidgetB::press` refuses a greyed
+    icon, but the screen's fallback `refund_skill` called `DecrementSkillLevel` directly -- which is how a base
+    skill's last point could be reclaimed under its modifiers. Now `can_reclaim_skill` replicates every byte
+    ("remove points from its modifiers first, Discord", "detach its celestial power first, Twin Fangs",
+    "Cadence needs mastery 1" for the bar) and `refund_skill` refuses unless it passes; only the expansion check
+    is not modelled (a greyed icon then says "cannot"). `gameapi::hosted_power_id` is the byte-7 test as a helper.
   - `gameapi::can_reclaim_skill` gives the refusal reason before trying: **the mastery bar reclaims down to 1
     like any skill** (base `Skill::DecrementSkillLevel`, the same vtable slot as a normal skill -- verified
     5->4->...->1 live), but the game blocks its **last** point (can't drop the class to 0 ->
     `tagDecreaseMasteryError`); reclaiming costs iron bits, so `reclaim_cost() > money()` -> "not enough iron
-    bits" (this was the real cause of an earlier mis-read that "masteries can't be reclaimed"). The remaining
-    refusal is a base skill's final point with modifiers still on it -> the game's `tagReclaimBase`.
+    bits" (this was the real cause of an earlier mis-read that "masteries can't be reclaimed").
   - Dev: `/reclaim` opens the skills window in reclaim mode without a guide (`gameapi::dev_open_skill_reclaim`);
     `/cheat?bits=N` (`Character::AddMoney`) tops up iron bits to test affordable reclaims.
 

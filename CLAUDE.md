@@ -344,7 +344,11 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   Backspace reclaims one point; outside a guide Backspace does nothing (fixing the old refund-anywhere bug that
   silently charged bits). `can_reclaim_skill` gives the reason: the mastery bar reclaims down to 1 like any skill
   (base `DecrementSkillLevel`) but its last point is blocked (`tagDecreaseMasteryError`), and a reclaim you can't
-  afford (`reclaim_cost() > money()`) says "not enough iron bits". **Stats
+  afford (`reclaim_cost() > money()`) says "not enough iron bits". **The game validates reclaims ONLY by greying the
+  icon** (2026-08-30, docs/skills-targeting.md): `DecrementSkillLevel` checks nothing and the exe click trusts it, so
+  the direct `refund_skill` fallback could orphan modifiers; `can_reclaim_skill` now replicates the whole SkillReasons
+  gate (modifiers holding points, a hosted celestial power, a mastery's dependants, bits) and `refund_skill` refuses
+  unless it passes. Built, NOT yet verified live. **Stats
   tab**: every row now carries the game's own tooltip on Space (`tagCharAttributeDescription0X`,
   `tagCharStats{OA,DA,DPS}Description`, `tagStatsResistance0XDesc`); attributes remain non-refundable (no reclaim
   path wired). Dev: `/reclaim` opens reclaim mode without a guide; `/cheat?bits=N` tops up iron bits. New exports:
@@ -686,7 +690,10 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
 - **Never hold a `GraphNode*` across frames.** The graph is rebuilt immediate-mode; a stored pointer dangles
   after the next render (the navigator's `last_spoken_node_` crashed the game in the announcer's path walk
   on a Tab landing, 2026-08-21). Remember a `ControlId` and resolve it in the current render when needed
-  (`GraphNavigator::last_spoken_node()`).
+  (`GraphNavigator::last_spoken_node()`). **The same for game entity pointers**: `world::tick` re-resolved the
+  locked review target only every 30 frames and projected the cached pointer in between, so picking the locked
+  item up fed `WorldCamera::Project` a freed object -- the rare "not responding after a pickup" crash (stacks
+  2026-08-30). Hold the object id; `find_entity(id)` every frame you use it.
 - `src/core` is engine-free (no Windows, no game types) and unit-tested with doctest
   (`cmake --build build/ninja --target gdcore_tests && build/ninja/gdcore_tests.exe`). Re-run the CMake
   configure after adding files (globs).

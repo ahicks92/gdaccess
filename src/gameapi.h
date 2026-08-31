@@ -191,6 +191,7 @@ std::vector<std::string> constellation_tooltip(const DevotionConstellation& c);
 // Celestial powers: the skills a power may be bound to (the game's picker filter, learned only), and the binding.
 std::vector<SkillInfo> power_host_candidates(unsigned power_skill_id);
 bool bind_power(unsigned power_skill_id, unsigned host_skill_id, std::string* replaced_power = nullptr);   // host 0 = unbind
+unsigned hosted_power_id(const void* host_skill);   // the celestial power bound to this skill (0 = none): HasAutocastSkill, not from the DBR, operation = power
 // Reclaiming a devotion point (only in a spirit guide's reclaim mode, exe_ui::skills_reclaim_mode): the game's
 // gates -- a learned star hanging off it, the affinity self-lock, iron bits + aether crystals -- as a spoken
 // reason ("" = allowed), and the star map's own reclaim sequence.

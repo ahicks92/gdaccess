@@ -271,6 +271,8 @@ inline constexpr std::string_view kEach = "each";
 inline constexpr std::string_view kReclaimed = "reclaimed";
 inline constexpr std::string_view kNotEnoughBits = "not enough iron bits";
 inline constexpr std::string_view kNothingToReclaim = "nothing to reclaim";
+inline constexpr std::string_view kRemoveModifiersFirst = "remove points from its modifiers first";   // a base skill's last point while modifiers hold points (the game's tagReclaimBase); the modifiers follow as list items
+inline constexpr std::string_view kDetachPowerFirst = "detach its celestial power first";           // a skill's last point while a celestial power is bound to it (tagReclaimDevotion)
 inline constexpr std::string_view kUndoPoints = "undo points";   // the skills window's own button: revert the points spent since it opened
 // Devotion (the skills window's Constellations / Celestial Powers tabs; docs/devotion.md)
 inline constexpr std::string_view kConstellations = "constellations";

@@ -365,11 +365,18 @@ unsigned reclaim_cost() {
   if (sm && g.SM_GetCurrentSkillReclamationCost) guarded("reclaim cost", [&] { n = g.SM_GetCurrentSkillReclamationCost(sm); });
   return n;
 }
-// Why a point can't be reclaimed right now (spirit-guide mode assumed), or "" if it can. The mastery bar
-// reclaims down to 1 like any skill (base Skill::DecrementSkillLevel), but the game blocks its LAST point
-// (can't drop the class -> tagDecreaseMasteryError); reclaiming costs iron bits (byte8 of the SkillReasons
-// builder: cost > money). A base skill's final point with modifiers still on it is refused by the game's
-// DecrementSkillLevel (the caller falls back to tagReclaimBase).
+// Why a point can't be reclaimed right now (spirit-guide mode assumed), or "" if it can. Replicates the game's
+// reclaim gate, which lives in the skills window's icon-enable pass (SkillReasons builder exe+0x2492b0, consumed by
+// the pane update exe+0x247bf6..0x247cde), NOT in Game.dll: the exe's "-" click only refuses a mastery at level 1
+// and trusts Skill::DecrementSkillLevel, which validates nothing (level > 0 -> subtract, return true). So a direct
+// DecrementSkillLevel orphans modifiers / hosted powers / a mastery's dependants -- every reclaim path must pass here.
+//   byte 0xb  level 0                                        -> nothing to reclaim
+//   handler   mastery at level 1 (the class stays)           -> tagDecreaseMasteryError
+//   byte 0xd  mastery: a learned skill of it needs the bar  -> "<skill> needs mastery N"
+//   byte 0xa  level 1 with modifiers still holding points   -> remove points from its modifiers first, <names>
+//   byte 7    level 1 hosting a celestial power             -> detach its celestial power first, <power>
+//   byte 8    reclamation cost > money                       -> not enough iron bits
+// Not replicated: the mastery also needs Engine::IsExpansion1Loaded (the icon stays grey without the expansion).
 std::string can_reclaim_skill(const void* skill) {
   load_skills(); void* p = player();
   if (!skill || !p) return std::string(strings::kCannot);
@@ -377,7 +384,36 @@ std::string can_reclaim_skill(const void* skill) {
   guarded("can_reclaim_skill", [&] {
     unsigned lvl = g.Skill_GetSkillLevel ? g.Skill_GetSkillLevel(skill) : 0;
     if (lvl == 0) { reason = std::string(strings::kNothingToReclaim); return; }
-    if (g.Skill_IsSkillTheMasterySkill && g.Skill_IsSkillTheMasterySkill(skill) && lvl <= 1) { reason = localize("tagDecreaseMasteryError"); return; }
+    bool mastery = g.Skill_IsSkillTheMasterySkill && g.Skill_IsSkillTheMasterySkill(skill);
+    if (mastery && lvl <= 1) { reason = localize("tagDecreaseMasteryError"); return; }
+    unsigned id = object_id(skill);
+    if (mastery) {
+      // Lowering the bar by one must not drop it under any learned skill's requirement (byte 0xd walks the pane's
+      // skills, i.e. this mastery's tree). SkillInfo::mastery_id is the mastery SKILL's object id.
+      for (const SkillInfo& s : skills()) {
+        if (s.is_mastery || s.mastery_id != id || s.level == 0 || s.mastery_req < lvl) continue;
+        core::MessageBuilder m;
+        m.fragment(s.name.empty() ? s.record : s.name).fragment(strings::kRequiresMastery).fragment(std::format("{}", s.mastery_req));
+        reason = m.build();
+        return;
+      }
+    } else if (lvl == 1) {
+      core::MessageBuilder m; bool any = false;
+      for (const SkillInfo& s : skills()) {
+        if (s.modified_skill_id != id || s.level == 0) continue;
+        if (!any) m.fragment(strings::kRemoveModifiersFirst);
+        any = true;
+        m.list_item().fragment(s.name.empty() ? s.record : s.name);
+      }
+      if (any) { reason = m.build(); return; }
+      if (unsigned power = hosted_power_id(skill)) {
+        core::MessageBuilder pm; pm.fragment(strings::kDetachPowerFirst);
+        std::string pname = skill_name_by_id(power);
+        if (!pname.empty()) pm.list_item().fragment(pname);
+        reason = pm.build();
+        return;
+      }
+    }
     if (reclaim_cost() > money()) { reason = std::string(strings::kNotEnoughBits); return; }
   });
   return reason;
@@ -403,10 +439,12 @@ bool learn_skill(const void* skill) {
   return ok;
 }
 // The window's reallocation "-" (exe+0x248459): never the mastery's last point; DecrementSkillLevel(1), then
-// UseReclamationPoints(1) (undone on refusal), ReleasePets, AddSkillPoints(1).
+// UseReclamationPoints(1) (undone on refusal), ReleasePets, AddSkillPoints(1). Gated by can_reclaim_skill, because
+// the game's own gate is the greyed icon, which this direct path does not see.
 bool refund_skill(const void* skill) {
   load_skills(); void* p = player(); const void* sm = skill_manager();
   if (!skill || !p || !sm || !g.SM_UseReclamationPoints || !g.AddSkillPoints) return false;
+  if (!can_reclaim_skill(skill).empty()) return false;
   bool ok = false;
   guarded("refund skill", [&] {
     if (g.Skill_IsSkillTheMasterySkill && g.Skill_IsSkillTheMasterySkill(skill) && g.Skill_GetSkillLevel && g.Skill_GetSkillLevel(skill) <= 1) return;

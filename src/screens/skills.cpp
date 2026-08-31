@@ -159,13 +159,13 @@ class SkillsScreen : public WindowScreen, public AssignSource {
     std::function<void()> refund;
     if (reclaim) refund = [this, p, id] {
       void* q = gameapi::object_by_id(id); if (!q) q = p;
-      std::string why = gameapi::can_reclaim_skill(q);   // mastery last point / not enough iron bits / nothing to reclaim
+      // The game's whole reclaim gate (modifiers / hosted power / mastery dependants / bits) is replicated there; the
+      // pane's icon is greyed for the same reasons, and the direct fallback re-checks it, so nothing slips past.
+      std::string why = gameapi::can_reclaim_skill(q);
       if (!why.empty()) { speech::speak(why, true); return; }
       unsigned before = gameapi::skill_level(q);   // the pane's click reclaims in reclaim mode (and records the undo delta)
       if ((exe_ui::skills_press_skill(id) && gameapi::skill_level(q) < before) || gameapi::refund_skill(q)) { speech::speak(strings::kReclaimed, true); refresh(); return; }
-      // The only remaining refusal is a base skill's final point with modifiers still on it.
-      std::string base = gameapi::localize("tagReclaimBase");
-      speech::speak(base.empty() ? std::string(strings::kCannot) : base, true);
+      speech::speak(std::string(strings::kCannot), true);   // left: a greyed icon for a reason we don't model (e.g. no expansion 1 for the mastery)
     };
     auto tooltip = [p] { speak_lines(gameapi::skill_tooltip(p)); };
     auto v = row_item(label, value, learn, tooltip, refund);
