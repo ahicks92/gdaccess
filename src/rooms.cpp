@@ -25,7 +25,7 @@ namespace {
 using gd::core::MessageBuilder;
 namespace strings = gd::strings;
 
-struct Room { std::string key, title, body, subregion; std::string cls; float ax = 0, az = 0; bool island = false; };
+struct Room { std::string key, title, body, subregion, area; std::string cls; float ax = 0, az = 0; bool island = false; };
 struct Exit {
   int a = -1, b = -1; float x = 0, z = 0, width = 0; bool cut = false;
   std::string foreign;   // set when the far side is another region's room ("lowercrossing:43:-262"): b = -1
@@ -130,6 +130,18 @@ Region* load_region(const std::string& key) {
     }
   }
   {
+    // Painted HUD area names (schema v3, tools/rooms.py areas --write): the game's own per-cell area layer,
+    // majority per room. An older db lacks the column (prepare fails) and the region name is spoken instead.
+    db::Stmt st(*g_db, "SELECT key, area_name FROM rooms WHERE region_key=? AND area_name IS NOT NULL");
+    if (st.ok()) {
+      st.bind(1, key);
+      while (st.step()) {
+        auto f = by_key.find(st.text(0));
+        if (f != by_key.end()) r->rooms[f->second].area = st.text(1);
+      }
+    }
+  }
+  {
     db::Stmt st(*g_db, "SELECT room_a, room_b, x, z, width, cut FROM exits WHERE region_key=?");
     st.bind(1, key);
     while (st.step()) {
@@ -167,7 +179,10 @@ std::string room_label(const Region& r, int label) {
 void announce(bool force) {
   if (!g_current || g_hyst.current < 0) return;
   const Room& rm = g_current->rooms[g_hyst.current];
-  std::string region = g_current->name.empty() ? g_current->key : g_current->name;
+  // The top layer of the spoken place is the game's own painted HUD area name ("Lower Crossing",
+  // "Burrwitch Slums", "Anguish"), not our location-record region -- the location partition spans several
+  // named areas (decided with the user 2026-08-31). Unpainted rooms fall back to the region name.
+  std::string region = !rm.area.empty() ? rm.area : (g_current->name.empty() ? g_current->key : g_current->name);
   auto sr = g_current->subregion_names.find(rm.subregion);
   std::string subregion = sr != g_current->subregion_names.end() ? sr->second : std::string();
   MessageBuilder m;
@@ -259,17 +274,20 @@ bool exit_blocked(const world::Vec3& at) {
   return true;
 }
 
-// The far side of a cross-region exit: "<region name>, <room title>" (the far region loads, cached, on
-// first use; the region name alone when its room is untitled) -- the player hears where the opening LEADS.
+// The far side of a cross-region exit: "<painted area name>, <room title>" (the far region loads, cached,
+// on first use; the region name when the far room is unpainted, the area alone when it is untitled) -- the
+// player hears where the opening LEADS.
 std::string foreign_label(const std::string& key) {
   size_t colon = key.find(':');
   if (colon == std::string::npos) return {};
   Region* fr = load_region(key.substr(0, colon));
   if (!fr) return {};
   MessageBuilder m;
-  m.list_item().fragment(fr->name.empty() ? fr->key : fr->name);
+  const Room* dest = nullptr;
   for (const Room& rm : fr->rooms)
-    if (rm.key == key) { if (!rm.title.empty()) m.list_item().fragment(rm.title); break; }
+    if (rm.key == key) { dest = &rm; break; }
+  m.list_item().fragment(dest && !dest->area.empty() ? dest->area : (fr->name.empty() ? fr->key : fr->name));
+  if (dest && !dest->title.empty()) m.list_item().fragment(dest->title);
   return m.build();
 }
 
@@ -379,7 +397,7 @@ std::string status() {
   s += std::format("player ({:.1f}, {:.1f}) -> label {} current {} candidate {}; last line '{}'\n", p.x, p.z, label, g_hyst.current, g_hyst.candidate, g_last_line);
   if (g_hyst.current >= 0) {
     const Room& rm = g_current->rooms[g_hyst.current];
-    s += std::format("room key {} cls {} anchor ({:.0f}, {:.0f}) island {} title '{}' subregion '{}' body '{}'\n", rm.key, rm.cls, rm.ax, rm.az, rm.island, rm.title, rm.subregion, rm.body.substr(0, 80));
+    s += std::format("room key {} cls {} anchor ({:.0f}, {:.0f}) island {} title '{}' area '{}' subregion '{}' body '{}'\n", rm.key, rm.cls, rm.ax, rm.az, rm.island, rm.title, rm.area, rm.subregion, rm.body.substr(0, 80));
     for (const Exit& e : g_current->exits)
       if (e.a == g_hyst.current || e.b == g_hyst.current) {
         int other = e.a == g_hyst.current ? e.b : e.a;

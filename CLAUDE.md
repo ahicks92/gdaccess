@@ -452,6 +452,17 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   exitless) -- a tool artifact, the rooms are keyed to the y7 floor the player walks. The mod loads `rooms.db`
   from next to the DLL (`build/ninja/assets/`, copied at build time); a hot copy + `/room?reload=1` tests a db
   edit without a rebuild.
+- Painted area names (2026-08-31, `docs/rooms.md` "Painted area names", verified live): the HUD's area name is a
+  painted per-cell "sector" layer in each chunk body (GUID tables + a w*h*ntab id grid; table 1 = areas, resolved
+  through the map header's unique-entities table + Text_EN) -- decoded offline in `tools/gdmap/sectors.py`,
+  validated 100 % against 643 live `Engine::GetAreaNameTag` reads. The location-record regions span several named
+  areas (devilscrossing is 60 % "Lower Crossing"), so the spoken place is now **"painted area, sub-region, room"**:
+  `rooms.area_name` (schema v3, `rooms.py areas --write`, 10,382 rooms) leads the line and labels foreign exits;
+  region name = riftgate zone name, fallback only. Placeholder regions named (c01a = Old Grove, a03a/a04a =
+  Prospect Hill -- both CUT content, like the whole location-less 0C/0E corner; map01_gatex01a = Obsidian Throne).
+  The whole base campaign is segmented (84 regions / 10,503 rooms, all acts -- "Act 1" in older notes was wrong);
+  untagged: the Void (Bastion of Chaos, ~169k m², optional endgame) and the cut corners, all location-less chunks
+  the `build` driver cannot see. `/player` prints `area=`.
 - Riftgate travel screen (2026-08-22, verified live through the loop incl. a real trip Lower Crossing -> Devil's
   Crossing): `screens/riftgate.cpp` over the world map in riftgate mode (`exe_ui::riftgate_*`, layout in
   docs/exe-ui-layout.md "Riftgate travel"). Review groups: N = people + non-loot objects of interest, M = loot.

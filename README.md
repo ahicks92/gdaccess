@@ -184,7 +184,8 @@ itself hovers and targets it, and plays a route ping. Shift reverses; Alt jumps 
 
 Spoken automatically, by position: damage numbers, misses, dodges and blocks from where they happen; your
 health at every 10 % step; debuffs put on you; kills and experience; place changes ("Devil's Crossing, the
-prison, cell block corridor"). The game's banners (level up, quest updated) and its "skill not ready" style
+prison, cell block corridor" -- the first part is the game's own area name, exactly what the minimap shows a
+sighted player there). The game's banners (level up, quest updated) and its "skill not ready" style
 popups are read once each.
 
 ### Skills and the quickbar

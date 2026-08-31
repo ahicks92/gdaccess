@@ -381,6 +381,114 @@ def prettify_stem(stem):
     return " ".join(w if w.isupper() else w.capitalize() for w in s.split())
 
 
+def text_en_tags():
+    """{tag -> localized text} for every line of Text_EN.arc."""
+    import lz4.block
+    P = r"C:\Program Files (x86)\Steam\steamapps\common\Grim Dawn\resources\Text_EN.arc"
+    dd = open(P, "rb").read()
+    _, _, numE, numP, recSize, strSize, recOff = struct.unpack_from("<IIIIIII", dd, 0)
+    parts = [struct.unpack_from("<III", dd, recOff + 12 * i) for i in range(numP)]
+    ent = recOff + recSize + strSize
+    tag = {}
+    for i in range(numE):
+        f = struct.unpack_from("<11I", dd, ent + 44 * i)
+        np_, pi = f[7], f[8]
+        blob = b""
+        for j in range(pi, pi + np_):
+            o, c, u = parts[j]; ch = dd[o:o + c]
+            blob += ch if c == u else lz4.block.decompress(ch, uncompressed_size=u)
+        for line in blob.decode("utf-8-sig", errors="replace").splitlines():
+            if "=" in line:
+                k, _, v = line.partition("="); tag[k.strip()] = v.strip()
+    return tag
+
+
+# The four regions whose location record has no zone tag; their names come from the painted area layer
+# (c01a is cut content the game paints 'Old Grove'; a03a/a04a are the cut Prospect Hill corner whose
+# localization text was deleted; gatex01a is the Void gateway).
+PLACEHOLDER_REGION_NAMES = {"a03a": "Wightmire", "a04a": "Prospect Hill", "a04a_a04a": "Prospect Hill",
+                            "c01a": "Old Grove", "map01_gatex01a": "Obsidian Throne"}
+
+
+def cmd_areas(wm, args):
+    """Per-room HUD area names from the painted sector layer (gdmap.sectors; validated against 643 live
+    `Engine::GetAreaNameTag` reads, 100%): each room's name = the majority painted name over its own label
+    cells, sampled at the layer's 1-unit resolution. --write stores rooms.area_name (NULL where nothing is
+    painted -- the mod falls back to the region name) and names the placeholder regions."""
+    import collections
+    from gdmap import sectors
+    from gdmap.mapfile import HEAD_BYTES, MAP_NAME
+    head = wm.arc.slice(MAP_NAME, 0, HEAD_BYTES)
+    ents = sectors.header_entities(head)
+    tags = text_en_tags()
+
+    def name_of(guid):
+        if guid is None:
+            return None
+        ename, tag = ents.get(guid, (None, None))
+        if tag is None:
+            return None                                  # an entity the header does not tag: unnamed
+        t = tags.get(tag)
+        if not t:                                        # tag text deleted from localization (cut content)
+            return prettify_stem(tag.removeprefix("tagMap"))
+        return t.replace("{^n}", " ").replace("^n", " ")
+
+    db = RoomsDb(DB)
+    cols = [r[1] for r in db.c.execute("PRAGMA table_info(rooms)")]
+    if "area_name" not in cols and args.write:
+        db.c.execute("ALTER TABLE rooms ADD COLUMN area_name TEXT")
+    sect_cache = {}
+
+    def sect_of(chunk_name):
+        if chunk_name not in sect_cache:
+            r = wm.by_name.get(chunk_name)
+            sect_cache[chunk_name] = (r, sectors.parse_sectors(wm.level_body(r)) if r else None)
+        return sect_cache[chunk_name]
+
+    named = unnamed = 0
+    for key, chunks_json in db.c.execute("SELECT key, chunks FROM regions").fetchall():
+        chunk_names = [c.replace("\\", "/").rsplit("/", 1)[-1].removeprefix("Region").removesuffix(".lvl")
+                       for c in json.loads(chunks_json)]
+        regs = [sect_of(cn) for cn in chunk_names]
+        regs = [(r, s) for (r, s) in regs if r is not None and s is not None]
+        g = db.grid(key)
+        if g is None:
+            continue
+        x0, z0, cell, labels, label_keys = g
+        h, w = labels.shape
+        counts = collections.defaultdict(collections.Counter)
+        step = max(1, int(round(1.0 / cell)))            # sample at the sector layer's 1-unit resolution
+        for row in range(0, h, step):
+            z = z0 + (row + 0.5) * cell
+            for col in range(0, w, step):
+                lab = labels[row, col]
+                if lab < 0:
+                    continue
+                x = x0 + (col + 0.5) * cell
+                for (r, s) in regs:
+                    lx, lz = x - r.world_offset[0], z - r.world_offset[2]
+                    if 0 <= lx < 128 and 0 <= lz < 128:
+                        nm = name_of(s.guid_at(lx, lz))
+                        if nm:
+                            counts[label_keys[lab]][nm] += 1
+                        break
+        region_total = collections.Counter()
+        for rk, c in counts.items():
+            region_total += c
+            if args.write:
+                db.c.execute("UPDATE rooms SET area_name=? WHERE key=?", (c.most_common(1)[0][0], rk))
+            named += 1
+        unnamed += sum(1 for lk in label_keys if lk not in counts)
+        mc = region_total.most_common(2)
+        print(f"{key:45} rooms named {len(counts):4}  " +
+              (" / ".join(f"{n} {100.0 * v / sum(region_total.values()):.0f}%" for n, v in mc) if mc else "(nothing painted)"))
+    if args.write:
+        for k, name in PLACEHOLDER_REGION_NAMES.items():
+            db.c.execute("UPDATE regions SET name=? WHERE key=?", (name, k))
+        db.c.commit()
+    print(f"{'WROTE' if args.write else 'PREVIEW'}: {named} rooms named, {unnamed} unpainted (region-name fallback)")
+
+
 def zone_names():
     """{location basename -> the game's zone name} for the riftgate map locations, read offline: each location
     .dbr's ZoneNameTag resolved through Text_EN.arc, minus the trailing ' Rift'. Empty on any failure (the
@@ -603,6 +711,8 @@ def main():
     s.add_argument("location", nargs="?", default=None); s.add_argument("--all", action="store_true")
     s.add_argument("--step", type=int, default=200); s.add_argument("--write", action="store_true")
     add_params(s); s.set_defaults(fn=cmd_build)
+    s = sub.add_parser("areas", help="per-room HUD area names from the painted sector layer; --write stores rooms.area_name + placeholder region names")
+    s.add_argument("--write", action="store_true"); s.set_defaults(fn=cmd_areas)
     s = sub.add_parser("status"); s.set_defaults(fn=cmd_status)
     s = sub.add_parser("plan"); s.add_argument("location"); s.add_argument("--scale", type=int, default=1)
     s.add_argument("--out", default=None); s.set_defaults(fn=cmd_plan)

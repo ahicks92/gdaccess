@@ -985,7 +985,7 @@ std::string debug_dump() {
                               g_engine_ticks, g_controller_ticks, g_api.NavManager_Get ? g_api.NavManager_Get() : nullptr, gd::hooks::engine_object(),
                               g_api.IsGameTimePaused ? g_api.IsGameTimePaused() : false);
   void* p = player();
-  s += std::format("player={} name='{}' region='{}' life={:.1f}/{:.1f} camera_yaw={:.4f}\n", p, player_name(), region_name(), life(), life_max(), camera_yaw());
+  s += std::format("player={} name='{}' region='{}' area='{}' life={:.1f}/{:.1f} camera_yaw={:.4f}\n", p, player_name(), region_name(), area_name(), life(), life_max(), camera_yaw());
   if (!p) return s;
   // NEVER class_name()/rtti_of() a Region: the Object::GetRTTIClassInfo slot is 0 here, which on a Region's
   // vtable is the virtual destructor -- doing so destroyed the live region and crashed the render (2026-08-25).

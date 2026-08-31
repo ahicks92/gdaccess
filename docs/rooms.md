@@ -158,9 +158,32 @@ room (`rooms: [keys]`, self-checked with `author.py check`, every 10th room revi
 (`consistency: true, subregion_keys: [...]`, optional `notes`) that reads each sub-region as a whole. Rules:
 `docs/rooms-description-rules.md`. Copy `assets/rooms.db` next to the DLL (a build does it) and `/room?reload=1`.
 
+## Painted area names (2026-08-31, `tools/gdmap/sectors.py`, `rooms.py areas --write`)
+The game's HUD area name ("Lower Crossing", "Burrwitch Slums", "Anguish") is **painted per cell**, not a
+volume: each chunk body carries a "sector" section -- `[u32 1][u32 ntab]`, `ntab` GUID tables (`[u32 n]` + n
+x `[u8 editor-id][guid 16]`; ids are arbitrary), then `[u32 w][u32 h]` and `w*h*ntab` bytes of per-cell ids,
+x-major, 0 = none, spanning the chunk footprint at ~1 unit/cell. **Table 1 is the area layer**; its GUIDs
+resolve through the map header's unique-entities table (name, guid, two editor RGBA colours, `tagMap*` tag)
+and Text_EN. `Engine::GetAreaNameTag` (Engine+0xb40, exported; `world::area_name()`) is the live readout of
+the same layer. Decoded offline and validated against 643 live reads across the whole map (100 %; the only
+diffs were `{^n}` formatting). The other 13 tables are the engine's other painted layers (`*SectorData`:
+ambient, climate, bloom, boss, ...), unmapped.
+
+Consequence measured on the way there: the location-record region partition genuinely spans several named
+areas (the `devilscrossing` region's ground is 60 % painted "Lower Crossing"; `alpinefort`'s majority is
+"Plains of Strife"), so the REGION name is the wrong first layer for speech. **The spoken place is now
+"painted area, sub-region, room"** (decided with the user 2026-08-31): `rooms.area_name` (schema v3 column)
+holds each room's majority painted name (10,382 of 10,503 rooms; unpainted rooms fall back to the region
+name), `announce()` speaks it as the first layer, and a foreign exit's label uses the destination ROOM's
+painted name. Regenerate with `uv run tools/rooms.py areas --write` (also names the placeholder regions:
+c01a = Old Grove [cut content SE of Devil's Crossing], a03a/a04a = the cut Prospect Hill corner NW of
+Burrwitch whose tag text was deleted, map01_gatex01a = Obsidian Throne). Region `name` stays the riftgate
+zone name -- the travel label, still used by dev output and as the fallback.
+
 ## Open
 - One room of Devil's Crossing (`-70:-183`) is unseen: its anchor is bake-only ground the live mesh refuses.
-- The region display name is authored (`--name`); the game's own source is the riftgate master table's
-  `tagWorldMap*` tags (`records/ui/riftgatemap/riftgate_mastertable.dbr`), not yet mapped.
 - Exits across region boundaries, road helpers (skeleton graph), the procedural DLC (segment live from the
   in-memory data; the anchor-keyed design allows it), player-authored marks.
+- Untagged content: the Void (Ashen Waste + Bastion of Chaos, 33 chunks, ~169k m², paints "Obsidian Throne"
+  etc.) and the cut-content corners (0C/0E/0A085 chunks with no location record) are not segmented -- `build`
+  iterates location records, and location-less chunks need a grouping path of their own.
