@@ -1354,6 +1354,9 @@ inline constexpr const char* ControllerCharacter_PickupItem = "?PickupItem@Contr
 // public: virtual void __cdecl GAME::ControllerPlayer::ItemAction(bool,bool,class GAME::WorldVec3 const & __ptr64,class GAME::Item const * __ptr64) __ptr64
 inline constexpr const char* ControllerPlayer_ItemAction_DLL = "Game.dll";
 inline constexpr const char* ControllerPlayer_ItemAction = "?ItemAction@ControllerPlayer@GAME@@UEAAX_N0AEBVWorldVec3@2@PEBVItem@2@@Z";
+// public: virtual void __cdecl GAME::ControllerPlayer::InteractAction(bool,bool,class GAME::WorldVec3 const & __ptr64,class GAME::FixedActor const * __ptr64) __ptr64
+inline constexpr const char* ControllerPlayer_InteractAction_DLL = "Game.dll";
+inline constexpr const char* ControllerPlayer_InteractAction = "?InteractAction@ControllerPlayer@GAME@@UEAAX_N0AEBVWorldVec3@2@PEBVFixedActor@2@@Z";
 // public: bool __cdecl GAME::Player::GetAlternateConfig(void)const __ptr64
 inline constexpr const char* Player_GetAlternateConfig_DLL = "Game.dll";
 inline constexpr const char* Player_GetAlternateConfig = "?GetAlternateConfig@Player@GAME@@QEBA_NXZ";

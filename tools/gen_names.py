@@ -505,6 +505,7 @@ ENTRIES = [
     ("InvCtrl_IsSpaceAvailable", "Game", r"GAME::PlayerInventoryCtrl::IsSpaceAvailable\(class GAME::Item const \* __ptr64\)const"),
     ("ControllerCharacter_PickupItem", "Game", r"GAME::ControllerCharacter::PickupItem\("),
     ("ControllerPlayer_ItemAction", "Game", r"GAME::ControllerPlayer::ItemAction\("),
+    ("ControllerPlayer_InteractAction", "Game", r"GAME::ControllerPlayer::InteractAction\("),
     ("Player_GetAlternateConfig", "Game", r"GAME::Player::GetAlternateConfig\(void\)"),
     ("HotSlotCtrl_SetPrimarySlot", "Game", r"GAME::PlayerHotSlotCtrl::SetPrimarySlot\(class GAME::HotSlotOption const"),
     ("HotSlotCtrl_SetSecondarySlot", "Game", r"GAME::PlayerHotSlotCtrl::SetSecondarySlot\(class GAME::HotSlotOption const"),

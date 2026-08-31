@@ -292,6 +292,7 @@ std::string foreign_label(const std::string& key) {
 // On-demand (V / room change), so the ~a-few pathfinder calls are not a per-frame cost.
 constexpr double kExitRadius = 28.0;   // units; a room whose opening is farther than this shows once you near it
 constexpr double kExitFloorTol = 1.5;  // units; reached point vs the destination cell's floor y (layers < 0.9 apart are one floor)
+constexpr double kReachTol = 1.5;      // units; how far short of the destination cell a FindPath endpoint may stop and still count as arriving
 std::vector<world::ScanItem> exit_items() {
   std::vector<world::ScanItem> out;
   world::Vec3 p;
@@ -301,14 +302,18 @@ std::vector<world::ScanItem> exit_items() {
     world::Vec3 at{(float)nb.x, p.y, (float)nb.z};
     world::Vec3 reached{};
     if (world::find_path(at, 0.f, 0.f, &reached) != 0) continue;   // not reachable at all -> not an exit
-    // Detour reports a PARTIAL path as success with the endpoint snapped to the nearest reachable polygon --
-    // for a room across a wall or on another floor that is the player's own spot (2026-08-25, prison cellar:
-    // "ruined tier hall 4 units south" through a wall, FindPath endpoint == player). No progress toward the
-    // target = unreachable.
+    // Detour SNAPS an unreachable target onto the nearest reachable polygon and reports a complete path to
+    // THAT -- for a room across a wall / drop-off / on another floor the endpoint lands on our own side, at the
+    // player (2026-08-25, prison cellar: "ruined tier hall 4 units south" through a wall) or at the edge of the
+    // ledge we stand on (2026-08-30, Flooded Cellar: "ruined camp cavern 6 away" across a drop-off -- FindPath
+    // result 0, endpoint 4.9 u short on the tongue's lip; the old "made progress" test passed it because the
+    // cell was only 6 u away). A route is a route only if it ARRIVES: the reached point within kReachTol of
+    // the destination cell (runtime edge erosion of the baked cells is under a unit) or already inside the
+    // neighbour's own label. Anything shorter is the snap, not a way through.
     {
-      const double to_target = std::hypot((double)at.x - p.x, (double)at.z - p.z);
       const double end_to_target = std::hypot((double)at.x - reached.x, (double)at.z - reached.z);
-      if (end_to_target >= to_target - 0.5) continue;
+      const bool in_neighbour = g_current->grid.label_at(reached.x, reached.z, reached.y, 0) == nb.label;
+      if (end_to_target > kReachTol && !in_neighbour) continue;
     }
     // Same floor: the pathfinder SNAPS the target to the nearest polygon within its search radius and reports
     // a complete path to that -- for a cell on the tier above (the prison cellar: the corridor at y -4, the

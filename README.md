@@ -141,7 +141,7 @@ character; Enter selects); then Start / difficulty / game mode / Delete.
 |---|---|
 | W A S D | Move |
 | Space | Evade (with Options -> Gameplay -> Evade To Cursor OFF: in the movement direction while moving, the way you face when standing) |
-| J or Enter | Left mouse button at the reviewed thing: attack / talk / open / move, whatever a click does. Hold to hold (sustained attack). On a reviewed ground item, the game's walk-and-pick-up instead. "Too far away" when the camera does not show the thing |
+| J or Enter | Left mouse button at the reviewed thing: attack / talk / open / move, whatever a click does. Hold to hold (sustained attack). On a reviewed ground item, the game's walk-and-pick-up instead; on a reviewed door, ladder, chest, lever or shrine, the game's walk-and-use. "Too far away" when the camera does not show the thing |
 | I | Right mouse button at the reviewed thing (the right-hand skill), same rules |
 | U | Interact with the nearest usable thing within 10 units (door, chest, shrine, NPC), no aiming |
 | G | Pick up the nearest item on the ground |

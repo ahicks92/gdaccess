@@ -19,7 +19,10 @@ FixedActor) -> the controller's virtual `ItemAction(bool no_walk, bool unused, W
 FixedActors (chests, doors, shrines): `InteractAction` -> `DefaultRequestInteractableAction` (0x14fcf0), range
 adds `float [fixedActor+0x530]` (the record's interact range), states UseFixedItem / MoveToFixedItem. Npcs:
 `NpcAction` -> `DefaultRequestNpcAction` (0x14f250), `player->vt[0x840](npcId, 3.0)` as the range test, states
-MoveToNpc / TalkToNpc. The plain click already resolves those, so the mod keeps the click for them.
+MoveToNpc / TalkToNpc. The mod issues `InteractAction` directly for a locked FixedActor of interest too
+(2026-08-30, `world::interact_locked_actor`): the click at the parked point does not always resolve the actor -- a
+ladder's clickable body stands up the wall above its floor position and the pick ray at that point hit the ground
+(Flooded Cellar "Rickety Ladder", HandleActionFromMouse id 0 every time). Npcs keep the click.
 
 Mod: `world::mouse_key(1, held)` -- on the J press with an Item locked, `pickup_locked_item()` calls
 SetCommandRepeated(false) + ItemAction(controller, false, false, coords, item) and swallows the hold; the dev

@@ -70,6 +70,12 @@ state. So the mod **finds exits at runtime** (`src/rooms.cpp exit_items`, on V /
   a neighbour is an exit iff the game's own pathfinder can reach it. This is correct for quest state, doors,
   destructibles and stacked floors for free -- `NavBlocker` (`dynamicblocker_invisible`), `FixedItemDoor` and
   `Destructible` gate `find_path` exactly as they gate the player, and unreachable elevated floors are dropped.
+  **"Reachable" means the route ARRIVES** (2026-08-30): Detour snaps an unreachable target onto the nearest
+  polygon and reports result 0 with the endpoint on OUR side -- at the player (a room through a wall) or on the
+  lip of the ledge we stand on (Flooded Cellar, "ruined camp cavern 6 away" across a drop-off: endpoint 4.9 u
+  short, same height, corridor uncomputable so the additive rule kept it). The gate now requires the reached
+  point within `kReachTol` 1.5 u of the destination cell or inside the neighbour's own label; the old "made
+  progress toward the target" test let any target under ~6 u through.
 - The bearing is to the neighbour's nearest cell and **may point through a wall** at a room reached by going
   round (decided with the user: same as the old adjacency exits; line-of-sight is not required).
 - **The route must be DIRECT** (2026-08-24, on the user's report): "near and reachable" is not enough -- a room

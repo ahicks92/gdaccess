@@ -471,7 +471,10 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   verified: a lore note and the training dummy both resolve by id in `HandleActionFromMouse`). Ground EQUIPMENT still
   resolves nothing (sighted players click its floating label): J on a reviewed Item issues
   `ControllerPlayer::ItemAction` after `SetCommandRepeated(false)` (docs/re_pickup.md; verified walking 16 units
-  to a note). `/jkey?down=1|0` presses J without the game seeing a J key (synthetic /key goes to both).
+  to a note). Same for a reviewed FixedActor of interest (door, ladder, chest, lever, shrine): J issues
+  `ControllerPlayer::InteractAction` (2026-08-30, Flooded Cellar: the click at a ladder's floor point resolved id 0
+  every time and the player could not leave; built, NOT yet verified live). `/jkey?down=1|0` presses J without the
+  game seeing a J key (synthetic /key goes to both).
 - Release-prep pass (2026-08-25, all verified live except where noted): (1) **q objectives fixed**
   (`screens/codex.cpp speak_objectives`): the old walk read every tracked quest's every task and surfaced
   their "return to X" turn-ins (the user's "arbitrary / return to xyz" bug). Now prefers
@@ -536,7 +539,10 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   to the nearest polygon within its radius (our `kNavSnapRadius` 4) and reports a COMPLETE path to that -- a cell
   on the tier above resolves to the wall's foot beneath it, so "reachable" was true for the wrong point (the
   trailing `bool` is accept-partial; we pass false, so partial paths already fail). Gate: the reached point must be
-  within `kExitFloorTol` 1.5 u of the destination cell's stored floor (`LabelGrid::floor_y_at`, base/overlay).
+  within `kExitFloorTol` 1.5 u of the destination cell's stored floor (`LabelGrid::floor_y_at`, base/overlay),
+  AND (2026-08-30, Flooded Cellar "ruined camp cavern 6 away" across a drop-off: result 0, endpoint 4.9 u short on
+  our own ledge, same height, corridor uncomputable) within `kReachTol` 1.5 u of the destination cell or inside the
+  neighbour's label -- a snapped endpoint on our side is not a route. Built, NOT yet verified live.
   Exit positions are the corridor's entry point into the room (`path_entry_point`); exits never auto re-ping.
   Cross-floor enemies in the review/sonar groups stay flat (the user: not a problem in practice). `/los?id=` casts
   the exe's cursor-pick ray (image points are viewport FRACTIONS): raw LOS is stricter than a sighted player's

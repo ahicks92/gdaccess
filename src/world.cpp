@@ -209,6 +209,7 @@ struct Api {
   void* (*GetFactionManager)(void*) = nullptr;
   bool (*FactionManager_IsFoe)(void*, unsigned, unsigned, bool) = nullptr;  // by object ids
   void (*ItemAction)(void*, bool, bool, const void*, const void*) = nullptr;   // ControllerPlayer: (no_walk, unused, WorldVec3 const&, Item const*)
+  void (*InteractAction)(void*, bool, bool, const void*, const void*) = nullptr;   // ControllerPlayer: same shape, FixedActor const* (doors, ladders, chests, shrines)
   void (*SetCommandRepeated)(void*, bool) = nullptr;                           // ControllerPlayer +0x430; ItemAction no-ops while it is set
   bool (*Character_IsAlive)(const void*) = nullptr;   // virtual; the base body is the Monster implementation (only Player overrides)
   const MsvcStringA* (*Engine_GetAreaNameTag)(const void*) = nullptr;   // std::string const& (a localization tag)
@@ -329,6 +330,7 @@ void load_api() {
   LOAD(GetFactionManager, GameEngine_GetFactionManager);
   LOAD(FactionManager_IsFoe, FactionManager_IsFoe);
   LOAD(ItemAction, ControllerPlayer_ItemAction);
+  LOAD(InteractAction, ControllerPlayer_InteractAction);
   LOAD(SetCommandRepeated, ControllerPlayer_SetCommandRepeated);
   LOAD(Character_IsAlive, Character_IsAlive);
   LOAD(Engine_GetAreaNameTag, Engine_GetAreaNameTag);
@@ -2187,6 +2189,33 @@ static bool pickup_locked_item() {
   log::writef("world: ItemAction on {} '{}'", g_locked_id, label_of(g_locked_id));
   return true;
 }
+// J on a reviewed FIXED ACTOR of interest (door, ladder / dungeon entrance, chest, lever, shrine) is the call the
+// exe's click makes once it has resolved the actor: ControllerPlayer::InteractAction(false, false, pos, actor) ->
+// DefaultRequestInteractableAction (walks into the record's own interact range, then UseFixedItem;
+// docs/re_pickup.md). Issued directly because the click at the parked point does NOT always resolve the actor: a
+// ladder's clickable body stands up the wall above its floor position, and the pick ray at that point hit the
+// ground (Flooded Cellar 2026-08-30, "Rickety Ladder": every HandleActionFromMouse resolved id 0, the player
+// could not leave). Npcs keep the click (mid-body parks fine); Destructibles are not "of interest" and keep the
+// attack click.
+static bool call_interact_action(void* ctrl, const void* wv, const void* actor) {   // POD only: SEH cannot unwind C++ objects
+  __try {
+    if (g_api.SetCommandRepeated) g_api.SetCommandRepeated(ctrl, false);
+    g_api.InteractAction(ctrl, false, false, wv, actor);
+    return true;
+  } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+static bool interact_locked_actor() {
+  if (!g_locked_id || !g_controller || !g_api.InteractAction || !g_api.FixedActor_StaticClassInfo) return false;
+  g_locked_entity = find_entity(g_locked_id);
+  if (!g_locked_entity) return false;
+  EntityRaw r{};
+  if (!read_entity(g_locked_entity, r) || !is_kind_of(r.ci, g_api.FixedActor_StaticClassInfo()) || !is_of_interest(g_locked_entity, r.ci)) return false;
+  Buf wv;
+  if (!entity_world_vec(g_locked_entity, wv)) return false;
+  if (!call_interact_action(g_controller, wv.b, g_locked_entity)) { log::write("world: InteractAction faulted"); return false; }
+  log::writef("world: InteractAction on {} '{}'", g_locked_id, label_of(g_locked_id));
+  return true;
+}
 void mouse_key(int button, bool held) {
   static bool key_down[3] = {};
   bool& prev = key_down[button == 2 ? 2 : 1];
@@ -2200,7 +2229,7 @@ void mouse_key(int button, bool held) {
   static bool pickup_held = false;   // J went down on an item: the hold that follows must not become a click
   if (button == 1) {
     if (!held) pickup_held = false;
-    else if (edge && g_locked_id && !is_point_id(g_locked_id) && pickup_locked_item()) pickup_held = true;
+    else if (edge && g_locked_id && !is_point_id(g_locked_id) && (pickup_locked_item() || interact_locked_actor())) pickup_held = true;
     if (pickup_held) { gd::hooks::set_mouse_hold(button, false); return; }
   }
   gd::hooks::set_mouse_hold(button, held);
