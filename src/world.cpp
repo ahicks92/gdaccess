@@ -1394,12 +1394,17 @@ void tick() {
   }
   if (!g_locked_id) return;
   if (!in_world()) { unlock_target(); return; }
-  // Re-find every 30 frames (the pointer may die); project every frame.
-  if (g_lock_frames++ % 30 == 0) {
-    g_locked_entity = find_entity(g_locked_id);
-    if (!g_locked_entity) { unlock_target(); return; }
-    // A locked Monster that died is a corpse: release it, so the cursor does not sit on a body and the next
-    // enemy key enters at the nearest living one (the corpse is no longer in the enemy scan either).
+  // Re-find EVERY frame: the id is the identity, the pointer is only valid for the frame it was resolved in. A
+  // 30-frame cadence let a picked-up item's freed object reach WorldCamera::Project for up to 29 frames (the rare
+  // "not responding after a pickup" crash, 2026-08-30; the log showed the item's tooltip vanish, then the cursor
+  // override jump to the window centre off a garbage projection). find_entity is the game's own sphere query
+  // and already runs per frame elsewhere in this file.
+  g_locked_entity = find_entity(g_locked_id);
+  if (!g_locked_entity) { unlock_target(); return; }
+  ++g_lock_frames;
+  // A locked Monster that died is a corpse: release it, so the cursor does not sit on a body and the next
+  // enemy key enters at the nearest living one (the corpse is no longer in the enemy scan either).
+  {
     EntityRaw r{};
     if (g_api.Character_IsAlive && read_entity(g_locked_entity, r) && rtti_name(r.ci) == "Monster" && !g_api.Character_IsAlive(g_locked_entity)) { unlock_target(); return; }
   }
@@ -2168,7 +2173,9 @@ static bool call_item_action(void* ctrl, const void* wv, const void* item) {   /
   } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
 }
 static bool pickup_locked_item() {
-  if (!g_locked_id || !g_locked_entity || !g_controller || !g_api.ItemAction || !g_api.Item_StaticClassInfo) return false;
+  if (!g_locked_id || !g_controller || !g_api.ItemAction || !g_api.Item_StaticClassInfo) return false;
+  g_locked_entity = find_entity(g_locked_id);   // the key edge may land on a frame the tick has not re-resolved yet
+  if (!g_locked_entity) return false;
   EntityRaw r{};
   if (!read_entity(g_locked_entity, r) || !is_kind_of(r.ci, g_api.Item_StaticClassInfo())) return false;
   // NOT lore notes: a direct ItemAction consumes a note without the pickup toast or the codex entry (measured
