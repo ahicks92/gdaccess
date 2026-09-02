@@ -907,9 +907,7 @@ std::string navprobe(float x0, float z0, float x1, float z1, float step) {
 // loses the floor once a slope climbs past that window and reports a phantom wall on any real incline; carrying
 // the floor forward keeps every step within one slope-delta of the true floor. `follow=false` restores the old
 // flat-y behaviour (kept for the A/B probe, /wallcmp).
-float free_distance_ex(float dir_x, float dir_z, float max_dist, float step, bool follow) {
-  Vec3 p;
-  if (!player_position(p) || step <= 0) return 0;
+static float free_distance_from(const Vec3& p, float dir_x, float dir_z, float max_dist, float step, bool follow) {
   float y = p.y;
   for (float d = step; d <= max_dist + 1e-4f; d += step) {
     Vec3 q{p.x + dir_x * d, y, p.z + dir_z * d}, floored;
@@ -918,8 +916,25 @@ float free_distance_ex(float dir_x, float dir_z, float max_dist, float step, boo
   }
   return max_dist;
 }
+float free_distance_ex(float dir_x, float dir_z, float max_dist, float step, bool follow) {
+  Vec3 p;
+  if (!player_position(p) || step <= 0) return 0;
+  return free_distance_from(p, dir_x, dir_z, max_dist, step, follow);
+}
 float free_distance(float dir_x, float dir_z, float max_dist, float step) {
   return free_distance_ex(dir_x, dir_z, max_dist, step, true);
+}
+// A lane of a rectangle probe: the same terrain-following ray, started `lateral` units beside the player. The
+// lane's own start is tested first (a lane beginning inside the wall the player is hugging is not a route and
+// must read 0), then it walks like the centre ray.
+float free_distance_lane(float dir_x, float dir_z, float lateral, float max_dist, float step) {
+  Vec3 p;
+  if (!player_position(p) || step <= 0) return 0;
+  if (lateral == 0.0f) return free_distance_from(p, dir_x, dir_z, max_dist, step, true);
+  Vec3 start{p.x - dir_z * lateral, p.y, p.z + dir_x * lateral}, floored;
+  if (!navmesh_probe(start, &floored)) return 0;
+  start.y = floored.y;
+  return free_distance_from(start, dir_x, dir_z, max_dist, step, true);
 }
 
 // dev: the vertical window PutOnFloor+IsPointOnPathMesh accepts at the player's feet -- sweep on_navmesh at

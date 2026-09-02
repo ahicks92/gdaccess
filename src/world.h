@@ -37,6 +37,9 @@ bool navmesh_probe(const Vec3& world_point, Vec3* floored);
 // with follow=false is the old flat-y ray, kept only for the A/B probe.
 float free_distance(float dir_x, float dir_z, float max_dist, float step);
 float free_distance_ex(float dir_x, float dir_z, float max_dist, float step, bool follow);
+// The same ray started `lateral` units to the side of the player (positive = to the right of dir, i.e. along
+// (-dir_z, dir_x)); a start that is itself off the mesh reads 0. Parallel lanes make a rectangle probe.
+float free_distance_lane(float dir_x, float dir_z, float lateral, float max_dist, float step);
 std::string nav_vwindow(float span, float step);              // dev: PutOnFloor's accepted vertical window at the feet
 std::string wall_compare(int dirs, float max_dist, float step);  // dev: A/B flat vs terrain-following rays around the compass
 

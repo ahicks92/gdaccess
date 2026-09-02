@@ -37,7 +37,21 @@ namespace walltones {
 // on-disk level (K -19.3..-20.7 LKFS, peaks -7 dBFS, no trims). Set 1 stays vendored in walltones/1.
 // Range: wotr's default is 15 ft (4.6 units; a Grim Dawn unit is about a metre), tuned for dungeon corridors.
 // Grim Dawn's outdoors are wide open, so 10 by the user's ear on 2026-08-21 (live-tunable: /walltones?range=).
+// RECTANGLE probe (2026-09-01, the user's design, docs/re_wall_sliding.md): each direction is not one ray but
+// 2*g_lanes+1 parallel lanes spaced kLaneSpacing apart, and the direction's free distance is the FARTHEST lane.
+// So a wall is a wall only when the whole rectangle hits it, and silence means "you can go this way, mostly
+// straight": a gap narrower than the rectangle still reads open while it is within the rectangle, which widens
+// every gap by the rectangle's width for the ear. The half-width is tied to the game's movement command: WASD
+// walks to a point 1.25 u ahead and the navmesh snap pulls the character into any opening laterally closer
+// than that, so an opening inside a 1.25 u half-width is one that pushing toward the silence will actually take
+// you through. The half-width must be AT LEAST that reach, and at a convex corner the reach is the diagonal
+// (verified live 2026-09-01 at DC (83.5, 57.8): a 1.0 u half-width read "wall 1.0" west while pressing A hopped
+// the character 1.2 u north round the corner and on west; 1.5 u read 8.5). Lanes whose start is off the mesh
+// (beside you, inside the wall you hug) read 0 and lose the max.
 static float g_range = 10.0f;
+constexpr float kLaneSpacing = 0.5f;   // = kStep; the mesh is eroded by the agent radius, so real gaps are wider
+static int g_lanes = 3;                // lanes each side of the centre: half-width = g_lanes * kLaneSpacing (1.5 u)
+void set_lanes(int n) { g_lanes = n < 0 ? 0 : n > 6 ? 6 : n; }
 static float g_gain = 1.0f;  // wotr's wall-tone volume setting (its default is 60 %; start hot, tune by ear)
 constexpr float kStep = 0.5f;
 constexpr const char* kFile[4] = {"north.wav", "east.wav", "south.wav", "west.wav"};  // world north, east, south, west
@@ -49,6 +63,16 @@ constexpr int kToneId = 100;
 static bool g_enabled = true;
 static bool g_loaded = false;
 static float g_dist[4] = {g_range, g_range, g_range, g_range};
+// The rectangle's free distance in direction i: the farthest of the parallel lanes.
+static float rect_distance(int i) {
+  float best = 0.0f;
+  for (int k = -g_lanes; k <= g_lanes; ++k) {
+    float d = world::free_distance_lane(kDirs[i][0], kDirs[i][1], k * kLaneSpacing, g_range, kStep);
+    if (d > best) best = d;
+    if (best >= g_range) break;
+  }
+  return best;
+}
 static double g_last = 0;
 
 // Per-file loudness trims in dB, order = kFile (north, east, south, west). Default flat (2026-09-01): the set 2
@@ -89,7 +113,7 @@ static void tick() {
   HWND fg = GetForegroundWindow();
   bool audible = fg && fg == FindWindowA("Grim Dawn", nullptr);
   for (int i = 0; i < 4; ++i) {
-    float d = world::free_distance(kDirs[i][0], kDirs[i][1], g_range, kStep);
+    float d = rect_distance(i);
     g_dist[i] = d;
     float v = d >= g_range ? 0.0f : 1.0f - d / g_range;
     audio::set_loop_volume(kToneId + i, audible ? v * v * g_gain : 0.0f);
@@ -104,19 +128,21 @@ std::string probe_timing(int iters) {   // dev: time the navmesh probing part of
   QueryPerformanceCounter(&t0);
   for (int n = 0; n < iters; ++n) {
     for (int i = 0; i < 4; ++i) {
-      float d = world::free_distance(kDirs[i][0], kDirs[i][1], g_range, kStep);
-      if (n == 0) probes += (d >= g_range ? (int)(g_range / kStep) : (int)(d / kStep) + 1);
+      for (int k = -g_lanes; k <= g_lanes; ++k) {
+        float d = world::free_distance_lane(kDirs[i][0], kDirs[i][1], k * kLaneSpacing, g_range, kStep);
+        if (n == 0) probes += (k != 0) + (d >= g_range ? (int)(g_range / kStep) : (int)(d / kStep) + 1);
+      }
     }
   }
   QueryPerformanceCounter(&t1);
   double us = (double)(t1.QuadPart - t0.QuadPart) * 1e6 / (double)freq.QuadPart / iters;
-  return std::format("range={:.1f} step={:.2f} on_navmesh_calls~{} iters={} avg={:.1f} us/tick ({:.3f} ms)\n",
-                     g_range, kStep, probes, iters, us, us / 1000.0);
+  return std::format("range={:.1f} step={:.2f} lanes={} (half-width {:.2f}) on_navmesh_calls~{} (all lanes, no early-out) iters={} avg={:.1f} us/tick ({:.3f} ms)\n",
+                     g_range, kStep, 2 * g_lanes + 1, g_lanes * kLaneSpacing, probes, iters, us, us / 1000.0);
 }
 std::string status() {
-  return std::format("enabled={} range={:.2f} vol={:.2f} north={:.1f} east={:.1f} south={:.1f} west={:.1f}\n"
+  return std::format("enabled={} range={:.2f} vol={:.2f} lanes={} half-width={:.2f} north={:.1f} east={:.1f} south={:.1f} west={:.1f}\n"
                      "trim dB (north east south west): {:+.1f} {:+.1f} {:+.1f} {:+.1f}\n",
-                     g_enabled, g_range, g_gain, g_dist[0], g_dist[1], g_dist[2], g_dist[3],
+                     g_enabled, g_range, g_gain, 2 * g_lanes + 1, g_lanes * kLaneSpacing, g_dist[0], g_dist[1], g_dist[2], g_dist[3],
                      g_trim_db[0], g_trim_db[1], g_trim_db[2], g_trim_db[3]);
 }
 }  // namespace walltones

@@ -194,11 +194,16 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
 - Labels: `world::label_of(id)` / `/entities` give the game's own names ("Hangman Jarvis", "Chester",
   "Training Dummy", the player's name) via `Monster::GetGameDescription(false,false)`,
   `Npc::GetRolloverDescription`, `Player::GetRolloverDescription`, `Item::GetGameDescription` (u16 by value,
-  hidden pointer, SEH-guarded). Wall tones: the wotr WAV loops (assets/audio/walltones, two banks), per-frame
-  probes, range 10, loop gain 1.0 with a 250 ms watchdog; obstacle = walkable navmesh 2-4 units beyond the stop. Loudness (measured 2026-08-22): the WAVs are RMS-matched but
-  pitched apart (south 248 Hz vs north 942 in bank 1), so per-file dB trims in `in_game.cpp` bring all eight to
-  bank 1 north's -23.4 dB(A) (`audio::set_loop_gain`); `/walltones?trim=off|default|<1|2>,<n|e|s|w>,<dB>`
-  adjusts live and the status line prints the table.
+  hidden pointer, SEH-guarded). Wall tones (reworked 2026-09-01, `docs/re_wall_sliding.md`): ONE bank (wotr's set 2, assets/audio/walltones/2;
+  set 1 vendored, unused), world-fixed compass directions (the camera is pinned north-up; no yaw), per-frame
+  RECTANGLE probes -- 7 parallel lanes 0.5 u apart per direction, free distance = the FARTHEST lane, so a wall is a
+  wall only when the whole 1.5 u half-width hits it and silence means "you can go this way, mostly straight" (the
+  WASD command walks to a point 1.25 u ahead and the navmesh snap pulls the character into any opening laterally
+  closer than that, and round a corner the diagonal: a 1.0 u half-width missed a corner hop live, 1.5 caught it) --
+  range 10, loop gain 1.0, 250 ms watchdog. Trims: flat except south +3 dB, BY EAR -- the 2026-08-22 dB(A) match
+  made set 2 too quiet for the user (meters undercount its brighter timbre). `/walltones?range=&vol=&lanes=&
+  trim=off|default|<n|e|s|w>,<dB>&time=N`. The old wall/obstacle classifier (`world::classify_block`, mesh 2-4 u
+  beyond the stop) measured thickness, not the blocker, and is dev-only (`/blocks`).
 - Controls (2026-08-21, docs/controls.md has the full default map, read from screenshots of Options ->
   Controls): the game binds single buttons only, so "lifting to chords" is done on our side -- in the world
   the `in_game` screen owns the keyboard, passes the frequent keys straight through (WASD, 1-0, Space, E, R, U,

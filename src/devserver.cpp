@@ -270,6 +270,7 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     if (q.count("on")) screens::walltones::set_enabled(truthy(q.at("on")));
     if (q.count("range")) screens::walltones::set_range((float)atof(q.at("range").c_str()));  // world units
     if (q.count("vol")) screens::walltones::set_gain((float)atof(q.at("vol").c_str()));        // 0..1
+    if (q.count("lanes")) screens::walltones::set_lanes(parse_int(q.at("lanes"), 2));            // side lanes each way (0 = single ray)
     if (q.count("trim")) {   // loudness trims: trim=off | trim=default | trim=<n|e|s|w>,<dB>
       const std::string& t = q.at("trim");
       if (t == "off") screens::walltones::set_trim(-1, 0);
