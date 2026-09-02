@@ -19,6 +19,7 @@
 #include "hooks.h"
 #include "log.h"
 #include "msvc_string.h"
+#include "settings.h"
 #include "speech.h"
 #include "voice.h"
 #include "world.h"
@@ -73,6 +74,13 @@ std::atomic<uint64_t> g_debuffs{0};
 std::atomic<uint64_t> g_exp_pending{0}, g_exp_total{0};   // XP (polled delta) attributed to kills, this burst / lifetime
 constexpr double kExpWindow = 0.5;                         // coalesce a kill burst / capture its XP within this window
 std::atomic<int> g_raw_log{0};
+int g_outgoing = 2; bool g_incoming = true;   // the T overlay's switches (loaded from settings in install): outgoing 0 off / 1 brief / 2 full
+// Incoming hit announcements (a T switch): say "hit" for every attack that reaches the player, from the victim-side
+// resolver CombatManager::TakeAttack (runs before mitigation, so invincibility does not hide it). Counted per tick
+// and voiced once per tick. /hitsay prints the counters.
+bool g_say_hit = true;
+std::atomic<int> g_hit_true{0}, g_hit_false{0};   // TakeAttack results on the player this tick
+std::atomic<uint64_t> g_hits_total{0};
 unsigned (*g_get_object_id)(const void*) = nullptr;
 gd::core::CombatCoalescer g_coalescer;
 gd::core::ThresholdWatcher g_health(0.10);
@@ -136,6 +144,14 @@ static void EventManagerSend_hook(void* self, const void* ev, unsigned type) {
   if (g_pending.size() < 256) g_pending.push_back(r);
 }
 
+// Brief outgoing: one word per coalesced event -- crit / hit for a number, miss for the game's Miss and Dodge, blocked
+// for Block; an effect-only token (no number, no word) says nothing.
+std::string brief_line(const gd::core::CombatCoalescer::Out& o) {
+  if (o.is_number) return std::string(o.crit ? strings::kCrit : strings::kHit);
+  if (o.word == "Miss" || o.word == "Dodge") return std::string(strings::kMiss);
+  if (o.word == "Block") return std::string(strings::kBlockedHit);
+  return std::string();
+}
 std::string hit_line(const gd::core::CombatCoalescer::Out& o) {
   MessageBuilder m;
   if (o.is_number) strings::push_combat_hit(m, std::format("{:.0f}", o.amount), o.crit);
@@ -186,12 +202,31 @@ static void IncrKills_hook(void* self, unsigned a1, unsigned a2, int classificat
   IncrKills_hook_orig(self, a1, a2, classification, b);
   ++g_kill_count; ++g_kills_total; g_last_kill_time = app::now();
 }
+static bool victim_is_player(void* cm) {   // CombatManager+8 = the Character it belongs to (GetCharacter is that one load)
+  __try {
+    if (!cm || IsBadReadPtr(cm, 16)) return false;
+    void* ch; memcpy(&ch, (char*)cm + 8, sizeof ch);
+    unsigned id = ch && g_get_object_id ? g_get_object_id(ch) : 0;
+    return id && id == world::player_id();
+  } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+typedef bool (*TakeAttack_t)(void*, void*, void*, void*);
+static TakeAttack_t TakeAttack_hook_orig;
+static bool TakeAttack_hook(void* self, void* params, void* skills, void* bio) {
+  bool r = TakeAttack_hook_orig(self, params, skills, bio);   // the game's behaviour first, always
+  if (g_say_hit && victim_is_player(self)) { if (r) ++g_hit_true; else ++g_hit_false; ++g_hits_total; }
+  return r;
+}
 }  // namespace
 
 bool install() {
+  g_outgoing = settings::get_int("announce.outgoing.mode", 2);
+  if (g_outgoing < 0 || g_outgoing > 2) g_outgoing = 2;
+  g_incoming = settings::get_bool("announce.incoming", true);
+  g_say_hit = settings::get_bool("announce.incoming.hits", true);
   g_get_object_id = (unsigned (*)(const void*))GetProcAddress(GetModuleHandleA(names::Object_GetObjectId_DLL), names::Object_GetObjectId);
   g_hooks = {GD_HOOK(EventManager_Send, EventManagerSend_hook), GD_HOOK(Character_DebufTarget, DebufTarget_hook),
-             GD_HOOK(PlayStats_IncrementKills, IncrKills_hook)};
+             GD_HOOK(PlayStats_IncrementKills, IncrKills_hook), GD_HOOK(CombatManager_TakeAttack, TakeAttack_hook)};
   return gd::hooks::attach_hooks(g_hooks) == 0;
 }
 void remove() { gd::hooks::detach_hooks(g_hooks); g_pending.clear(); g_pending_debuff.clear(); g_exp_pending = 0; g_kill_count = 0; g_last_xp = -1; }
@@ -243,16 +278,22 @@ void tick() {
   auto stagger = [&emit] { return std::min((float)emit++ * 30.0f, 100.0f); };
   for (const auto& o : g_coalescer.flush(now)) {
     ++g_spoken;
-    voice::say({voice::Which::Mark, hit_line(o), o.pan, o.gain, voice::Policy::Overlap, voice::kGroupEnemy, stagger()});
+    if (g_outgoing == 2) voice::say({voice::Which::Mark, hit_line(o), o.pan, o.gain, voice::Policy::Overlap, voice::kGroupEnemy, stagger()});
+    else if (g_outgoing == 1) { std::string b = brief_line(o); if (!b.empty()) voice::say({voice::Which::Mark, b, o.pan, o.gain, voice::Policy::Overlap, voice::kGroupEnemy, stagger()}); }
   }
-  for (voice::Say& s : zira) { s.predelay_ms = stagger(); voice::say(std::move(s)); }
+  if (g_incoming) for (voice::Say& s : zira) { s.predelay_ms = stagger(); voice::say(std::move(s)); }
   float mx = world::life_max();
   if (mx > 0) {
     int pct = 0;
     if (g_health.update(world::life() / mx, pct)) {
       MessageBuilder m;
       strings::push_health_percent(m, pct);
-      voice::say({voice::Which::Zira, m.build(), 0.0f, 1.0f, voice::Policy::Replace, voice::kGroupSelf, stagger()});
+      if (g_incoming) voice::say({voice::Which::Zira, m.build(), 0.0f, 1.0f, voice::Policy::Replace, voice::kGroupSelf, stagger()});
+  }
+  {
+    int t = g_hit_true.exchange(0), f = g_hit_false.exchange(0);
+    if (g_say_hit && t > 0) voice::say({voice::Which::Zira, std::string(strings::kHit), 0.0f, 1.0f, voice::Policy::Replace, voice::kGroupSelfEffect, 0.0f});
+    (void)f;
     }
   }
   // XP has no event that fires in single-player, so poll GetExperiencePoints each tick and attribute a positive
@@ -273,7 +314,7 @@ void tick() {
     world::ear_frame(g_last_hit_pos, pan, gain);   // direction only; kills read at full level
     MessageBuilder m;
     strings::push_kills(m, kills, xp);
-    voice::say({voice::Which::Zira, m.build(), pan, 1.0f, voice::Policy::Overlap, voice::kGroupSelfEffect, stagger()});
+    if (g_outgoing > 0) voice::say({voice::Which::Zira, m.build(), pan, 1.0f, voice::Policy::Overlap, voice::kGroupSelfEffect, stagger()});
   }
 }
 
@@ -295,6 +336,13 @@ std::string status() {
   return out;
 }
 void arm_raw_log(int n) { g_raw_log = n; }
+std::string hit_status() { return std::format("hitsay: on={} attacks_on_player={} (true so far this tick {} false {})\n", g_say_hit, g_hits_total.load(), g_hit_true.load(), g_hit_false.load()); }
+int outgoing_mode() { return g_outgoing; }
+void set_outgoing_mode(int mode) { g_outgoing = mode < 0 ? 0 : mode > 2 ? 2 : mode; settings::set_int("announce.outgoing.mode", g_outgoing); }
+bool incoming_enabled() { return g_incoming; }
+void set_incoming(bool on) { g_incoming = on; settings::set_bool("announce.incoming", on); }
+bool incoming_hits_enabled() { return g_say_hit; }
+void set_incoming_hits(bool on) { g_say_hit = on; settings::set_bool("announce.incoming.hits", on); }
 void set_coalesce(bool on) { g_coalescer.set_enabled(on); }
 void set_window(double seconds) { g_coalescer.set_window(seconds); }
 void set_cap(int per_flush) { g_coalescer.set_max_per_flush(per_flush); }

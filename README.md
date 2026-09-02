@@ -74,6 +74,8 @@ and hit stuff. The mod mainly does a few things for you:
 - Emulates mouse clicks on enemies, loot and so on.
 - Makes the menus speak.
 - Adds sonar and wall tones (not really optional).
+- Telegraphs enemy attacks: as an enemy starts an attack, a short word says its shape (swing, stomp, wave,
+  shot, ring) from where the enemy is, so you can step out of it. The game itself has no such markers.
 - Tags the level data with GPS-like information that is announced as you run around (currently through
   act 1, and nowhere near fully hand-checked).
 
@@ -82,7 +84,8 @@ and `Enter` are left clicks, `I` is a right click; in menus `Backspace` is the r
 room. The game's "rooms" are more like map patches, each a few seconds to cross; a room does not imply
 walls.
 
-The sound scheme is Wrath of the Righteous's for now; a sound glossary will come eventually.
+The sound scheme is Wrath of the Righteous's for now. `F1` opens the mod's menu anywhere; its sound glossary
+lists every sound the mod plays and plays each one as you arrow over it.
 
 The mod is quite playable but buggy around the edges. In particular it is not good at range or line of
 sight: if you cannot click something the mod tells you, but it can, for example, fire a spell at something
@@ -90,7 +93,9 @@ still out of range. This is probably infeasible to fix, but it has not been much
 walk closer.
 
 Combat events are spoken by Mark and Zira. Mark is things happening to enemies; Zira is things happening to
-you.
+you. `T` (or the F1 menu) opens the combat announcement settings: outgoing announcements off / brief / full,
+incoming announcements, incoming hit announcements ("hit" for every attack that lands on you), and the telegraph
+cues with a filter for who and which shapes speak. All of it is remembered between sessions.
 
 The game assumes you already know what you are getting into, so a few things are worth knowing:
 
@@ -128,7 +133,7 @@ arranged around a review cursor. The game's own bindings must stay at their defa
 | Enter | Activate |
 | Backspace | Secondary action: unequip an item; reclaim a skill point at a spirit guide |
 | \ (backslash) | On an item in a bag, a vendor or the stash: what you have equipped in the slot it would go to -- the slot, the item and its tooltip ("nothing equipped" for an empty slot). The game's side-by-side comparison, spoken |
-| Space or F1 | The game's tooltip for the item; Ctrl+Space the detailed one |
+| Space | The game's tooltip for the item; Ctrl+Space the detailed one |
 | Escape | Back / close |
 | Letters | Type-ahead to a matching item, where the screen allows it |
 
@@ -180,7 +185,8 @@ itself hovers and targets it, and plays a route ping. Shift reverses; Alt jumps 
 | H | Health and energy in full |
 | X | The current room: title and description |
 | Q | Objectives of the tracked quests |
-| T | Note this place to `untagged_rooms.txt` (authoring aid) |
+| F1 | G D Access menu (anywhere): sound glossary (every mod sound as a tree; landing on a row plays it) and, in the world, the combat announcement settings |
+| T | Combat announcement settings. First Tab stop: outgoing announcements off / brief (just "hit", "crit", "miss", "blocked") / full (the numbers), incoming announcements (your health, effects on you) on/off, incoming hit announcements ("hit" for every attack that lands on you) on/off, and telegraph cues with four states: off, your target (only the enemy you are reviewing or fighting), highest tier (only the strongest kind of enemy nearby, so a pack's boss speaks and its adds do not), all. Enter cycles, Left/Right step. Second Tab stop: one on/off row per cue shape (swing, stomp, wave, shot, ring). Escape closes; everything is saved between sessions |
 
 Spoken automatically, by position: damage numbers, misses, dodges and blocks from where they happen; your
 health at every 10 % step; debuffs put on you; kills and experience; place changes ("Devil's Crossing, the

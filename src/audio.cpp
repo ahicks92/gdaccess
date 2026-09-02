@@ -235,7 +235,7 @@ void unload_loop(int id) {
   std::erase_if(g_loops, [id](const Loop& l) { return l.id == id; });
 }
 
-void play_sample(const std::string& wav_path, float volume, float pan, float rear_shelf_db) {
+void play_sample(const std::string& wav_path, float volume, float pan, float rear_shelf_db, bool apply_master, int group, bool replace_group) {
   Pcm buf;
   {
     std::lock_guard lk(g_mu);
@@ -259,7 +259,7 @@ void play_sample(const std::string& wav_path, float volume, float pan, float rea
     std::lock_guard lk(g_mu);
     buf = g_sample_cache[wav_path] = std::make_shared<const std::vector<float>>(std::move(samples));
   }
-  play_pcm(buf, volume, pan, 0, false, true, rear_shelf_db);
+  play_pcm(buf, volume, pan, group, replace_group, apply_master, rear_shelf_db);
 }
 
 uint32_t play_pcm(Pcm samples, float volume, float pan, int group, bool replace_group, bool apply_master, float rear_shelf_db, float predelay_ms) {

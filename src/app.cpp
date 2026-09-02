@@ -37,6 +37,9 @@
 #include "screens/list_picker.h"
 #include "screens/count_prompt.h"
 #include "screens/hotbar_manager.h"
+#include "screens/announcements.h"
+#include "screens/mod_menu.h"
+#include "screens/sound_glossary.h"
 #include "screens/pets.h"
 #include "gameapi.h"
 #include "speech.h"
@@ -104,7 +107,8 @@ static void register_actions() {
     auto& a = m.register_action(std::string(u.id), u.label, InputCategory::UI).bind(u.key, u.ctrl, u.shift, false);
     if (u.repeat) a.repeating();
   }
-  m.find(ui_actions::Tooltip)->bind(keys::F1);
+  // F1 = the mod's own menu, live everywhere (Global); tooltips stay on Space (2026-09-01, F1 used to double as tooltip).
+  m.register_action("mod.menu", "G D Access menu", InputCategory::Global, [] { screens::open_mod_menu(); }).bind(keys::F1);
   // Ctrl+Tab / Ctrl+Shift+Tab: the current screen's tabs (tab list across the top; the page is one column).
   m.register_action("ui.tabNext", "Next tab", InputCategory::UI, [] { Screen* s = g_screens.current(); if (s) s->switch_tab(1); }).bind(keys::Tab, true, false, false);
   m.register_action("ui.tabPrev", "Previous tab", InputCategory::UI, [] { Screen* s = g_screens.current(); if (s) s->switch_tab(-1); }).bind(keys::Tab, true, true, false);
@@ -192,7 +196,8 @@ static void register_actions() {
   // Rooms (docs/rooms.md): X = the current room's title and description; its exits are the scanner's Exits
   // group (V above). Place changes are announced automatically in the player's voice.
   m.register_action("rooms.describe", "Describe the room", InputCategory::InGame, [] { rooms::speak_description(); }).bind(0x2d);   // X
-  m.register_action("rooms.note", "Note this place for authoring", InputCategory::InGame, [] { rooms::note_place(); }).bind(0x14);    // T
+  m.register_action("rooms.note", "Note this place for authoring", InputCategory::InGame, [] { rooms::note_place(); });   // unbound since 2026-09-01 (dev route /note); T = announcements
+  m.register_action("ingame.announcements", "Announcement toggles", InputCategory::InGame, [] { screens::open_announcements(); }).bind(0x14);   // T
   // The mouse buttons (J left, I right, Enter = left; hold to hold) are polled per frame by the in-game screen,
   // not dispatched as actions: a hold needs the key's held state, not a press.
   // The camera is locked (far zoom, north up) by the in-game screen; no zoom/rotate keys.
@@ -271,6 +276,9 @@ void init() {
   g_screens.register_screen(screens::make_stash());
   g_screens.register_screen(screens::make_hotbar_manager());
   g_screens.register_screen(screens::make_pet_overlay());
+  g_screens.register_screen(screens::make_announcements_overlay());
+  g_screens.register_screen(screens::make_mod_menu());
+  g_screens.register_screen(screens::make_sound_glossary());
   g_screens.register_screen(screens::make_list_picker());
   g_screens.register_screen(screens::make_count_prompt());
   gameapi::load();

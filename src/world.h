@@ -17,6 +17,7 @@ void* controller();              // the main player's ControllerPlayer (captured
 bool player_position(Vec3& p);   // world-space position of the main player (feet)
 std::string player_name();
 unsigned player_id();            // the main player's object id (0 before the player is seen)
+bool is_foe(unsigned id);        // the game's faction manager calls this object a foe of the player (false when unknown)
 std::string region_name();
 std::string area_name();   // the minimap's area name (Engine::GetAreaNameTag localized), "Lower Crossing"; empty when unknown
 bool object_is_note(const void* obj);   // is-a ItemNote (any Object, bag items included)

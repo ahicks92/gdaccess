@@ -9,6 +9,8 @@
 #include "exe_ui.h"
 #include "audio.h"
 #include "audio_mute.h"
+#include "casts.h"
+#include "telegraph.h"
 #include "combat.h"
 #include "rooms.h"
 #include "sonar.h"
@@ -105,6 +107,21 @@ static std::string handle(const std::string& path, const std::map<std::string, s
       voice::say(s);
       return "queued\n";
     }
+  }
+  if (path == "/hitsay") { if (q.count("on")) combat::set_incoming_hits(true); if (q.count("off")) combat::set_incoming_hits(false); return combat::hit_status(); }
+  if (path == "/note") { rooms::note_place(); return "noted\n"; }   // the old T key: append this place to untagged_rooms.txt
+  if (path == "/telegraph") {  // ?mode=0..3 (off / your target / highest tier / all) &shape=<name>,0|1 &vol= &ms=100|200 &test=<shape> -- attack telegraph cues (src/telegraph.cpp)
+    if (q.count("mode")) telegraph::set_mode((telegraph::Mode)parse_int(q.at("mode"), 3));
+    if (q.count("shape")) { std::string v = q.at("shape"); size_t c = v.find(','); for (int i = 0; i < telegraph::kShapes; ++i) if (v.substr(0, c) == telegraph::kShapeNames[i]) telegraph::set_shape_enabled(i, c == std::string::npos || v.substr(c + 1) != "0"); }
+    if (q.count("vol")) telegraph::set_volume((float)atof(q.at("vol").c_str()));
+    if (q.count("ms")) telegraph::set_variant(parse_int(q.at("ms"), 100));
+    if (q.count("test")) telegraph::test(q.at("test"));
+    if (q.count("foe")) { unsigned id = (unsigned)parse_int(q.at("foe"), 0); return std::format("is_foe({}) = {} (player id {})\n", id, world::is_foe(id), world::player_id()); }
+    return telegraph::status();
+  }
+  if (path == "/casts") {  // ?lines=N (default 200) | ?clear=1 | ?cb=1 -- skill activations, hits, animation callbacks (src/casts.cpp)
+    if (q.count("clear")) casts::clear();
+    return casts::dump(q.count("lines") ? parse_int(q.at("lines"), 200) : 200, q.count("cb") > 0);   // ?cb=1: every animation callback (footsteps included)
   }
   if (path == "/combat") {  // /combat?raw=N arms a hex dump of the next N 0x1b events into /log
     if (q.count("raw")) combat::arm_raw_log(parse_int(q.at("raw"), 10));

@@ -1563,6 +1563,11 @@ std::string entity_label(void* e, const void* ci, const std::string& cls) {
 }
 }  // namespace
 
+bool is_foe(unsigned id) {
+  void* fm = g_game_engine && g_api.GetFactionManager ? g_api.GetFactionManager(g_game_engine) : nullptr;
+  unsigned pid = player_id();
+  return fm && g_api.FactionManager_IsFoe && pid && id && id != pid && g_api.FactionManager_IsFoe(fm, pid, id, false);
+}
 std::string label_of(unsigned id) {
   void* e = find_entity(id);
   if (!e) return {};

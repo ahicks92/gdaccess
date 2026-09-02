@@ -82,6 +82,69 @@ inline constexpr const char* Character_GetManaLimit = "?GetManaLimit@Character@G
 // public: void __cdecl GAME::EventManager::Send(struct GAME::GameEvent const * __ptr64,unsigned int) __ptr64
 inline constexpr const char* EventManager_Send_DLL = "Engine.dll";
 inline constexpr const char* EventManager_Send = "?Send@EventManager@GAME@@QEAAXPEBUGameEvent@2@I@Z";
+// public: virtual bool __cdecl GAME::SkillActivatedBuffOther::StartAction(class GAME::Character & __ptr64,unsigned int,class GAME::WorldVec3 const & __ptr64,unsigned int,struct GAME::TargetLeadingData const & __ptr64) __pt
+inline constexpr const char* SkillActivatedBuffOther_StartAction_DLL = "Game.dll";
+inline constexpr const char* SkillActivatedBuffOther_StartAction = "?StartAction@SkillActivatedBuffOther@GAME@@UEAA_NAEAVCharacter@2@IAEBVWorldVec3@2@IAEBUTargetLeadingData@2@@Z";
+// public: virtual bool __cdecl GAME::SkillActivatedBuffSelf::StartAction(class GAME::Character & __ptr64,unsigned int,class GAME::WorldVec3 const & __ptr64,unsigned int,struct GAME::TargetLeadingData const & __ptr64) __ptr
+inline constexpr const char* SkillActivatedBuffSelf_StartAction_DLL = "Game.dll";
+inline constexpr const char* SkillActivatedBuffSelf_StartAction = "?StartAction@SkillActivatedBuffSelf@GAME@@UEAA_NAEAVCharacter@2@IAEBVWorldVec3@2@IAEBUTargetLeadingData@2@@Z";
+// public: virtual bool __cdecl GAME::SkillActivatedSpell::StartAction(class GAME::Character & __ptr64,unsigned int,class GAME::WorldVec3 const & __ptr64,unsigned int,struct GAME::TargetLeadingData const & __ptr64) __ptr64
+inline constexpr const char* SkillActivatedSpell_StartAction_DLL = "Game.dll";
+inline constexpr const char* SkillActivatedSpell_StartAction = "?StartAction@SkillActivatedSpell@GAME@@UEAA_NAEAVCharacter@2@IAEBVWorldVec3@2@IAEBUTargetLeadingData@2@@Z";
+// public: virtual bool __cdecl GAME::SkillActivatedWeapon::StartAction(class GAME::Character & __ptr64,unsigned int,class GAME::WorldVec3 const & __ptr64,unsigned int,struct GAME::TargetLeadingData const & __ptr64) __ptr64
+inline constexpr const char* SkillActivatedWeapon_StartAction_DLL = "Game.dll";
+inline constexpr const char* SkillActivatedWeapon_StartAction = "?StartAction@SkillActivatedWeapon@GAME@@UEAA_NAEAVCharacter@2@IAEBVWorldVec3@2@IAEBUTargetLeadingData@2@@Z";
+// public: virtual bool __cdecl GAME::SkillActivatedWeaponPool::StartAction(class GAME::Character & __ptr64,unsigned int,class GAME::WorldVec3 const & __ptr64,unsigned int,struct GAME::TargetLeadingData const & __ptr64) __p
+inline constexpr const char* SkillActivatedWeaponPool_StartAction_DLL = "Game.dll";
+inline constexpr const char* SkillActivatedWeaponPool_StartAction = "?StartAction@SkillActivatedWeaponPool@GAME@@UEAA_NAEAVCharacter@2@IAEBVWorldVec3@2@IAEBUTargetLeadingData@2@@Z";
+// public: virtual void __cdecl GAME::SkillActivatedBuffSelf::HitAction(class GAME::Character & __ptr64,class GAME::Name const & __ptr64,unsigned int,class GAME::WorldVec3 const & __ptr64) __ptr64
+inline constexpr const char* SkillActivatedBuffSelf_HitAction_DLL = "Game.dll";
+inline constexpr const char* SkillActivatedBuffSelf_HitAction = "?HitAction@SkillActivatedBuffSelf@GAME@@UEAAXAEAVCharacter@2@AEBVName@2@IAEBVWorldVec3@2@@Z";
+// public: virtual void __cdecl GAME::SkillActivatedSpell::HitAction(class GAME::Character & __ptr64,class GAME::Name const & __ptr64,unsigned int,class GAME::WorldVec3 const & __ptr64) __ptr64
+inline constexpr const char* SkillActivatedSpell_HitAction_DLL = "Game.dll";
+inline constexpr const char* SkillActivatedSpell_HitAction = "?HitAction@SkillActivatedSpell@GAME@@UEAAXAEAVCharacter@2@AEBVName@2@IAEBVWorldVec3@2@@Z";
+// public: virtual void __cdecl GAME::SkillActivatedWeaponPool::HitAction(class GAME::Character & __ptr64,class GAME::Name const & __ptr64,unsigned int,class GAME::WorldVec3 const & __ptr64) __ptr64
+inline constexpr const char* SkillActivatedWeaponPool_HitAction_DLL = "Game.dll";
+inline constexpr const char* SkillActivatedWeaponPool_HitAction = "?HitAction@SkillActivatedWeaponPool@GAME@@UEAAXAEAVCharacter@2@AEBVName@2@IAEBVWorldVec3@2@@Z";
+// public: virtual bool __cdecl GAME::SkillActivated::EndAction(class GAME::Character & __ptr64) __ptr64
+inline constexpr const char* SkillActivated_EndAction_DLL = "Game.dll";
+inline constexpr const char* SkillActivated_EndAction = "?EndAction@SkillActivated@GAME@@UEAA_NAEAVCharacter@2@@Z";
+// public: virtual bool __cdecl GAME::SkillActivatedWeapon::EndAction(class GAME::Character & __ptr64) __ptr64
+inline constexpr const char* SkillActivatedWeapon_EndAction_DLL = "Game.dll";
+inline constexpr const char* SkillActivatedWeapon_EndAction = "?EndAction@SkillActivatedWeapon@GAME@@UEAA_NAEAVCharacter@2@@Z";
+// public: virtual bool __cdecl GAME::SkillActivatedWeaponPool::EndAction(class GAME::Character & __ptr64) __ptr64
+inline constexpr const char* SkillActivatedWeaponPool_EndAction_DLL = "Game.dll";
+inline constexpr const char* SkillActivatedWeaponPool_EndAction = "?EndAction@SkillActivatedWeaponPool@GAME@@UEAA_NAEAVCharacter@2@@Z";
+// public: virtual void __cdecl GAME::Skill_AttackRadius::ActivateNow(class GAME::Character & __ptr64,class GAME::Name const & __ptr64,unsigned int,class GAME::WorldVec3 const & __ptr64) __ptr64
+inline constexpr const char* Skill_AttackRadius_ActivateNow_DLL = "Game.dll";
+inline constexpr const char* Skill_AttackRadius_ActivateNow = "?ActivateNow@Skill_AttackRadius@GAME@@UEAAXAEAVCharacter@2@AEBVName@2@IAEBVWorldVec3@2@@Z";
+// public: virtual void __cdecl GAME::Skill_AttackWave::ActivateNow(class GAME::Character & __ptr64,class GAME::Name const & __ptr64,unsigned int,class GAME::WorldVec3 const & __ptr64) __ptr64
+inline constexpr const char* Skill_AttackWave_ActivateNow_DLL = "Game.dll";
+inline constexpr const char* Skill_AttackWave_ActivateNow = "?ActivateNow@Skill_AttackWave@GAME@@UEAAXAEAVCharacter@2@AEBVName@2@IAEBVWorldVec3@2@@Z";
+// public: virtual void __cdecl GAME::Skill_AttackProjectileAreaEffect::ActivateNow(class GAME::Character & __ptr64,class GAME::Name const & __ptr64,unsigned int,class GAME::WorldVec3 const & __ptr64) __ptr64
+inline constexpr const char* Skill_AttackProjectileAreaEffect_ActivateNow_DLL = "Game.dll";
+inline constexpr const char* Skill_AttackProjectileAreaEffect_ActivateNow = "?ActivateNow@Skill_AttackProjectileAreaEffect@GAME@@UEAAXAEAVCharacter@2@AEBVName@2@IAEBVWorldVec3@2@@Z";
+// public: virtual void __cdecl GAME::Skill_AttackWeapon::ActivateNow(class GAME::Character & __ptr64,class GAME::Name const & __ptr64,unsigned int,class GAME::WorldVec3 const & __ptr64) __ptr64
+inline constexpr const char* Skill_AttackWeapon_ActivateNow_DLL = "Game.dll";
+inline constexpr const char* Skill_AttackWeapon_ActivateNow = "?ActivateNow@Skill_AttackWeapon@GAME@@UEAAXAEAVCharacter@2@AEBVName@2@IAEBVWorldVec3@2@@Z";
+// public: virtual void __cdecl GAME::Skill_AttackProjectile::ActivateNow(class GAME::Character & __ptr64,class GAME::Name const & __ptr64,unsigned int,class GAME::WorldVec3 const & __ptr64) __ptr64
+inline constexpr const char* Skill_AttackProjectile_ActivateNow_DLL = "Game.dll";
+inline constexpr const char* Skill_AttackProjectile_ActivateNow = "?ActivateNow@Skill_AttackProjectile@GAME@@UEAAXAEAVCharacter@2@AEBVName@2@IAEBVWorldVec3@2@@Z";
+// public: virtual void __cdecl GAME::Skill_AttackProjectileBurst::ActivateNow(class GAME::Character & __ptr64,class GAME::Name const & __ptr64,unsigned int,class GAME::WorldVec3 const & __ptr64) __ptr64
+inline constexpr const char* Skill_AttackProjectileBurst_ActivateNow_DLL = "Game.dll";
+inline constexpr const char* Skill_AttackProjectileBurst_ActivateNow = "?ActivateNow@Skill_AttackProjectileBurst@GAME@@UEAAXAEAVCharacter@2@AEBVName@2@IAEBVWorldVec3@2@@Z";
+// public: bool const __cdecl GAME::SkillManager::HandleSkillAnimationCallback(class GAME::Name const & __ptr64,unsigned int,unsigned int,class GAME::WorldVec3 const & __ptr64) __ptr64
+inline constexpr const char* SkillManager_HandleSkillAnimationCallback_DLL = "Game.dll";
+inline constexpr const char* SkillManager_HandleSkillAnimationCallback = "?HandleSkillAnimationCallback@SkillManager@GAME@@QEAA?B_NAEBVName@2@IIAEBVWorldVec3@2@@Z";
+// public: virtual bool __cdecl GAME::Character::AnimationCallback(class GAME::Name const & __ptr64) __ptr64
+inline constexpr const char* Character_AnimationCallback_DLL = "Game.dll";
+inline constexpr const char* Character_AnimationCallback = "?AnimationCallback@Character@GAME@@UEAA_NAEBVName@2@@Z";
+// public: int __cdecl GAME::Character::GetRemainingAnimationTime(void)const __ptr64
+inline constexpr const char* Character_GetRemainingAnimationTime_DLL = "Game.dll";
+inline constexpr const char* Character_GetRemainingAnimationTime = "?GetRemainingAnimationTime@Character@GAME@@QEBAHXZ";
+// public: bool __cdecl GAME::CombatManager::TakeAttack(class GAME::ParametersCombat & __ptr64,class GAME::SkillManager & __ptr64,class GAME::CharacterBio & __ptr64) __ptr64
+inline constexpr const char* CombatManager_TakeAttack_DLL = "Game.dll";
+inline constexpr const char* CombatManager_TakeAttack = "?TakeAttack@CombatManager@GAME@@QEAA_NAEAVParametersCombat@2@AEAVSkillManager@2@AEAVCharacterBio@2@@Z";
 // public: void __cdecl GAME::Character::DebufTarget(class GAME::Character & __ptr64,bool,struct GAME::SkillBuffTransfer const & __ptr64,class mem::vector<enum GAME::Weapon_Type> const & __ptr64,enum GAME::EquipmentHandType
 inline constexpr const char* Character_DebufTarget_DLL = "Game.dll";
 inline constexpr const char* Character_DebufTarget = "?DebufTarget@Character@GAME@@QEAAXAEAV12@_NAEBUSkillBuffTransfer@2@AEBV?$vector@W4Weapon_Type@GAME@@@mem@@W4EquipmentHandTypes@2@@Z";

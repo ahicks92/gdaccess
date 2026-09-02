@@ -661,6 +661,26 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   needs the `DISMANTLING_UNLOCKED` token (Lua `GiveToken` for tests) and a re-open of the window. Dev: `/inventor`.
   Lesson: `WindowScreen::add_tabs` with an empty label list throws inside `GraphBuilder::end_row` and takes the game
   down with the mod's exception -- never call it with no tabs.
+- Enemy attack telegraphs MAPPED (2026-09-01, `docs/telegraphs.md`, verified live): the game has none; the sighted
+  player reads the wind-up animation. Pipeline `SkillActivated::StartAction` -> animation callbacks
+  (`SkillManager::HandleSkillAnimationCallback`, `GAME::Name` = 32-bit FNV-1a of the string) -> `HitAction` (the
+  concrete class's `ActivateNow` does the geometry at the hit frame) -> `EndAction`. `src/casts.cpp` + `/casts` log it
+  (dev only). Windows: enemy melee median ~0.6 s, specials ~0.8 s, ranged basics 0.2-0.3 s, up to 2.9 s; the .anm
+  trailers in Creatures.arc carry the hit frames offline. **Hook trap**: the base `SkillActivated::HitAction/ActivateNow/
+  StartAction` exports are folded stubs shared by ~2000 exports (detouring one killed the game silently at start);
+  `hooks.cpp` now refuses bare stubs + duplicate targets. Shape taxonomy = the skill object's RTTI class (wave, radius,
+  projectile/burst/ring, area pool, charge, tendril, summon, buff) + the record's geometry fields.
+  BUILT the same day: `src/telegraph.cpp` plays one of five 100 ms Zira-word cues (swing / stomp / wave / shot / ring =
+  the five reactions; `assets/audio/telegraphs`, `tools/gen_telegraph_cues.py`) positioned at a hostile caster at
+  StartAction; a weapon attack started from > 4.5 u counts as a shot. Verified firing through the loop; NOT yet heard by
+  the user (ramp-to-hit and the inside-the-shape test are the next steps). Dev: `/telegraph`.
+  **T = announcement toggles** (2026-09-01, `screens/announcements.cpp`, two Tab stops "announcement settings" / "telegraph filter",
+  push_context titles): outgoing off / brief (hit, crit, miss, blocked) / full (Mark numbers; kills+XP in both) / incoming
+  (Zira health steps, effects on you) / incoming hits ("hit" per attack reaching you via `CombatManager::TakeAttack`,
+  works while invincible) / telegraph cues as a FOUR-STATE (off, your target = reviewed or combat
+  enemy, highest tier = casters at the top MonsterClassification within 25 u, all) + a per-shape on/off stop; persisted in `%LOCALAPPDATA%\gdaccess\settings.txt` (`src/settings.cpp`,
+  key=value; the mod's only persisted settings). The authoring note that was on T is the dev route `/note`. Cue files are
+  loudness-matched to the sonar's enemy cue (K-weighted -13.9 LKFS, limiter) and play above the master on the voice rolloff.
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.

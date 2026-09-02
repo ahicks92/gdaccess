@@ -35,6 +35,30 @@ ENTRIES = [
     # combat text: the floating numbers / Miss / Dodge / Block are GameEvents of type 0x1b (src/combat.cpp)
     ("EventManager_Send", "Engine", r"GAME::EventManager::Send\(struct GAME::GameEvent const"),
     # combat perception (src/combat.cpp, src/world.cpp, src/notify.cpp): status effects, nameplate, banners
+    # ---- enemy skill activations (src/casts.cpp): the animation-driven cast pipeline. NOT listed on purpose:
+    # SkillActivated::StartAction/HitAction/ActivateNow (folded shared stubs: hooking them detours ~2000 exports),
+    # Suicide::StartAction (== BuffSelf's), BuffOther/Weapon/Suicide::HitAction (== BuffSelf's thunk). ----
+    ("SkillActivatedBuffOther_StartAction", "Game", r"GAME::SkillActivatedBuffOther::StartAction\("),
+    ("SkillActivatedBuffSelf_StartAction", "Game", r"GAME::SkillActivatedBuffSelf::StartAction\("),
+    ("SkillActivatedSpell_StartAction", "Game", r"GAME::SkillActivatedSpell::StartAction\("),
+    ("SkillActivatedWeapon_StartAction", "Game", r"GAME::SkillActivatedWeapon::StartAction\("),
+    ("SkillActivatedWeaponPool_StartAction", "Game", r"GAME::SkillActivatedWeaponPool::StartAction\("),
+    ("SkillActivatedBuffSelf_HitAction", "Game", r"GAME::SkillActivatedBuffSelf::HitAction\("),
+    ("SkillActivatedSpell_HitAction", "Game", r"GAME::SkillActivatedSpell::HitAction\("),
+    ("SkillActivatedWeaponPool_HitAction", "Game", r"GAME::SkillActivatedWeaponPool::HitAction\("),
+    ("SkillActivated_EndAction", "Game", r"GAME::SkillActivated::EndAction\("),
+    ("SkillActivatedWeapon_EndAction", "Game", r"GAME::SkillActivatedWeapon::EndAction\("),
+    ("SkillActivatedWeaponPool_EndAction", "Game", r"GAME::SkillActivatedWeaponPool::EndAction\("),
+    ("Skill_AttackRadius_ActivateNow", "Game", r"GAME::Skill_AttackRadius::ActivateNow\("),
+    ("Skill_AttackWave_ActivateNow", "Game", r"GAME::Skill_AttackWave::ActivateNow\("),
+    ("Skill_AttackProjectileAreaEffect_ActivateNow", "Game", r"GAME::Skill_AttackProjectileAreaEffect::ActivateNow\("),
+    ("Skill_AttackWeapon_ActivateNow", "Game", r"GAME::Skill_AttackWeapon::ActivateNow\("),
+    ("Skill_AttackProjectile_ActivateNow", "Game", r"GAME::Skill_AttackProjectile::ActivateNow\("),
+    ("Skill_AttackProjectileBurst_ActivateNow", "Game", r"GAME::Skill_AttackProjectileBurst::ActivateNow\("),
+    ("SkillManager_HandleSkillAnimationCallback", "Game", r"GAME::SkillManager::HandleSkillAnimationCallback\("),
+    ("Character_AnimationCallback", "Game", r"GAME::Character::AnimationCallback\("),
+    ("Character_GetRemainingAnimationTime", "Game", r"GAME::Character::GetRemainingAnimationTime\(void\)"),
+    ("CombatManager_TakeAttack", "Game", r"GAME::CombatManager::TakeAttack\("),   # the victim-side hit resolver (this = the victim's CombatManager, Character* at +8)
     ("Character_DebufTarget", "Game", r"GAME::Character::DebufTarget\(class GAME::Character & __ptr64,bool,struct GAME::SkillBuffTransfer const"),
     ("Monster_GetClassification", "Game", r"GAME::Monster::GetClassification\(void\)"),
     ("Monster_GetExperienceReward", "Game", r"GAME::Monster::GetExperienceReward\("),

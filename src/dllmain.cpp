@@ -2,6 +2,9 @@
 #include "app.h"
 #include "audio.h"
 #include "audio_mute.h"
+#include "casts.h"
+#include "settings.h"
+#include "telegraph.h"
 #include "combat.h"
 #include "gameapi.h"
 #include "notify.h"
@@ -27,6 +30,7 @@ static int env_int(const wchar_t* name, int def) {
 static DWORD WINAPI init_thread(LPVOID) {
   gd::log::init();
   gd::log::write("gdaccess: loaded");
+  gd::settings::init();
   // GDACCESS_MUTE=1 (set by the dev launcher): speech is recorded but not voiced, game audio session muted.
   bool mute = env_flag(L"GDACCESS_MUTE");
   gd::speech::set_muted(mute);
@@ -34,6 +38,8 @@ static DWORD WINAPI init_thread(LPVOID) {
   gd::hooks::install();
   gd::world::install();
   gd::combat::install();
+  if (!env_flag(L"GDACCESS_NOCASTS")) gd::casts::install();
+  gd::telegraph::init();   // dev: skip the cast instrumentation
   gd::gameapi::install_crafting_hooks();
   gd::notify::install();
   gd::exe_ui::install();
@@ -60,6 +66,7 @@ extern "C" __declspec(dllexport) DWORD WINAPI gdaccess_unload(LPVOID) {
   gd::rooms::shutdown();
   gd::db::shutdown();
   gd::gameapi::remove_crafting_hooks();
+  gd::casts::remove();
   gd::combat::remove();
   gd::notify::remove();
   gd::voice::shutdown();  // joins the worker before the mixer it feeds goes away

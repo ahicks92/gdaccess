@@ -4,6 +4,7 @@
 #include <format>
 #include "app.h"
 #include "audio.h"
+#include "casts.h"
 #include "combat.h"
 #include "rooms.h"
 #include "screens/hotbar_manager.h"
@@ -60,6 +61,7 @@ static void apply_trims() {
     audio::set_loop_gain(kObstacleToneId + i, db_to_gain(g_trim_db[1][i]));
   }
 }
+float trim_gain(int bank, int dir) { return (bank == 1 || bank == 2) && dir >= 0 && dir < 4 ? db_to_gain(g_trim_db[bank - 1][dir]) : 1.0f; }
 void set_trim(int bank, int dir, float db) {   // bank 1|2, dir 0..3 = north east south west; bank 0 = all off, -1 = defaults
   if (bank == 0) { for (auto& b : g_trim_db) for (float& t : b) t = 0.0f; }
   else if (bank == -1) { for (int b = 0; b < 2; ++b) for (int i = 0; i < 4; ++i) g_trim_db[b][i] = kDefaultTrimDb[b][i]; }
@@ -197,6 +199,7 @@ class InGameScreen : public Screen {
     world::pin_camera();
     world::tick();
     combat::tick();
+    casts::tick();
     rooms::tick();
     quickbar_tick();
     weapon_swap_tick();

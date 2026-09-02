@@ -24,7 +24,8 @@ void set_loop_gain(int id, float gain);   // static trim multiplied with the vol
 void unload_loop(int id);
 // A one-shot sample (WAV decoded once and cached) at volume 0..1 and pan -1..1: the review pings, cues.
 // rear_shelf_db < 0 darkens the voice with an RBJ high shelf at 3 kHz (wotr: a source behind the listener).
-void play_sample(const std::string& wav_path, float volume, float pan, float rear_shelf_db = 0.0f);
+// group / replace_group as play_pcm: the sound glossary plays each row in one group with replace, so arrowing cuts the previous one.
+void play_sample(const std::string& wav_path, float volume, float pan, float rear_shelf_db = 0.0f, bool apply_master = true, int group = 0, bool replace_group = false);   // apply_master=false: like the voices, above the 0.6 master
 // Raw PCM one-shots (rendered speech): mono f32 at the mixer rate, shared so a cache may drop its copy while
 // the shot still plays. group > 0 tags the shot; replace_group fades out (5 ms) the group's playing shots
 // first -- "the new health line replaces the old one". Returns the shot id (0 = not played).

@@ -110,7 +110,8 @@ stationary attack, Ctrl pet targeting) and typing into the game's chat field.
 | G | Pick up the nearest item on the ground (the game's own Pickup action: within 10 units, loot filter applied; auto-equips into an empty slot like the game does) |
 | (automatic) | Place changes, in Zira: the region when it changes, the sub-region when it changes, then the room's title ("Devil's Crossing, the prison, cell block corridor"; "room 193" while a room has no title yet). See docs/rooms.md |
 | X | The current room: title, then the authored description ("no description yet" until then), through the screen reader |
-| T | Note this place: appends the area name, chunk, position and room state to `untagged_rooms.txt` at the repo root (the list of what to author next); speaks "noted, Lower Crossing, room ..." |
+| F1 | G D Access menu (anywhere): sound glossary (every mod sound as a tree; landing on a row plays it) and, in the world, the combat announcement settings |
+| T | Announcement toggles overlay. Stop 1: outgoing announcements off / brief / full (brief = hit, crit, miss, blocked; Dodge reads as miss), incoming announcements on/off, incoming hit announcements on/off ("hit" per attack reaching you, from the victim-side resolver, so it works while invincible), telegraph cues off / your target / highest tier / all (Enter cycles, Left/Right step). Stop 2: swing / stomp / wave / shot / ring cues on/off. Enter flips a row and speaks the new state, Escape closes. Persisted in `%LOCALAPPDATA%\\gdaccess\\settings.txt`. (The authoring note that used to live on T is the dev route `/note`.) |
 | V / Shift+V | Next / previous exit of the current room: one more review group like . N B M -- destination title (or "room N"), "blocked" if the live mesh refuses the opening, distance, clock bearing, "i of n"; the landing pings the route, ; re-pings, the cursor parks on the opening |
 
 ## The main menu (2026-08-22)
@@ -148,6 +149,6 @@ Passed straight to the game (src/screens/in_game.cpp `passes_key`): WASD, 1-0, Y
 Alt/Right Alt (held: show items), F2-F7. Every other game function is reachable only as Ctrl + its default
 key (the `game.*` lifts in src/app.cpp: C/I N Q M O K G H J V L B X Z P, Backspace, \, ], Enter, Tab, `,` `.`).
 The mod's plain keys: `.` `,` N B M V (review groups; Shift = back, Alt = nearest), `;` `'` `/` `\`, J I G F,
-K H Q X T, and Ctrl+1..0, Ctrl+- Ctrl+=, Ctrl+`, Ctrl+Shift+P. Still free: F1, F8, the bracket keys,
+K H Q X T, and Ctrl+1..0, Ctrl+- Ctrl+=, Ctrl+`, Ctrl+Shift+P. Still free: F8, the bracket keys,
 Insert/Delete/Home/End/PgUp/PgDn, the arrow keys, numpad. Ctrl+letter chords arrive with flags and are unused
 by the game.

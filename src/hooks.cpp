@@ -79,6 +79,16 @@ static std::u16string u16(const uint16_t* s) { return s ? std::u16string((const 
 static std::vector<Hook> g_hooks;
 #define HOOK(ID, DETOUR) Hook{ID##_DLL, ID, (void*)&DETOUR, (void**)&DETOUR##_orig, #ID, false}
 
+static std::set<void*> g_attached_targets;
+// A function whose whole body is `ret` / `ret 0` / `xor al,al; ret` / `xor eax,eax; ret` / `mov al,1; ret`.
+static bool is_bare_stub(void* target) {
+  const unsigned char* b = (const unsigned char*)target;
+  if (b[0] == 0xC3) return true;
+  if (b[0] == 0xC2 && b[1] == 0 && b[2] == 0) return true;
+  if ((b[0] == 0x32 || b[0] == 0x30 || b[0] == 0x33 || b[0] == 0x31) && b[1] == 0xC0 && b[2] == 0xC3) return true;
+  if (b[0] == 0xB0 && b[2] == 0xC3) return true;
+  return false;
+}
 static LONG attach_all(std::vector<Hook>& hooks) {
   DetourTransactionBegin();
   ThreadUpdater threads;
@@ -88,10 +98,16 @@ static LONG attach_all(std::vector<Hook>& hooks) {
     HMODULE m = GetModuleHandleA(h.dll);
     void* target = m ? (void*)GetProcAddress(m, h.name) : nullptr;
     if (!target) { log::writef("hook {}: export not found in {}", h.label, h.dll); continue; }
+    // MSVC folds identical bodies: in Game.dll one `ret` is the export address of 1,574 empty virtuals and one
+    // `xor al,al; ret` of 525 (2026-09-01: detouring SkillActivated::HitAction/ActivateNow/StartAction, which
+    // ARE those stubs, hooked every empty virtual in the game -- it exited silently at start). Refuse a target
+    // that is a bare stub, and never attach the same address twice.
+    if (is_bare_stub(target)) { log::writef("hook {}: REFUSED, target {} is a shared stub (folded empty body)", h.label, target); continue; }
+    if (g_attached_targets.count(target)) { log::writef("hook {}: skipped, target {} already detoured", h.label, target); continue; }
     *h.orig = target;
     LONG r = DetourAttach(h.orig, h.detour);
     if (r != NO_ERROR) { log::writef("hook {}: DetourAttach failed {}", h.label, r); *h.orig = nullptr; continue; }
-    h.ok = true; ++ok;
+    h.ok = true; ++ok; g_attached_targets.insert(target);
   }
   LONG r = DetourTransactionCommit();
   log::writef("hooks: {} attached this pass, commit={}", ok, r);
@@ -101,7 +117,7 @@ long attach_hooks(std::vector<Hook>& hooks) { return attach_all(hooks); }
 void detach_hooks(std::vector<Hook>& hooks) {
   DetourTransactionBegin();
   ThreadUpdater threads;
-  for (auto& h : hooks) if (h.ok && *h.orig) { DetourDetach(h.orig, h.detour); h.ok = false; }
+  for (auto& h : hooks) if (h.ok && *h.orig) { DetourDetach(h.orig, h.detour); h.ok = false; g_attached_targets.erase((void*)h.orig[0]); }
   DetourTransactionCommit();
 }
 
