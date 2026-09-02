@@ -27,17 +27,12 @@ std::vector<Section> sections() {
   static std::string tele[telegraph::kShapes];
   for (int i = 0; i < telegraph::kShapes; ++i) tele[i] = tg + telegraph::kShapeNames[i] + ms;
   return {
-    // The wall/obstacle loops play with per-file loudness trims in game; the glossary applies the same ones.
+    // The wall loops play with per-file loudness trims in game; the glossary applies the same ones.
     {"walls", strings::kGlossaryWallTones, {
-      {strings::kGlossaryWallAhead, "walltones\\1\\north.wav", 0.0f, 0.0f, walltones::trim_gain(1, 0)},
-      {strings::kGlossaryWallRight, "walltones\\1\\east.wav", 1.0f, 0.0f, walltones::trim_gain(1, 1)},
-      {strings::kGlossaryWallBehind, "walltones\\1\\south.wav", 0.0f, -10.0f, walltones::trim_gain(1, 2)},
-      {strings::kGlossaryWallLeft, "walltones\\1\\west.wav", -1.0f, 0.0f, walltones::trim_gain(1, 3)}}},
-    {"obstacles", strings::kGlossaryObstacleTones, {
-      {strings::kGlossaryObstacleAhead, "walltones\\2\\north.wav", 0.0f, 0.0f, walltones::trim_gain(2, 0)},
-      {strings::kGlossaryObstacleRight, "walltones\\2\\east.wav", 1.0f, 0.0f, walltones::trim_gain(2, 1)},
-      {strings::kGlossaryObstacleBehind, "walltones\\2\\south.wav", 0.0f, -10.0f, walltones::trim_gain(2, 2)},
-      {strings::kGlossaryObstacleLeft, "walltones\\2\\west.wav", -1.0f, 0.0f, walltones::trim_gain(2, 3)}}},
+      {strings::kGlossaryWallAhead, "walltones\\2\\north.wav", 0.0f, 0.0f, walltones::trim_gain(0)},
+      {strings::kGlossaryWallRight, "walltones\\2\\east.wav", 1.0f, 0.0f, walltones::trim_gain(1)},
+      {strings::kGlossaryWallBehind, "walltones\\2\\south.wav", 0.0f, -10.0f, walltones::trim_gain(2)},
+      {strings::kGlossaryWallLeft, "walltones\\2\\west.wav", -1.0f, 0.0f, walltones::trim_gain(3)}}},
     {"sonar", strings::kGlossarySonar, {
       {strings::kGlossaryEnemy, "interactables\\units-enemy.wav"},
       {strings::kGlossaryLoot, "interactables\\unknown.wav"},
