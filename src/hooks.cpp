@@ -452,20 +452,21 @@ void click(float x, float y, int button) {
   log::writef("click: button {} at {},{}", button, x, y);
 }
 HWND game_window();
-// Where a synthesized transition lands: the override when one is on, else the real cursor in client space
-// (GetCursorPos is detoured below; with no override it reports the real position).
-static void current_cursor(float& x, float& y) {
-  if (g_cursor_override) { x = g_cursor_x; y = g_cursor_y; return; }
-  POINT p{};
-  if (GetCursorPos(&p)) { HWND w = game_window(); if (w) ScreenToClient(w, &p); }
+// The OS cursor in client space (GetCursorPos is detoured below; with no override it reports the real
+// position). False when it is outside the client area -- a transition there is invisible to the game.
+bool real_cursor_in_window(float& x, float& y) {
+  POINT p{}; RECT rc{};
+  HWND w = game_window();
+  if (!w || !GetCursorPos(&p) || !ScreenToClient(w, &p) || !GetClientRect(w, &rc)) return false;
   x = (float)p.x; y = (float)p.y;
+  return p.x >= 0 && p.y >= 0 && p.x < rc.right && p.y < rc.bottom;
 }
-void set_mouse_hold(int button, bool held) {
+void set_mouse_hold(int button, bool held, float x, float y) {
   bool& flag = button == 2 ? g_hold_right : g_hold_left;
   if (flag == held) return;
   flag = held;
   SynthMouse ev{};
-  current_cursor(ev.x, ev.y);
+  ev.x = x; ev.y = y;
   if (button == 2) { ev.type = held ? 2 : 10; ev.right = held; ev.left = g_hold_left; }
   else             { ev.type = held ? 1 : 9;  ev.left = held;  ev.right = g_hold_right; }
   push_mouse_event(ev);

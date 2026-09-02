@@ -16,6 +16,7 @@
 #include "speech.h"
 #include "audio.h"
 #include "core/message_builder.h"
+#include "core/screen_clip.h"
 #include "core/strings.h"
 #include "log.h"
 #include "msvc_string.h"
@@ -2236,23 +2237,89 @@ static bool interact_locked_actor() {
   log::writef("world: InteractAction on {} '{}'", g_locked_id, label_of(g_locked_id));
   return true;
 }
+// ---- where an injected mouse transition lands ----
+// The exe keeps its own "left / right button held" bytes (world screen +0x88 / +0x89) and, while either is set, its
+// per-frame WASD routine (exe+0x2c2b5) issues no move command at all: a held button's repeated command outranks the
+// keyboard. Its mouse handler ignores events outside the client area, so a transition delivered off-window is
+// simply lost and the byte sticks. Seen 2026-09-01: J held on a locked enemy that died; the lock went away, the
+// release (and the next press) fell back to the real cursor at (-86, 193), and WASD stayed dead until the cursor came
+// back on screen. Every transition we inject therefore lands inside the window: a press only where there is a point
+// to press (the virtual cursor while the camera shows it, else the real cursor while it is in the window), a
+// release at the virtual cursor, or -- when its target has left the window -- where the player-to-target line
+// leaves the window (the user's rule), so the release still goes out in the target's direction.
+namespace {
+constexpr float kEdgeMargin = 4.0f;   // pixels inside the client edge, so a clipped point is unambiguously in the window
+bool client_size(float& w, float& h) {
+  RECT rc{};
+  HWND win = FindWindowA("Grim Dawn", nullptr);
+  if (!win || !GetClientRect(win, &rc) || rc.right <= 0 || rc.bottom <= 0) return false;
+  w = (float)rc.right; h = (float)rc.bottom;
+  return true;
+}
+bool inside_window(float x, float y, float w, float h) { return x >= 0 && y >= 0 && x < w && y < h; }
+// The virtual cursor's target projected to the screen, on or off the window: the locked entity or point.
+bool virtual_cursor_pos(float& x, float& y) {
+  if (g_point_locked) return project_point(g_locked_point, x, y);
+  if (g_locked_id) { void* e = find_entity(g_locked_id); return e && project(e, x, y); }
+  return false;
+}
+bool player_screen_pos(float& x, float& y) {
+  Buf base;
+  return player_world_vec(base) && project_point(world_pos_of(base), x, y);
+}
+// Where a press lands; false when there is nothing on screen to press.
+bool press_point(float& x, float& y) {
+  float w, h;
+  if (!client_size(w, h)) return false;
+  if (g_locked_id || g_point_locked) return virtual_cursor_pos(x, y) && inside_window(x, y, w, h);
+  return gd::hooks::real_cursor_in_window(x, y);
+}
+// Where a release lands: always inside the window (see above).
+void release_point(float& x, float& y) {
+  float w, h;
+  if (!client_size(w, h)) { x = 0; y = 0; return; }
+  float px, py;
+  bool have_player = player_screen_pos(px, py) && inside_window(px, py, w, h);
+  float tx, ty;
+  if (virtual_cursor_pos(tx, ty)) {
+    if (inside_window(tx, ty, w, h)) { x = tx; y = ty; return; }
+    if (have_player && gd::core::clip_toward(px, py, tx, ty, w, h, kEdgeMargin, x, y)) return;
+  }
+  if (have_player) { x = px; y = py; return; }   // the target is gone (a dead lock is released before we get here)
+  x = w / 2; y = h / 2;
+}
+void release_hold(int button) {
+  if (!gd::hooks::mouse_held(button)) return;
+  float x, y;
+  release_point(x, y);
+  gd::hooks::set_mouse_hold(button, false, x, y);
+}
+}  // namespace
+
 void mouse_key(int button, bool held) {
   static bool key_down[3] = {};
   bool& prev = key_down[button == 2 ? 2 : 1];
   bool edge = held && !prev;
   prev = held;
-  if (held && g_locked_id && !on_screen(g_locked_id)) {
-    if (edge) gd::speech::speak(gd::strings::kTooFarAway, true);  // the lock is on something the camera does not show
-    gd::hooks::set_mouse_hold(button, false);
+  static bool pickup_held = false;   // J went down on an item: the hold that follows must not become a click
+  if (!held) {
+    if (button == 1) pickup_held = false;
+    release_hold(button);
     return;
   }
-  static bool pickup_held = false;   // J went down on an item: the hold that follows must not become a click
-  if (button == 1) {
-    if (!held) pickup_held = false;
-    else if (edge && g_locked_id && !is_point_id(g_locked_id) && (pickup_locked_item() || interact_locked_actor())) pickup_held = true;
-    if (pickup_held) { gd::hooks::set_mouse_hold(button, false); return; }
+  float x, y;
+  if (!press_point(x, y)) {
+    // The lock is on something the camera does not show, or nothing is locked and the real cursor is off the
+    // window: nothing to press. A hold in progress whose target just left the window ends here, on screen.
+    if (edge) gd::speech::speak((g_locked_id || g_point_locked) ? gd::strings::kTooFarAway : gd::strings::kNoTarget, true);
+    release_hold(button);
+    return;
   }
-  gd::hooks::set_mouse_hold(button, held);
+  if (button == 1) {
+    if (edge && g_locked_id && !is_point_id(g_locked_id) && (pickup_locked_item() || interact_locked_actor())) pickup_held = true;
+    if (pickup_held) { release_hold(button); return; }
+  }
+  gd::hooks::set_mouse_hold(button, true, x, y);
 }
 
 // ---- camera lock ----

@@ -41,7 +41,11 @@ void click(float x, float y, int button = 1);            // down + up over two f
 // held (the game re-issues the command each tick -- move, attack, skill -- and tears it down on the first
 // event with both buttons up), and the up transition is injected on release. Position = the cursor override
 // when one is on, else the real cursor. Game thread.
-void set_mouse_hold(int button, bool held);              // 1 left, 2 right
+// The transition is delivered at (x, y), client coordinates, which the caller must keep INSIDE the window: the
+// exe's mouse handler ignores off-window events, and a lost transition leaves its own "button held" byte set
+// (world screen +0x88/+0x89), which mutes WASD until a transition inside the window clears it (2026-09-01).
+void set_mouse_hold(int button, bool held, float x, float y);   // 1 left, 2 right
+bool real_cursor_in_window(float& x, float& y);         // the OS cursor in client coordinates; false when outside the client area
 bool mouse_held(int button);
 void set_cursor_override(bool on, float x, float y);
 void set_fake_active(bool on);                           // dev: make the game believe its window is active     // DirectInputDevice::GetCursorPosition returns this

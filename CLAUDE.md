@@ -686,6 +686,17 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   enemy, highest tier = casters at the top MonsterClassification within 25 u, all) + a per-shape on/off stop; persisted in `%LOCALAPPDATA%\gdaccess\settings.txt` (`src/settings.cpp`,
   key=value; the mod's only persisted settings). The authoring note that was on T is the dev route `/note`. Cue files are
   loudness-matched to the sonar's enemy cue (K-weighted -13.9 LKFS, limiter) and play above the master on the voice rolloff.
+- Phantom mouse hold mutes WASD (2026-09-01, diagnosed live, fix built, NOT yet verified): the exe keeps its own
+  "button held" bytes at world screen `[main_obj+0x90]+0x88` (left) / `+0x89` (right); while either is set its per-frame
+  WASD routine (exe+0x2c2b5, gated after `GameEngine::GetInputMode`==0 and movementType) issues NO
+  `HandleActionFromJoystick` (a held button's repeat outranks the keyboard). Its mouse handler ignores events outside
+  the client area, so an injected transition delivered off-window is lost and the byte sticks. Seen: J held on a locked
+  enemy that died -> the release fell back to the REAL cursor (the user's mouse sits at client (-86,193)) -> WASD dead,
+  no window open, nothing paused. Fix: `world::mouse_key` presses only where there is an on-screen point (virtual cursor
+  on screen, else the real cursor inside the window; otherwise "too far away" / "no target"), and releases at the virtual
+  cursor or, when its target left the window, where the player-to-target line leaves it (`core/screen_clip.h`,
+  unit-tested; margin 4 px); `hooks::set_mouse_hold` now takes the position. Recovery without the fix: lock anything on
+  screen and tap J once. Dev: `/peek?ptr=<world_screen+0x80>` shows the bytes (`/ui` prints `world_screen=`).
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.
