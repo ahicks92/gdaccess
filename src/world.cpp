@@ -938,6 +938,75 @@ float free_distance_lane(float dir_x, float dir_z, float lateral, float max_dist
   return free_distance_from(start, dir_x, dir_z, max_dist, step, true);
 }
 
+// Free distance along a straight ray by the game's navmesh RAYCAST (NavManager::FindStraightMovePoint =
+// findNearestPoly(from) + dtNavMeshQuery::raycast): it walks the polygon graph portal to portal and stops at the
+// first edge with no neighbour -- a wall, a ledge, a hole, a fence -- and reports exactly where. Replaces the
+// IsPointOnPathMesh point walk for the wall tones (2026-09-03). That call is findNearestPoly + "a polygon was
+// found" (Engine+0x150570 tests the status bit and a nonzero ref, nothing else), and Detour's findNearestPoly
+// gathers candidates by BOUNDING-BOX overlap and returns the nearest without bounding its distance -- so a
+// point inside a hole still "finds" the polygon around it and reads walkable whenever that polygon's box covers
+// the hole. Live case: Burrwitch Outskirts (-459.5, -951.5), a rock pile at (-460.6, -953.6) carved a ~6 u hole
+// the pathfinder refused (a 1.5 u request north snapped back to the player's feet) while the point probe read
+// every cell of it walkable, so north stayed silent and WASD north did nothing. Holes narrower than the
+// surrounding polygons (the checkerboard caps them at 8 u) were invisible to the old probe; the raycast sees
+// polygon edges, not boxes. Lanes (`lateral` != 0) are gated by FindClosestPointOnPathMesh, the containment test
+// IsPointOnPathMesh should have been: a lane start whose closest mesh point is not itself is inside a wall and
+// reads 0. Results: 1 = ok, 3 = start off the mesh (reads 0); any other code reads 0 and is logged once.
+namespace {
+int seh_straight_move(void* nav, const void* from, const void* to, void* out) {
+  __try { return g_api.FindStraightMovePoint(nav, from, to, out); }
+  __except (EXCEPTION_EXECUTE_HANDLER) { return -1000; }
+}
+int seh_closest_point(void* nav, const void* from, void* out, float radius) {
+  __try { return g_api.FindClosestPointOnPathMesh(nav, from, out, radius); }
+  __except (EXCEPTION_EXECUTE_HANDLER) { return -1000; }
+}
+// A WorldVec3 (in the player's region) for an absolute world point, given the player's own WorldVec3 as the base.
+void world_vec_at(const Vec3& world_point, const Buf& base, void* region, Buf& out) {
+  Vec3 wb = world_pos_of(base);
+  const Vec3* rb = g_api.WorldVec3_GetRegionPosition(&base);
+  Vec3 rel{world_point.x - wb.x + rb->x, world_point.y - wb.y + rb->y, world_point.z - wb.z + rb->z};
+  memset(&out, 0, sizeof out);
+  g_api.WorldVec3_ctor(&out, region, &rel);
+}
+constexpr float kLaneStartTol = 0.2f;   // a lane start farther than this from its closest mesh point is in a wall
+}
+float free_distance_ray(float dir_x, float dir_z, float lateral, float max_dist, Vec3* hit_world) {
+  void* nav = g_api.NavManager_Get ? g_api.NavManager_Get() : nullptr;
+  Buf base; void* region = nullptr;
+  if (!nav || !g_api.FindStraightMovePoint || !g_api.WorldVec3_ctor || !g_api.WorldVec3_GetRegionPosition ||
+      max_dist <= 0 || !player_world_vec(base, &region))
+    return 0;
+  Vec3 p = world_pos_of(base);
+  Vec3 s{p.x - dir_z * lateral, p.y, p.z + dir_x * lateral};
+  Buf from = base;
+  if (lateral != 0.0f) {
+    world_vec_at(s, base, region, from);
+    if (g_api.WorldVec3_PutOnFloor) g_api.WorldVec3_PutOnFloor(&from);
+    if (g_api.FindClosestPointOnPathMesh) {   // containment gate: the closest mesh point must be the start itself
+      Buf closest = from;
+      if (seh_closest_point(nav, &from, &closest, 1.0f) != 1) return 0;
+      Vec3 c = world_pos_of(closest);
+      float ddx = c.x - s.x, ddz = c.z - s.z;
+      if (ddx * ddx + ddz * ddz > kLaneStartTol * kLaneStartTol) return 0;
+    }
+    s = world_pos_of(from);
+  }
+  Vec3 e{s.x + dir_x * max_dist, s.y, s.z + dir_z * max_dist};
+  Buf to; world_vec_at(e, base, region, to);
+  Buf out = from;
+  int r = seh_straight_move(nav, &from, &to, &out);
+  if (r != 1) {
+    if (r != 3) { static int logged = 0; if (logged++ < 5) log::writef("world: FindStraightMovePoint returned {}", r); }
+    return 0;
+  }
+  Vec3 o = world_pos_of(out);
+  if (hit_world) *hit_world = o;
+  float ddx = o.x - s.x, ddz = o.z - s.z;
+  float d = std::sqrt(ddx * ddx + ddz * ddz);
+  return d > max_dist ? max_dist : d;
+}
+
 // dev: the vertical window PutOnFloor+IsPointOnPathMesh accepts at the player's feet -- sweep on_navmesh at
 // (x, foot_y + dy, z) and report the dy range that still reads on-mesh. How far a flat-y ray can be off before
 // it loses the floor.
@@ -1013,6 +1082,7 @@ std::string debug_dump() {
   const char* names[] = {"+x", "-x", "+z", "-z"};
   const float dirs[][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
   for (int i = 0; i < 4; ++i) s += std::format("free {}: {:.1f}\n", names[i], free_distance(dirs[i][0], dirs[i][1], 15.0f, 0.5f));
+  for (int i = 0; i < 4; ++i) s += std::format("ray {}: {:.1f}\n", names[i], free_distance_ray(dirs[i][0], dirs[i][1], 0.0f, 15.0f, nullptr));
   // RTTI_ClassInfo layout discovery: the player's class info vs the exported static infos, word by word.
   if (g_api.Object_GetRTTIClassInfo) {
     const void* ci = g_api.Object_GetRTTIClassInfo(p);

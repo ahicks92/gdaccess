@@ -67,7 +67,7 @@ static float g_dist[4] = {g_range, g_range, g_range, g_range};
 static float rect_distance(int i) {
   float best = 0.0f;
   for (int k = -g_lanes; k <= g_lanes; ++k) {
-    float d = world::free_distance_lane(kDirs[i][0], kDirs[i][1], k * kLaneSpacing, g_range, kStep);
+    float d = world::free_distance_ray(kDirs[i][0], kDirs[i][1], k * kLaneSpacing, g_range, nullptr);
     if (d > best) best = d;
     if (best >= g_range) break;
   }
@@ -122,21 +122,21 @@ static void tick() {
 std::string probe_timing(int iters) {   // dev: time the navmesh probing part of one tick (no audio writes)
   if (iters < 1) iters = 1;
   if (!world::in_world()) return "not in world\n";
-  int probes = 0;   // count on_navmesh calls this pass (free_distance stops at the first block, so it varies)
+  int probes = 0;   // count navmesh calls this pass
   LARGE_INTEGER freq, t0, t1;
   QueryPerformanceFrequency(&freq);
   QueryPerformanceCounter(&t0);
   for (int n = 0; n < iters; ++n) {
     for (int i = 0; i < 4; ++i) {
       for (int k = -g_lanes; k <= g_lanes; ++k) {
-        float d = world::free_distance_lane(kDirs[i][0], kDirs[i][1], k * kLaneSpacing, g_range, kStep);
-        if (n == 0) probes += (k != 0) + (d >= g_range ? (int)(g_range / kStep) : (int)(d / kStep) + 1);
+        float d = world::free_distance_ray(kDirs[i][0], kDirs[i][1], k * kLaneSpacing, g_range, nullptr);
+        if (n == 0) probes += 1 + (k != 0) + (d < 0 ? 1 : 0);   // one raycast (+ one containment gate per side lane)
       }
     }
   }
   QueryPerformanceCounter(&t1);
   double us = (double)(t1.QuadPart - t0.QuadPart) * 1e6 / (double)freq.QuadPart / iters;
-  return std::format("range={:.1f} step={:.2f} lanes={} (half-width {:.2f}) on_navmesh_calls~{} (all lanes, no early-out) iters={} avg={:.1f} us/tick ({:.3f} ms)\n",
+  return std::format("range={:.1f} step={:.2f} lanes={} (half-width {:.2f}) nav_calls~{} (raycast per lane, no early-out) iters={} avg={:.1f} us/tick ({:.3f} ms)\n",
                      g_range, kStep, 2 * g_lanes + 1, g_lanes * kLaneSpacing, probes, iters, us, us / 1000.0);
 }
 std::string status() {

@@ -194,7 +194,16 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
 - Labels: `world::label_of(id)` / `/entities` give the game's own names ("Hangman Jarvis", "Chester",
   "Training Dummy", the player's name) via `Monster::GetGameDescription(false,false)`,
   `Npc::GetRolloverDescription`, `Player::GetRolloverDescription`, `Item::GetGameDescription` (u16 by value,
-  hidden pointer, SEH-guarded). Wall tones (reworked 2026-09-01, `docs/re_wall_sliding.md`): ONE bank (wotr's set 2, assets/audio/walltones/2;
+  hidden pointer, SEH-guarded). **Wall-tone probe = the navmesh RAYCAST** (2026-09-03, `world::free_distance_ray` =
+  `NavManager::FindStraightMovePoint`, one per lane, side lanes gated by `FindClosestPointOnPathMesh`; verified live at
+  Burrwitch Outskirts (-459.5,-951.5): north read 15 by the old probe and 0.9 by the raycast, WASD north did nothing).
+  **TRAP: `NavManager::IsPointOnPathMesh` is a bounding-box test, not containment** -- findNearestPoly + "a polygon was
+  found", and Detour's findNearestPoly collects candidates by BV-box overlap without bounding the distance, so any hole
+  narrower than the polygons around it (rocks, pillars, trees; the checkerboard caps polygons at 8 u) reads walkable.
+  Never use it for a player-facing decision. Still on it: `world::route_kind_to` (the review cursor's straight / path /
+  unreachable word -- can say "straight" through a rock; not yet switched), rooms.cpp's two permissive pre-filters ahead
+  of `find_path`, and dev routes (/navprobe, /teleport, /blocks). docs/re_wall_sliding.md section 7 has the measurements.
+  Wall tones (reworked 2026-09-01, `docs/re_wall_sliding.md`): ONE bank (wotr's set 2, assets/audio/walltones/2;
   set 1 vendored, unused), world-fixed compass directions (the camera is pinned north-up; no yaw), per-frame
   RECTANGLE probes -- 7 parallel lanes 0.5 u apart per direction, free distance = the FARTHEST lane, so a wall is a
   wall only when the whole 1.5 u half-width hits it and silence means "you can go this way, mostly straight" (the

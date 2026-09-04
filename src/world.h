@@ -40,6 +40,10 @@ float free_distance_ex(float dir_x, float dir_z, float max_dist, float step, boo
 // The same ray started `lateral` units to the side of the player (positive = to the right of dir, i.e. along
 // (-dir_z, dir_x)); a start that is itself off the mesh reads 0. Parallel lanes make a rectangle probe.
 float free_distance_lane(float dir_x, float dir_z, float lateral, float max_dist, float step);
+// Free distance by the navmesh RAYCAST (NavManager::FindStraightMovePoint): exact hit distance along the ray from
+// a point `lateral` units beside the player (positive = left of dir), max `max_dist`; a lane start that is not
+// itself on the mesh reads 0. The wall tones' probe (the point walk above reads holes as walkable; see world.cpp).
+float free_distance_ray(float dir_x, float dir_z, float lateral, float max_dist, Vec3* hit_world);
 std::string nav_vwindow(float span, float step);              // dev: PutOnFloor's accepted vertical window at the feet
 std::string wall_compare(int dirs, float max_dist, float step);  // dev: A/B flat vs terrain-following rays around the compass
 

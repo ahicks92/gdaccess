@@ -107,6 +107,45 @@ destination is always 1.25 u ahead and then snapped up to 10 u; a request shorte
 is discarded and the previous target keeps being walked to. A gap narrower than the slide's per-frame tangential
 progress is passed over, and the "stop here" the blind player needs has no expression in the keyboard path.
 
+## 7. `IsPointOnPathMesh` is a bounding-box test, not containment (2026-09-03, live)
+
+The user's report: Burrwitch Outskirts, ambushed camp clearing, player at world (-459.5, 7.2, -951.5), holding
+north does nothing and the north wall tone is silent. Measured on the live game:
+
+- A `granite_rockpile_sm_02` Decoration sits at (-460.6, 6.5, -953.6), half-extents (3.1, 1.8, 2.9). The baked
+  tile-cache raster has its hole (z -952.5..-955 unwalkable across x -463..-457) and so does the live mesh:
+  `Player::FindPath` to (-459.5, -953) returns result 0 with the endpoint at the player's own feet (snap 1.5 u) at
+  every requested y from 4 to 13; (-460.5, -953) returns 3 (destination off mesh); routes to z -955..-965 all go
+  east first via (-458.8, -951.5) -> (-457.5, -953.0), round the rock.
+- `NavManager::IsPointOnPathMesh` on the same points (after PutOnFloor) says walkable for EVERY cell north of the
+  player at 0.25 u spacing. The old `free_distance` walk therefore read north = 15.
+
+Why (Engine+0x150570): the call builds extents {0.05, 5.0, 0.05}, calls findNearestPoly (Engine+0x260d40 ->
+0x2615a0) with the SAME query object (`[NavManager+8]+0x10`) and SAME filter (`+0x18`) that FindPath uses, and
+returns true iff the dtStatus success bit is set and the returned poly ref is nonzero. Detour's findNearestPoly
+gathers candidate polygons by overlapping their quantized BV-tree boxes with the query box and returns the one
+whose closest point is nearest -- it never checks that the closest point lies within the extents. A point inside
+a hole still "finds" the surrounding polygon whenever that polygon's box covers the hole. Here the polygon the
+player stands on spans the rock's south-east side, so the whole hole read walkable; west read as a wall only
+because the polygons on that side happen not to cover it. Since the checkerboard caps polygons at 8 u, obstacles
+up to about that size vanish or not depending on the polygon layout -- which is why the missing tones felt random.
+
+Fix (`world::free_distance_ray`, used by the wall tones' lanes): `NavManager::FindStraightMovePoint(from, to, out)`
+= findNearestPoly(from) + `dtNavMeshQuery::raycast`, which walks the polygon graph through portals and stops at the
+first edge with no neighbour -- a hole, a ledge, a thin fence, a wall -- and reports the exact point (result 1;
+3 = start off mesh). One raycast per lane replaces the 0.5 u point walk; side lanes are first gated by
+`FindClosestPointOnPathMesh(from, out, 1.0)` (a real containment test: the closest mesh point must be the start
+itself, tolerance 0.2 u), so a lane starting inside the wall you hug still reads 0. Off-mesh links, if this bake
+has any, do not stop or pass the raycast: their links hang off a polygon's interior (edge index 0xff) and raycast
+skips them, so a ladder foot reads as the ledge it stands on -- correct for "holding the key goes nowhere".
+
+Verified live at the spot after the hot reload: raycast north 0.0 (centre), rectangle north 0.9 (a side lane
+reaches the rock's diagonal face), east 9.0 (FindPath confirms a wall between 9 and 10.5 u east; the bake shows
+the tree hole at x -449.5), south 10, west 0.0; 28 raycasts + 24 gates = 0.30 ms per tick. Not yet felt by the user.
+Remaining `IsPointOnPathMesh` users: `world::route_kind_to` (the review cursor's straight / path / unreachable word,
+player-facing, can say "straight" through a rock -- not yet switched), two permissive pre-filters in rooms.cpp ahead of
+`find_path`, and dev routes (`/navprobe`, `/teleport`, `/blocks`, `/player free`).
+
 ## 6. Seams
 
 Detecting a slide and its edge:
