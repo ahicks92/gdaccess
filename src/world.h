@@ -57,6 +57,7 @@ std::string map_markers_dump();         // dev: /mapmarkers
 
 std::string debug_dump();        // for the dev server: pointers, raw coordinate bytes, probes
 const void* object_rtti(const void* obj);   // the object's dynamic RTTI_ClassInfo (virtual GetRTTIClassInfo); null-safe
+std::string object_class_name(const void* obj);   // the dynamic RTTI class name ("Player", "ArmorJewelry_Ring", ...); "?" when unknown. NEVER on a Region*
 bool object_is_a(const void* obj, const void* class_info);   // is-a via the RTTI_ClassInfo parent walk (class_info = a GetStaticClassInfo result)
 std::string classinfo_dump();    // dev: the game's RTTI_ClassInfo layout (parent pointer?)
 

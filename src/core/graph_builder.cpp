@@ -131,6 +131,11 @@ GraphBuilder& GraphBuilder::end_row() {
 
 GraphBuilder& GraphBuilder::add_item(ControlId id, NodeVtablePtr vtable) {
   if (suppressed()) return *this;
+  // An actionable node belongs to its Tab stop's landing group unless the screen said otherwise: when it vanishes
+  // on the rebuild its action caused (an item moved, sold, used), focus lands on the next row of the same list,
+  // not on the previous stop's last node (2026-09-04: Enter on the first row of a list bounced to the tab strip).
+  // Lead lines and headers have no action and keep no group, so they are never the landing.
+  if (vtable && vtable->land_group.empty() && vtable->on_activate) vtable->land_group = stop_key_.to_string();
   GraphNode* node = make_node(std::move(id), std::move(vtable));
   if (current_row_ != nullptr) {
     current_row_->items.push_back(node);

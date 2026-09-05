@@ -271,6 +271,30 @@ bool ingame_key_action(int action);
 int quickbar_page();
 // A vendor window's market id (its marketGrid +0x2410 keeps it at +0x54; 0 outside a vendor).
 unsigned vendor_market_id(const WindowB& vendor_window);
+// The vendor window's tab map (window+0x26f8, mem::map<Market_TypeEnum, TabButton*>; read by its refresh at
+// exe+0x273120 as node+0x20 -> GetMarketInventorySack(marketId, type), node+0x28 -> the tab button whose +0x281
+// disabled byte it sets when that sack is empty). index = which of the five tab buttons (+0x550 +0x888 +0xbc0
+// +0xef8 +0x1230, the master table's marketTab1..5Button). The faction vendor is the same class with its own
+// master table: tabs 1-4 are the reputation tiers (tagFactionVendorTab01A..04A), tab 5 is Buyback.
+struct VendorTab { int type = 0; int index = -1; void* button = nullptr; bool disabled = false; };
+std::vector<VendorTab> vendor_tabs(const WindowB& vendor_window);
+int vendor_selected_type(const WindowB& vendor_window);   // window+0x25e0: the Market_TypeEnum of the tab the game shows
+// ---- the caravan (stash) window: two panels, private stash (+0x13c8) and transfer (+0x13d0); each keeps its record's
+// tab cost array at +0x378 (InventoryCostArray / TransferPageCostArray: the price of tab N is costs[N-1], the first is
+// free) and its tab-list object at +0x98. The exe's buy handlers (exe+0x131150 / +0x1316d0) are: money >= cost, fewer
+// sacks than N, SubtractMoney, Player::AddSack / GameEngine::AddTransferSack, then rebuild the tab list from the sack
+// vector (exe+0x25d890) and re-apply the sack dims (exe+0x12ec70). caravan_refresh does those two by RVA. ----
+// The HUD's screen rectangles, from the values InGameUI::Init (exe+0x213840) copies out of its positioning windows
+// after their records place them (hudwindow_toolbar / _portraitandstatus / _compass: 1024-wide, Center/Bottom):
+// InGameUI+0xb748 the toolbar {x,y,w,h}, +0xb758 the portrait/status strip {x,y,w,h}, +0xb768 the HUD block's
+// top-left point. Measured live 2026-09-04 at 1600x900: toolbar (398,854,805,46), status (441.7,815.2,716.7,38.5),
+// top-left (398,781). The root mouse handler (exe+0xbef10) hands every event to the UI first and the world only sees
+// what the UI did not consume, so a press whose point lies here clicks the HUD, never the world.
+std::vector<Rect> hud_rects();                        // empty outside the world or when the values look wrong
+bool point_over_hud(float x, float y);
+struct CaravanPanel { void* panel = nullptr; std::vector<int> costs; };
+CaravanPanel caravan_panel(bool shared);            // empty panel when the window or the layout check fails
+bool caravan_refresh(bool shared, const void* sack_vector);   // after a purchase: the game's own tab-list rebuild
 constexpr int kSkillsClassSelectPane = 0x50;
 bool skills_set_pane(int tab, int pane_index);
 int skills_tab();

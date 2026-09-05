@@ -29,6 +29,12 @@ class GraphAnnouncer {
   /// nothing to say.
   static std::optional<std::string> compose(const GraphNode* from, const GraphNode* to,
                                             std::string_view transition_label = {});
+  /// The same, from a REMEMBERED path (root first, the node last): the node focus came from may no longer exist
+  /// (its row vanished on the rebuild its own action caused), yet the levels it sat in are known, so its
+  /// replacement reads as a sibling move, not as an entry from nothing that repeats every title above it.
+  static std::optional<std::string> compose_from_path(const std::vector<ControlId>& from_path, const GraphNode* to,
+                                                      std::string_view transition_label = {});
+  static std::vector<ControlId> path_ids(const GraphNode* node);   // root first, `node` last; empty for null
 
   /// The full readout for a landing with no prior focus (screen entry, focus restore).
   static std::optional<std::string> compose_full(const GraphNode* to) { return compose(nullptr, to); }

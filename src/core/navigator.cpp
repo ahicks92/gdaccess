@@ -71,6 +71,7 @@ void GraphNavigator::blur() {
 
 void GraphNavigator::mark_spoken(const GraphNode* node) {
   last_spoken_key_ = node ? std::optional<ControlId>(node->id) : std::nullopt;
+  last_spoken_path_ = GraphAnnouncer::path_ids(node);
 }
 
 // The per-frame pull. This single path replaces the initial-focus debt, the per-callsite announce
@@ -378,7 +379,12 @@ bool GraphNavigator::vtable_adjust(int sign) {
 }
 
 std::optional<std::string> GraphNavigator::compose_move(const GraphNode* from, const GraphNode* to, bool entry, std::string_view transition) {
-  return GraphAnnouncer::compose(entry ? nullptr : from, to, transition);
+  if (entry) return GraphAnnouncer::compose(nullptr, to, transition);
+  // The node last spoken may have vanished (its row was removed by the action it just ran): its remembered path
+  // still says which levels we were inside, so the landing reads as a sibling move (2026-09-04: every Enter in a
+  // list repeated the list's title).
+  if (from == nullptr && last_spoken_key_ && !last_spoken_path_.empty()) return GraphAnnouncer::compose_from_path(last_spoken_path_, to, transition);
+  return GraphAnnouncer::compose(from, to, transition);
 }
 
 // ---- type-ahead search ----

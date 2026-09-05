@@ -1,6 +1,7 @@
 // See exe_ui.h. Every RVA/offset below names the instruction that proved it in docs/exe-ui-layout.md.
 #include "exe_ui.h"
 #include <windows.h>
+#include <algorithm>
 #include <cstring>
 #include <format>
 #include <set>
@@ -75,6 +76,8 @@ const Signature kSignatures[] = {
   {0x211980, "InGameUI::HandleKeyAction", "\x48\x8b\xc4\x57\x41\x54\x41\x55\x41\x56\x41\x57\x48\x83\xec\x40"},
   {0x27c580, "SkillsWindow::SetPane", "\x40\x57\x48\x83\xec\x30\x48\xc7\x44\x24\x20\xfe\xff\xff\xff\x48"},
   {0x21be20, "riftgate map open", "\x40\x53\x48\x83\xec\x20\x48\x8d\x99\x60\x22\x04\x00\x48\x8b\x03"},
+  {0x25d890, "caravan tab list rebuild", "\x48\x89\x5c\x24\x18\x55\x56\x41\x56\x48\x83\xec\x20\x48\x8b\xd9"},
+  {0x12ec70, "caravan sack dims", "\x40\x57\x48\x83\xec\x20\x0f\x57\xc0\x48\x8b\xf9\x0f\x2e\x81\x28"},
   {0x291520, "WorldMapWindow travel", "\x48\x89\x5c\x24\x08\x48\x89\x74\x24\x10\x57\x48\x81\xec\xa0\x00"},
   {0x28ed20, "WorldMap Icon ctor", "\x48\x89\x5c\x24\x08\x48\x89\x6c\x24\x10\x48\x89\x74\x24\x18\x48"},
   {0x8a040, "CharacterPicker::HandleMouseEvent", "\x40\x53\x56\x57\x48\x83\xec\x50\x0f\x29\x74\x24\x40\x48\x8b\xd9"},
@@ -891,6 +894,111 @@ unsigned vendor_market_id(const WindowB& w) {
   if (!w) return 0;
   unsigned id = rd_or<unsigned>(w.p, 0x245c, 0);
   return id ? id : rd_or<unsigned>(w.p, 0xa4, 0);
+}
+namespace {
+constexpr size_t kVendor_TabMap = 0x26f8, kVendor_SelectedType = 0x25e0, kVendor_ButtonDisabled = 0x281;
+constexpr size_t kVendor_TabButtons[5] = {0x550, 0x888, 0xbc0, 0xef8, 0x1230};
+// In-order walk of an MSVC red-black map (head->left = leftmost; node: left +0, parent +8, right +0x10, isnil +0x19).
+std::vector<void*> vendor_map_nodes(const void* map, size_t max_nodes) {
+  std::vector<void*> out;
+  void* head = rdp(map, 0);
+  if (!head) return out;
+  void* n = rdp(head, 0);
+  size_t guard = 0;
+  while (n && n != head && rd_or<uint8_t>(n, 0x19, 1) == 0 && guard++ < max_nodes) {
+    out.push_back(n);
+    void* r = rdp(n, 0x10);
+    if (r && rd_or<uint8_t>(r, 0x19, 1) == 0) {
+      n = r;
+      void* l;
+      while ((l = rdp(n, 0)) && rd_or<uint8_t>(l, 0x19, 1) == 0) n = l;
+    } else {
+      void* p = rdp(n, 8);
+      while (p && rd_or<uint8_t>(p, 0x19, 1) == 0 && rdp(p, 0x10) == n) { n = p; p = rdp(n, 8); }
+      n = p;
+    }
+  }
+  return out;
+}
+}  // namespace
+std::vector<VendorTab> vendor_tabs(const WindowB& w) {
+  std::vector<VendorTab> out;
+  if (!w) return out;
+  for (void* node : vendor_map_nodes((char*)w.p + kVendor_TabMap, 16)) {
+    VendorTab t;
+    t.type = rd_or<int>(node, 0x20, 0);
+    t.button = rdp(node, 0x28);
+    if (!t.button) continue;
+    for (int i = 0; i < 5; ++i) if ((char*)t.button == (char*)w.p + kVendor_TabButtons[i]) t.index = i;
+    t.disabled = rd_or<uint8_t>(t.button, kVendor_ButtonDisabled, 0) != 0;
+    out.push_back(t);
+  }
+  std::sort(out.begin(), out.end(), [](const VendorTab& a, const VendorTab& b) { return a.index < b.index; });
+  return out;
+}
+int vendor_selected_type(const WindowB& w) { return w ? rd_or<int>(w.p, kVendor_SelectedType, -1) : -1; }
+namespace {
+constexpr size_t kCaravan_PrivatePanel = 0x13c8, kCaravan_TransferPanel = 0x13d0, kPanel_Costs = 0x378, kPanel_TabList = 0x98;
+constexpr uintptr_t kCaravan_RebuildTabs = 0x25d890, kCaravan_SackDims = 0x12ec70;
+}  // namespace
+namespace {
+constexpr size_t kIngameUI_HudToolbar = 0xb748, kIngameUI_HudStatus = 0xb758, kIngameUI_HudTopLeft = 0xb768;
+bool plausible_rect(const Rect& r, float w, float h) { return r.w > 0 && r.h > 0 && r.x >= 0 && r.y >= 0 && r.x + r.w <= w + 1 && r.y + r.h <= h + 1; }
+}  // namespace
+std::vector<Rect> hud_rects() {
+  std::vector<Rect> out;
+  void* ui = ingame_ui();
+  if (!ui || !available()) return out;
+  RECT rc{};
+  HWND hw = FindWindowA("Grim Dawn", nullptr);
+  if (!hw || !GetClientRect(hw, &rc)) return out;
+  float w = (float)rc.right, h = (float)rc.bottom;
+  Rect toolbar = rd_or<Rect>(ui, kIngameUI_HudToolbar, Rect{}), status = rd_or<Rect>(ui, kIngameUI_HudStatus, Rect{});
+  float tlx = rd_or<float>(ui, kIngameUI_HudTopLeft, -1.f), tly = rd_or<float>(ui, kIngameUI_HudTopLeft + 4, -1.f);
+  if (plausible_rect(toolbar, w, h) && toolbar.y > h / 2) out.push_back(toolbar);
+  if (plausible_rect(status, w, h) && status.y > h / 2) out.push_back(status);
+  // The whole block from the HUD's top-left down to the toolbar's bottom edge (the compass strip above the status bars).
+  if (!out.empty() && tlx >= 0 && tly > h / 2 && tly < toolbar.y) {
+    Rect block{tlx, tly, toolbar.x + toolbar.w - tlx, toolbar.y + toolbar.h - tly};
+    if (plausible_rect(block, w, h)) out.push_back(block);
+  }
+  return out;
+}
+bool point_over_hud(float x, float y) {
+  for (const Rect& r : hud_rects()) if (x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h) return true;
+  return false;
+}
+CaravanPanel caravan_panel(bool shared) {
+  CaravanPanel out;
+  WindowB w = ingame_window(ingame::kCaravan);
+  if (!w || !available()) return out;
+  void* panel = rdp(w.p, shared ? kCaravan_TransferPanel : kCaravan_PrivatePanel);
+  if (!panel || !in_exe(rdp(panel, 0))) return out;   // a framework-B object: its vtable is in the exe
+  const int* b = (const int*)rdp(panel, kPanel_Costs); const int* e = (const int*)rdp(panel, kPanel_Costs + 8);
+  if (!b || !e || e < b || (size_t)(e - b) > 16) return out;
+  for (const int* it = b; it < e; ++it) out.costs.push_back(rd_or<int>(it, 0, 0));
+  // Self-check against the record shape (the first tab is free, prices rise): a wrong pointer will not look like this.
+  if (out.costs.size() < 2 || out.costs[0] != 0 || out.costs[1] <= 0) { out.costs.clear(); return out; }
+  out.panel = panel;
+  return out;
+}
+namespace {
+bool caravan_refresh_guarded(void* list, const void* sack_vector) {   // no C++ objects here: SEH and unwinding do not mix
+  typedef void (*RebuildFn)(void*, const void*);
+  typedef void (*DimsFn)(void*);
+  __try {
+    ((RebuildFn)(g_base + kCaravan_RebuildTabs))(list, sack_vector);
+    ((DimsFn)(g_base + kCaravan_SackDims))(list);
+  } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+  return true;
+}
+}  // namespace
+bool caravan_refresh(bool shared, const void* sack_vector) {
+  CaravanPanel p = caravan_panel(shared);
+  if (!p.panel || !sack_vector) return false;
+  bool ok = caravan_refresh_guarded((char*)p.panel + kPanel_TabList, sack_vector);
+  if (!ok) log::write("exe_ui: caravan refresh faulted");
+  return ok;
 }
 int quickbar_page() { void* ui = ingame_ui(); int p = ui ? rd_or<int>(ui, 0x72f0, -1) : -1; return p >= 0 && p < 4 ? p : (ui ? 0 : -1); }
 int skills_tab() { void* ui = ingame_ui(); return ui ? rd_or<int>((char*)ui + ingame::kSkills, kSkillsWindow_Tab, -1) : -1; }

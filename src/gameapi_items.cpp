@@ -58,6 +58,14 @@ struct Api {
   void (*ObjectManager_DestroyObjectEx)(void*, void*, const char*, int) = nullptr;
   unsigned (*GetItemMaxStackSize)(const void*) = nullptr;
   const MemVec* (*GetPrivateStash)(void*) = nullptr;
+  void (*Character_SubtractMoney)(void*, unsigned) = nullptr;
+  bool (*Player_AddSack)(void*) = nullptr;
+  bool (*GameEngine_AddTransferSack)(void*) = nullptr;
+  int (*Character_GetVisibleFaction)(const void*) = nullptr;         // FactionType of an NPC (a faction vendor's faction)
+  const void* (*Character_GetStaticClassInfo)() = nullptr;
+  float (*GetFactionLevelValue)(void*, const MsvcStringA*) = nullptr;   // GameEngine: a faction-state tag (tagFactionStateFriend2) -> its reputation threshold
+  const MemVec* (*GetDiscoveredShrineUIDs)(const void*) = nullptr;   // Player: mem::vector<UniqueId> (16-byte ids)
+  const MemVec* (*GetShrineUIDs)(const void*) = nullptr;             // Player: the restored ones
   const MemVec* (*GetPlayerTransfer)(void*) = nullptr;
   bool (*AddItemToPrivateStash)(void*, unsigned, unsigned, bool) = nullptr;
   bool (*RemoveItemFromPrivateStash)(void*, unsigned) = nullptr;
@@ -74,6 +82,12 @@ struct Api {
   MsvcStringW* (*Item_GetGameDescription)(const void*, MsvcStringW*, bool, bool) = nullptr;
   const void* (*ItemEquipment_GetStaticClassInfo)() = nullptr;
   const void* (*OneShot_GetStaticClassInfo)() = nullptr;    // potions, scrolls, food, dyes, sacks: the things UseItem consumes
+  const void* (*ItemArtifactFormula_GetStaticClassInfo)() = nullptr;   // blueprints: UseItem learns them (or refuses a known one)
+  const void* (*ItemFactionBooster_GetStaticClassInfo)() = nullptr;    // mandates / writs
+  const void* (*ItemFactionWarrant_GetStaticClassInfo)() = nullptr;
+  const void* (*ItemDifficultyUnlock_GetStaticClassInfo)() = nullptr;
+  const void* (*ItemDevotionReset_GetStaticClassInfo)() = nullptr;     // Tonic of Clarity
+  const void* (*ItemEnchantment_GetStaticClassInfo)() = nullptr;       // augments: the attach picker, like components
   const void* (*ItemNote_GetStaticClassInfo)() = nullptr;   // notes: UseItem files them in the lore codex
   bool (*ItemEquipment_HasRelic)(const void*) = nullptr;   // a raw field read (+0x1558): only after the is-a check
   bool (*ItemEquipment_HasEnchantment)(const void*) = nullptr;   // same shape (+0x1560): the augment
@@ -141,6 +155,14 @@ void load_items() {
   GAPI_LOAD(g, ObjectManager_DestroyObjectEx, ObjectManager_DestroyObjectEx);
   GAPI_LOAD(g, GetItemMaxStackSize, GameEngine_GetItemMaxStackSize);
   GAPI_LOAD(g, GetPrivateStash, Player_GetPrivateStash);
+  GAPI_LOAD(g, Character_SubtractMoney, Character_SubtractMoney);
+  GAPI_LOAD(g, Player_AddSack, Player_AddSack);
+  GAPI_LOAD(g, GameEngine_AddTransferSack, GameEngine_AddTransferSack);
+  GAPI_LOAD(g, Character_GetVisibleFaction, Character_GetVisibleFaction);
+  GAPI_LOAD(g, Character_GetStaticClassInfo, Character_GetStaticClassInfo);
+  GAPI_LOAD(g, GetFactionLevelValue, GameEngine_GetFactionLevelValue);
+  GAPI_LOAD(g, GetDiscoveredShrineUIDs, Player_GetDiscoveredShrineUIDs);
+  GAPI_LOAD(g, GetShrineUIDs, Player_GetShrineUIDs);
   GAPI_LOAD(g, GetPlayerTransfer, GameEngine_GetPlayerTransfer);
   GAPI_LOAD(g, AddItemToPrivateStash, Player_AddItemToPrivateStash);
   GAPI_LOAD(g, RemoveItemFromPrivateStash, Player_RemoveItemFromPrivateStash);
@@ -156,6 +178,12 @@ void load_items() {
   GAPI_LOAD(g, Item_GetGameDescription, Item_GetGameDescription);
   GAPI_LOAD(g, ItemEquipment_GetStaticClassInfo, ItemEquipment_GetStaticClassInfo);
   GAPI_LOAD(g, OneShot_GetStaticClassInfo, OneShot_GetStaticClassInfo);
+  GAPI_LOAD(g, ItemArtifactFormula_GetStaticClassInfo, ItemArtifactFormula_GetStaticClassInfo);
+  GAPI_LOAD(g, ItemFactionBooster_GetStaticClassInfo, ItemFactionBooster_GetStaticClassInfo);
+  GAPI_LOAD(g, ItemFactionWarrant_GetStaticClassInfo, ItemFactionWarrant_GetStaticClassInfo);
+  GAPI_LOAD(g, ItemDifficultyUnlock_GetStaticClassInfo, ItemDifficultyUnlock_GetStaticClassInfo);
+  GAPI_LOAD(g, ItemDevotionReset_GetStaticClassInfo, ItemDevotionReset_GetStaticClassInfo);
+  GAPI_LOAD(g, ItemEnchantment_GetStaticClassInfo, ItemEnchantment_GetStaticClassInfo);
   GAPI_LOAD(g, ItemNote_GetStaticClassInfo, ItemNote_GetStaticClassInfo);
   GAPI_LOAD(g, ItemEquipment_HasRelic, ItemEquipment_HasRelic);
   GAPI_LOAD(g, ItemEquipment_HasEnchantment, ItemEquipment_HasEnchantment);
@@ -207,12 +235,19 @@ bool has_component(const void* item) {
 // virtual use, and when that says "consumed" it REMOVES the item from the bag before the use command has run --
 // on a crafting material (Class QuestItem, e.g. Royal Jelly) that lost the item outright (2026-09-04, live). The
 // exe's own right-click only ever sends OneShots there (potions/scrolls/food/dyes) and notes go to the codex.
+// The classes whose own virtual use does something: OneShots (potions, scrolls, food, dyes, sacks), notes (to the
+// codex), blueprints (learned; a known one is refused by the game with its own message, 2026-09-04 -- the first
+// gate let only potions and notes through and said "not usable" to a blueprint), faction mandates and warrants,
+// difficulty unlocks, the devotion tonic. NOT crafting materials / quest items (QuestItem: removed, never used),
+// components and augments (the attach picker), transmuters (the Illusionist's).
 bool is_usable(const void* item) {
   if (!item) return false;
   bool yes = false;
   guarded("is_usable", [&] {
-    if (g.OneShot_GetStaticClassInfo && world::object_is_a(item, g.OneShot_GetStaticClassInfo())) yes = true;
-    else if (g.ItemNote_GetStaticClassInfo && world::object_is_a(item, g.ItemNote_GetStaticClassInfo())) yes = true;
+    for (const void* (*sci)() : {g.OneShot_GetStaticClassInfo, g.ItemNote_GetStaticClassInfo, g.ItemArtifactFormula_GetStaticClassInfo,
+                                 g.ItemFactionBooster_GetStaticClassInfo, g.ItemFactionWarrant_GetStaticClassInfo,
+                                 g.ItemDifficultyUnlock_GetStaticClassInfo, g.ItemDevotionReset_GetStaticClassInfo})
+      if (sci && world::object_is_a(item, sci())) { yes = true; break; }
   });
   return yes;
 }
@@ -382,6 +417,37 @@ bool can_equip(unsigned item_id, int loc) {
   if (ec && g.Equip_CanItemBePlaced && item_id) guarded("CanItemBePlaced", [&] { ok = g.Equip_CanItemBePlaced(ec, loc, item_id); });
   return ok;
 }
+// The slots an item WOULD occupy, by its class alone (no requirement check). CanItemBePlaced says no to gear
+// whose level/attribute requirements the character does not meet, which is exactly when a player wants to
+// compare it against what they wear -- so Backslash falls back to this. EquipmentCtrlLocation 1..14 as in
+// equipment(): Head 1, Neck 2, Chest 3, Legs 4, Feet 5, Ring1 6, Ring2 7, Hands 8, RightHand 9, LeftHand 10,
+// Relic 11, Waist 12, Shoulders 13, Medal 14. A one-handed weapon lists the left hand only when it holds a weapon.
+std::vector<int> equip_slots_by_class(unsigned item_id) {
+  void* item = object_by_id(item_id);
+  if (!item) return {};
+  std::string cls = world::object_class_name(item);
+  auto has = [&](const char* s) { return cls.find(s) != std::string::npos; };
+  if (has("ArmorProtective_Head")) return {1};
+  if (has("ArmorJewelry_Amulet")) return {2};
+  if (has("ArmorProtective_Chest")) return {3};
+  if (has("ArmorProtective_Legs")) return {4};
+  if (has("ArmorProtective_Feet")) return {5};
+  if (has("ArmorJewelry_Ring")) return {6, 7};
+  if (has("ArmorProtective_Hands")) return {8};
+  if (has("ArmorProtective_Waist")) return {12};
+  if (has("ArmorProtective_Shoulders")) return {13};
+  if (has("ArmorJewelry_Medal")) return {14};
+  if (has("ItemArtifact") && !has("Formula")) return {11};
+  if (has("WeaponArmor_Shield") || has("WeaponArmor_Offhand")) return {10};
+  if (has("2h") || has("Ranged2h")) return {9};
+  if (has("WeaponMelee_") || has("WeaponHunting_")) {
+    std::vector<int> out{9};
+    for (const EquipSlot& s : equipment())
+      if (s.loc == 10 && s.item && world::object_class_name(s.item).find("Weapon") == 0 && world::object_class_name(s.item).find("WeaponArmor_") == std::string::npos) out.push_back(10);
+    return out;
+  }
+  return {};
+}
 // Swap the active weapon set (the two hands); returns the new state (true = alternate/set B). Everything else
 // is shared. ControllerCharacter::SetAlternateEquipment propagates to the EquipmentCtrl, so equipment() then
 // reads the new set's hands.
@@ -441,6 +507,12 @@ bool use_item(unsigned id, int source) {
 bool is_component(unsigned id) {
   void* p = object_by_id(id);
   if (!p) return false;
+  // Augments (ItemEnchantment, records/items/enchants) attach like components: Player::GetCompatibleItems knows both
+  // (the exe's bag right-click has an AddItemsCompatibleWithEnchant branch beside the relic one), so they share the
+  // picker (2026-09-04; not yet verified live for an augment).
+  bool aug = false;
+  guarded("is_component", [&] { aug = g.ItemEnchantment_GetStaticClassInfo && world::object_is_a(p, g.ItemEnchantment_GetStaticClassInfo()); });
+  if (aug) return true;
   return object_record(p).find("/items/materia/") != std::string::npos;
 }
 // The item ids this component can attach to (the game's own union of bags + equipped + stash), via
@@ -591,6 +663,42 @@ std::vector<MarketTab> market_stock(unsigned market_id) {
   }
   return out;
 }
+// The same read for an explicit tab list (the vendor window's own tab map, exe_ui::vendor_tabs): a faction vendor's
+// tiers are its own Market_TypeEnum values, and an empty tier still is a tab (locked or sold out), so empties stay.
+std::vector<MarketTab> market_stock_types(unsigned market_id, const std::vector<std::pair<int, std::string>>& tabs) {
+  std::vector<MarketTab> out;
+  void* e = engine(); load_items();
+  if (!e || !market_id || !g.GetMarketInventorySack) return out;
+  for (const auto& [type, name] : tabs) {
+    const void* sack = nullptr;
+    guarded("GetMarketInventorySack", [&] { sack = g.GetMarketInventorySack(e, market_id, type); });
+    Bag b = sack ? read_sack(sack, type) : Bag{};
+    out.push_back({type, name, std::move(b.items)});
+  }
+  return out;
+}
+// A market's merchant is an NPC (the market id is its object id): its visible faction, kNoFaction when unknown.
+int merchant_faction(unsigned market_id) {
+  void* npc = object_by_id(market_id);
+  int f = kNoFaction;
+  if (!npc || !g.Character_GetVisibleFaction || !g.Character_GetStaticClassInfo) return f;
+  guarded("GetVisibleFaction", [&] { if (world::object_is_a(npc, g.Character_GetStaticClassInfo())) f = g.Character_GetVisibleFaction(npc); });
+  return f;
+}
+// The reputation value a faction state begins at (gamefactions.dbr factionValueN, looked up by its tag through the
+// game). The argument is a read-only std::string view over our own buffer; the callee only reads it.
+float faction_level_value(const char* level_tag) {
+  void* e = engine();
+  if (!e || !g.GetFactionLevelValue || !level_tag) return 0.0f;
+  std::string text(level_tag);
+  MsvcStringA s{};
+  if (text.size() < 16) { memcpy(s.u.buf, text.c_str(), text.size() + 1); s.capacity = 15; }
+  else { s.u.ptr = text.data(); s.capacity = text.size(); }
+  s.size = text.size();
+  float v = 0.0f;
+  guarded("GetFactionLevelValue", [&] { v = g.GetFactionLevelValue(e, &s); });
+  return v;
+}
 std::string market_price_text(unsigned market_id, unsigned item_id, bool buying) {
   void* e = engine(); load_items();
   if (!e || !market_id || !item_id) return {};
@@ -687,6 +795,15 @@ bool unsplit_stack(unsigned item_id) {
   log::writef("gameapi: unsplit {} -> {}", item_id, ok);
   return ok;
 }
+// ---- devotion shrines the character knows (the riftgate map's icons): discovered = seen, restored = cleansed ----
+ShrineUids shrine_uids() {
+  ShrineUids out;
+  void* p = player();
+  if (!p) return out;
+  if (g.GetDiscoveredShrineUIDs) guarded("GetDiscoveredShrineUIDs", [&] { out.discovered = vec_items<UniqueId>(g.GetDiscoveredShrineUIDs(p), 256); });
+  if (g.GetShrineUIDs) guarded("GetShrineUIDs", [&] { out.restored = vec_items<UniqueId>(g.GetShrineUIDs(p), 256); });
+  return out;
+}
 // ---- the caravan ----
 std::vector<Bag> stash_sacks() {
   std::vector<Bag> out;
@@ -711,6 +828,58 @@ bool stash_to_bag(int sack_index, unsigned item_id) {
   });
   invalidate_objects();
   log::writef("gameapi: stash sack {} item {} to bag ok={}", sack_index, item_id, ok);
+  return ok;
+}
+const void* stash_sack_vector(bool shared) {
+  void* p = player(); void* e = engine();
+  const MemVec* v = nullptr;
+  if (shared) { if (e && g.GetPlayerTransfer) guarded("GetPlayerTransfer", [&] { v = g.GetPlayerTransfer(e); }); }
+  else { if (p && g.GetPrivateStash) guarded("GetPrivateStash", [&] { v = g.GetPrivateStash(p); }); }
+  return v;
+}
+// The exe's buy handler (exe+0x131150 private / +0x1316d0 transfer) minus its UI: money >= cost, SubtractMoney, then
+// Player::AddSack / GameEngine::AddTransferSack. The caller checks the tab count and refreshes the window (exe_ui).
+bool buy_stash_sack(bool shared, unsigned cost) {
+  void* p = player(); void* e = engine();
+  if (!p || !e || !g.Character_SubtractMoney || (shared ? !g.GameEngine_AddTransferSack : !g.Player_AddSack)) return false;
+  if (money() < (int)cost) return false;
+  bool ok = false;
+  guarded("buy stash sack", [&] {
+    g.Character_SubtractMoney(p, cost);
+    ok = shared ? g.GameEngine_AddTransferSack(e) : g.Player_AddSack(p);
+  });
+  invalidate_objects();
+  log::writef("gameapi: buy {} stash sack for {} ok={}", shared ? "transfer" : "private", cost, ok);
+  return ok;
+}
+// Into the stash from the bag, whichever sack has room: the game's selected sack first (what its shift-click uses),
+// then the others in order. Same three calls as bag_to_stash per attempt.
+bool bag_to_stash_any(unsigned item_id, bool shared) {
+  void* p = player(); void* e = engine(); void* ic = inv_ctrl(); void* c = controller();
+  if (!p || !e || !ic || !c || !g.Inv_RemoveItem || !g.SendRemoveItemFromInventory) return false;
+  const void* vec = stash_sack_vector(shared);
+  size_t n = vec ? vec_items<void*>((const MemVec*)vec, 16).size() : 0;
+  if (n == 0) return false;
+  std::vector<unsigned> order;
+  unsigned sel = 0;
+  guarded("selected stash sack", [&] { sel = shared ? (g.GetSelectedTransferSackNumber ? g.GetSelectedTransferSackNumber(e) : 0) : (g.GetSelectedStashSackNumber ? g.GetSelectedStashSackNumber(p) : 0); });
+  if (sel < n) order.push_back(sel);
+  for (unsigned i = 0; i < n; ++i) if (i != sel) order.push_back(i);
+  bool ok = false;
+  for (unsigned sack : order) {
+    bool added = false;
+    guarded("bag to stash any", [&] {
+      added = shared ? (g.AddItemToTransfer && g.AddItemToTransfer(e, item_id, sack, true))
+                     : (g.AddItemToPrivateStash && g.AddItemToPrivateStash(p, sack, item_id, true));
+      if (!added) return;
+      g.Inv_RemoveItem(ic, item_id, true);
+      g.SendRemoveItemFromInventory(c, item_id);
+      ok = true;
+    });
+    if (ok) break;
+  }
+  invalidate_objects();
+  log::writef("gameapi: bag item {} to {} stash (any sack) ok={}", item_id, shared ? "transfer" : "private", ok);
   return ok;
 }
 // The bag's shift-click while the caravan is open (exe+0x1eaa65): into the selected stash / transfer sack.

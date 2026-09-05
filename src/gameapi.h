@@ -93,7 +93,8 @@ unsigned salvage_cost(const void* item);
 unsigned dismantle_cost(const void* item);
 std::vector<EquipSlot> equipment();
 bool alternate_weapons();                        // the weapon-swap set in use (EquipmentCtrl::GetIsAlternate)
-bool can_equip(unsigned item_id, int loc);       // EquipmentCtrl::CanItemBePlaced -- the equip picker's filter
+bool can_equip(unsigned item_id, int loc);
+std::vector<int> equip_slots_by_class(unsigned item_id);   // the slots its class fits, requirements ignored (Backslash compare on gear you can't wear yet)       // EquipmentCtrl::CanItemBePlaced -- the equip picker's filter
 bool swap_weapon_set();                          // toggle the active weapon set (the two hands); returns new state (true = alternate)
 unsigned money();                                // iron bits
 bool dev_add_money(unsigned bits);               // dev only: Character::AddMoney
@@ -115,6 +116,10 @@ bool attach_component(unsigned component_id, unsigned target_id, int source);   
 // ---- merchants and the caravan ----
 struct MarketTab { int type; std::string name; std::vector<BagItem> items; };   // one per Market_TypeEnum the merchant stocks (probed 0..7)
 std::vector<MarketTab> market_stock(unsigned market_id);
+std::vector<MarketTab> market_stock_types(unsigned market_id, const std::vector<std::pair<int, std::string>>& tabs);   // explicit tab types (exe_ui::vendor_tabs); empty tabs kept
+constexpr int kNoFaction = -1000;
+int merchant_faction(unsigned market_id);              // Character::GetVisibleFaction of the merchant NPC, kNoFaction when unknown
+float faction_level_value(const char* level_tag);      // GameEngine::GetFactionLevelValue(tagFactionStateFriend2) = the tier's reputation threshold
 std::string market_price_text(unsigned market_id, unsigned item_id, bool buying);   // CreateUIPlayerBuyText / SellText, joined
 bool buy(unsigned market_id, unsigned item_id);          // GameEngine::PlayerPurchaseRequest
 bool sell(unsigned market_id, unsigned item_id);         // the bag's right-click-to-sell: PlayerSaleRequest + bag removal
@@ -126,9 +131,15 @@ unsigned split_stack(unsigned item_id, unsigned count);
 bool sell_split(unsigned market_id, unsigned item_id);
 bool unsplit_stack(unsigned item_id);
 std::string vendor_dump(unsigned market_id);              // dev: market map keys + market_stock(id) probe
+struct UniqueId { uint8_t b[16] = {}; bool operator==(const UniqueId&) const = default; };   // GAME::UniqueId (4 ints)
+struct ShrineUids { std::vector<UniqueId> discovered, restored; };
+ShrineUids shrine_uids();                                // Player::GetDiscoveredShrineUIDs / GetShrineUIDs
 std::vector<Bag> stash_sacks();                          // private stash sacks (index 0..) then transfer sacks (index 100..)
 bool stash_to_bag(int sack_index, unsigned item_id);     // the stash grid's shift-click: to the bag
 bool bag_to_stash(unsigned item_id);                     // the bag's shift-click while the caravan is open
+bool bag_to_stash_any(unsigned item_id, bool shared);    // into the first sack with room (the selected one first)
+const void* stash_sack_vector(bool shared);              // Player::GetPrivateStash / GameEngine::GetPlayerTransfer (mem::vector<InventorySack*>)
+bool buy_stash_sack(bool shared, unsigned cost);         // SubtractMoney + AddSack / AddTransferSack (the exe's buy handler minus its UI)
 // Quickbar layout (47 slots per weapon config): bars 1..4 start at 0, 14, 26, 36; left mouse 10 (config A) / 11
 // (config B); right mouse 12 / 13; health potion 24; energy potion 25; evade 46.
 unsigned quickbar_slot_index(int bar, int k);    // bar 0..3, k 1..10

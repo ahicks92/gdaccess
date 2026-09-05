@@ -117,6 +117,7 @@ class GraphNavigator {
   GraphState scratch_state_;
   std::unique_ptr<KeyGraph> graph_;
   std::optional<ControlId> last_spoken_key_;
+  std::vector<ControlId> last_spoken_path_;   // its context path, for when the node itself has vanished
   // The last spoken node, resolved by id in the CURRENT render. Never keep a GraphNode* across frames: the
   // graph is rebuilt immediate-mode and a stored pointer dangles (crashed the game in the announcer's path
   // walk, 2026-08-21). Null when that node is not in this render.

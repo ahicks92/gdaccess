@@ -328,6 +328,45 @@ inline constexpr const char* ItemNote_GetStaticClassInfo = "?GetStaticClassInfo@
 // public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::OneShot::GetStaticClassInfo(void)
 inline constexpr const char* OneShot_GetStaticClassInfo_DLL = "Game.dll";
 inline constexpr const char* OneShot_GetStaticClassInfo = "?GetStaticClassInfo@OneShot@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
+// public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::ItemArtifactFormula::GetStaticClassInfo(void)
+inline constexpr const char* ItemArtifactFormula_GetStaticClassInfo_DLL = "Game.dll";
+inline constexpr const char* ItemArtifactFormula_GetStaticClassInfo = "?GetStaticClassInfo@ItemArtifactFormula@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
+// public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::ItemFactionBooster::GetStaticClassInfo(void)
+inline constexpr const char* ItemFactionBooster_GetStaticClassInfo_DLL = "Game.dll";
+inline constexpr const char* ItemFactionBooster_GetStaticClassInfo = "?GetStaticClassInfo@ItemFactionBooster@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
+// public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::ItemFactionWarrant::GetStaticClassInfo(void)
+inline constexpr const char* ItemFactionWarrant_GetStaticClassInfo_DLL = "Game.dll";
+inline constexpr const char* ItemFactionWarrant_GetStaticClassInfo = "?GetStaticClassInfo@ItemFactionWarrant@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
+// public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::ItemDifficultyUnlock::GetStaticClassInfo(void)
+inline constexpr const char* ItemDifficultyUnlock_GetStaticClassInfo_DLL = "Game.dll";
+inline constexpr const char* ItemDifficultyUnlock_GetStaticClassInfo = "?GetStaticClassInfo@ItemDifficultyUnlock@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
+// public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::ItemDevotionReset::GetStaticClassInfo(void)
+inline constexpr const char* ItemDevotionReset_GetStaticClassInfo_DLL = "Game.dll";
+inline constexpr const char* ItemDevotionReset_GetStaticClassInfo = "?GetStaticClassInfo@ItemDevotionReset@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
+// public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::ItemEnchantment::GetStaticClassInfo(void)
+inline constexpr const char* ItemEnchantment_GetStaticClassInfo_DLL = "Game.dll";
+inline constexpr const char* ItemEnchantment_GetStaticClassInfo = "?GetStaticClassInfo@ItemEnchantment@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
+// public: class mem::vector<class GAME::UniqueId> const & __ptr64 __cdecl GAME::Player::GetDiscoveredShrineUIDs(void)const __ptr64
+inline constexpr const char* Player_GetDiscoveredShrineUIDs_DLL = "Game.dll";
+inline constexpr const char* Player_GetDiscoveredShrineUIDs = "?GetDiscoveredShrineUIDs@Player@GAME@@QEBAAEBV?$vector@VUniqueId@GAME@@@mem@@XZ";
+// public: class mem::vector<class GAME::UniqueId> const & __ptr64 __cdecl GAME::Player::GetShrineUIDs(void)const __ptr64
+inline constexpr const char* Player_GetShrineUIDs_DLL = "Game.dll";
+inline constexpr const char* Player_GetShrineUIDs = "?GetShrineUIDs@Player@GAME@@QEBAAEBV?$vector@VUniqueId@GAME@@@mem@@XZ";
+// public: enum GAME::FactionType __cdecl GAME::Character::GetVisibleFaction(void)const __ptr64
+inline constexpr const char* Character_GetVisibleFaction_DLL = "Game.dll";
+inline constexpr const char* Character_GetVisibleFaction = "?GetVisibleFaction@Character@GAME@@QEBA?AW4FactionType@2@XZ";
+// public: float const __cdecl GAME::GameEngine::GetFactionLevelValue(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const & __ptr64) __ptr64
+inline constexpr const char* GameEngine_GetFactionLevelValue_DLL = "Game.dll";
+inline constexpr const char* GameEngine_GetFactionLevelValue = "?GetFactionLevelValue@GameEngine@GAME@@QEAA?BMAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z";
+// public: unsigned int const __cdecl GAME::Character::SubtractMoney(unsigned int) __ptr64
+inline constexpr const char* Character_SubtractMoney_DLL = "Game.dll";
+inline constexpr const char* Character_SubtractMoney = "?SubtractMoney@Character@GAME@@QEAA?BII@Z";
+// public: bool __cdecl GAME::Player::AddSack(void) __ptr64
+inline constexpr const char* Player_AddSack_DLL = "Game.dll";
+inline constexpr const char* Player_AddSack = "?AddSack@Player@GAME@@QEAA_NXZ";
+// public: bool __cdecl GAME::GameEngine::AddTransferSack(void) __ptr64
+inline constexpr const char* GameEngine_AddTransferSack_DLL = "Game.dll";
+inline constexpr const char* GameEngine_AddTransferSack = "?AddTransferSack@GameEngine@GAME@@QEAA_NXZ";
 // public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::Player::GetStaticClassInfo(void)
 inline constexpr const char* Player_GetStaticClassInfo_DLL = "Game.dll";
 inline constexpr const char* Player_GetStaticClassInfo = "?GetStaticClassInfo@Player@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
@@ -1294,9 +1333,6 @@ inline constexpr const char* ItemArtifactFormula_GetCreationCost = "?GetCreation
 // public: virtual int const __cdecl GAME::ItemArtifactFormula::GetMaximumCraftable(class GAME::Character const * __ptr64) __ptr64
 inline constexpr const char* ItemArtifactFormula_GetMaximumCraftable_DLL = "Game.dll";
 inline constexpr const char* ItemArtifactFormula_GetMaximumCraftable = "?GetMaximumCraftable@ItemArtifactFormula@GAME@@UEAA?BHPEBVCharacter@2@@Z";
-// public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::ItemArtifactFormula::GetStaticClassInfo(void)
-inline constexpr const char* ItemArtifactFormula_GetStaticClassInfo_DLL = "Game.dll";
-inline constexpr const char* ItemArtifactFormula_GetStaticClassInfo = "?GetStaticClassInfo@ItemArtifactFormula@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
 // public: enum GAME::ItemClassification __cdecl GAME::Item::GetDropClassification(void)const __ptr64
 inline constexpr const char* Item_GetDropClassification_DLL = "Game.dll";
 inline constexpr const char* Item_GetDropClassification = "?GetDropClassification@Item@GAME@@QEBA?AW4ItemClassification@2@XZ";

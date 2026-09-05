@@ -47,18 +47,27 @@ const NodeAnnouncement& auto_position_probe() {
 
 }  // namespace
 
+std::vector<ControlId> GraphAnnouncer::path_ids(const GraphNode* node) {
+  std::vector<ControlId> ids;
+  for (const GraphNode* n : path_of(node)) ids.push_back(n->id);
+  return ids;
+}
+
 std::optional<std::string> GraphAnnouncer::compose(const GraphNode* from, const GraphNode* to,
                                                   std::string_view transition_label) {
+  return compose_from_path(path_ids(from), to, transition_label);
+}
+
+std::optional<std::string> GraphAnnouncer::compose_from_path(const std::vector<ControlId>& from_path, const GraphNode* to,
+                                                            std::string_view transition_label) {
   if (to == nullptr) return std::nullopt;
 
   const std::vector<const GraphNode*> to_path = path_of(to);
-  const std::vector<const GraphNode*> from_path =
-      from != nullptr ? path_of(from) : std::vector<const GraphNode*>();
 
   // Common prefix by identity -- levels we were already inside (or ON: descending from a group onto its
   // child keeps the group in the prefix) stay silent.
   std::size_t i = 0;
-  while (i < from_path.size() && i < to_path.size() && from_path[i]->id == to_path[i]->id) i++;
+  while (i < from_path.size() && i < to_path.size() && from_path[i] == to_path[i]->id) i++;
 
   MessageBuilder message;
   bool any = false;

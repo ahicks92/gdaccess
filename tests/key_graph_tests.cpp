@@ -475,3 +475,24 @@ TEST_CASE("focus and focus-by-reference work") {
   CHECK(state.cur_key == id("a"));
   CHECK_FALSE(g.focus(id("nope")));
 }
+
+TEST_CASE("a vanished first row lands on the next row of its own stop, not the previous stop's last node") {
+  GraphState state;
+  std::vector<std::string> items{"a", "b", "c"};
+  auto actionable = [](std::string label) { NodeVtablePtr v = vt(std::move(label)); v->on_activate = [] {}; return v; };
+  KeyGraph g(
+      [&] {
+        GraphBuilder b;
+        b.begin_stop("tabs");
+        b.add_item(id("tab0"), actionable("stash"));
+        b.begin_stop("mine");
+        for (const std::string& i : items) b.add_item(id(i), actionable(i));
+        return b.build();
+      },
+      &state);
+  CHECK(g.rerender());
+  CHECK(g.focus(id("a")));
+  items.erase(items.begin());   // Enter moved "a" away
+  CHECK(g.rerender());
+  CHECK(state.cur_key == id("b"));   // the builder stamped the rows with their stop: the row-vanish rule applies
+}

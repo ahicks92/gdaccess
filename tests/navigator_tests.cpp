@@ -1,5 +1,6 @@
 // GraphNavigator through a real Screen: edges of a list repeat the focused item instead of going silent.
 #include <doctest/doctest.h>
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <vector>
@@ -186,4 +187,46 @@ TEST_CASE("Home/End on a top-level tree group stay within the page stop, never t
   CHECK(home.find("hdr") != std::string::npos);
   CHECK(home.find("t1") == std::string::npos);
   CHECK(act(ui_actions::End).find("g2") != std::string::npos);
+}
+
+namespace {
+// A titled list whose rows remove themselves on Enter (the stash screen's "your items").
+struct VanishScreen : Screen {
+  std::vector<std::string> items{"a", "b", "c"};
+  std::string_view key() const override { return "vanish"; }
+  bool is_active() override { return true; }
+  std::string screen_name() const override { return "vanish"; }
+  void build(GraphBuilder& b) override {
+    b.begin_stop("tabs");
+    auto tab = vt("stash"); tab->on_activate = [] {};
+    b.add_item(id("tab0"), tab);
+    b.begin_stop("mine");
+    b.push_context("your items", "list");
+    for (const std::string& i : items) {
+      auto v = vt(i);
+      v->on_activate = [this, i] { items.erase(std::find(items.begin(), items.end(), i)); };
+      b.add_item(ControlId::structural(i), v);
+    }
+    b.pop_context();
+  }
+};
+}  // namespace
+
+TEST_CASE("Enter that removes the focused row lands on the next row and reads it as a sibling, not the title again") {
+  std::vector<std::string> spoken;
+  int frame = 0;
+  VanishScreen screen;
+  GraphNavigator nav{NavigatorHost{[&](std::string_view t, bool) { spoken.emplace_back(t); }, {}, [] { return true; }, [&] { return frame; }}};
+  nav.attach(&screen); nav.ensure_focus();
+  nav.focus_node(id("a"), false); frame += 100; nav.ensure_focus();
+  spoken.clear();
+  nav.on_action("ui.activate");   // removes "a"
+  frame += 100; nav.ensure_focus();      // past the idle-render throttle: the rebuild, focus must land on "b"
+  REQUIRE(!spoken.empty());
+  CHECK(spoken.back() == "b");           // not "your items, b"
+  spoken.clear();
+  nav.on_action("ui.activate");   // removes "b"
+  frame += 100; nav.ensure_focus();
+  REQUIRE(!spoken.empty());
+  CHECK(spoken.back() == "c");
 }

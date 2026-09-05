@@ -498,6 +498,7 @@ bool read_entity(void* e, EntityRaw& r) {
 }
 }  // namespace
 const void* object_rtti(const void* obj) { return rtti_of(obj); }
+std::string object_class_name(const void* obj) { return class_name(obj); }
 namespace { bool is_kind_of(const void* ci, const void* base); }
 bool object_is_a(const void* obj, const void* class_info) { return obj && class_info && is_kind_of(rtti_of(obj), class_info); }
 
@@ -1743,7 +1744,11 @@ bool in_group(const void* e, const void* ci, const std::string& cls, ScanGroup g
     // rifts, shrines, doors, levers), M = loot only (items on the ground, containers), B = flavour NPCs.
     // A subclassed Npc (NpcMerchant Kerrick -- HasConversation is FALSE for merchants, the vendor window is
     // not a conversation) is specialized BECAUSE it does something important: N regardless.
-    case ScanGroup::Neutrals: return (is_a(ci, g_api.Npc_StaticClassInfo) && (npc_has_conversation(e) || cls != "Npc")) || (is_of_interest(e, ci) && !is_loot(ci, cls));
+    // Every DungeonEntrance is in N whatever IsOfInterest says (2026-09-04, Hanneffy Mine): the one-way exit shaft the
+    // player dropped in through is locked = not of interest, yet the sonar's transition cue pings it -- N must be able
+    // to name what the ear hears. scan() marks such an entrance "locked".
+    case ScanGroup::Neutrals: return (is_a(ci, g_api.Npc_StaticClassInfo) && (npc_has_conversation(e) || cls != "Npc")) || (is_of_interest(e, ci) && !is_loot(ci, cls)) ||
+                                     is_named_kind(ci, "DungeonEntrance");
     // B = flavour NPCs + breakables (2026-08-25: a quest asks for destructibles; no sound for them yet).
     case ScanGroup::Bystanders: return (is_a(ci, g_api.Npc_StaticClassInfo) && cls == "Npc" && !npc_has_conversation(e)) || is_live_destructible(e, ci);
     case ScanGroup::Objects:
@@ -1913,7 +1918,12 @@ std::vector<ScanItem> scan(ScanGroup group, float radius) {
       float pct; read_enemy_stats(e, lvl, cls_i, pct);   // level + rarity for the readout (pct unused here)
     }
     std::string label = entity_label(e, r.ci, cls);  // an unlabelled object is read by its class name (cycle_review)
-    out.push_back({r.id, cls, label, record, r.pos, d, std::string{}, lvl, cls_i});
+    std::string note;
+    if (is_named_kind(r.ci, "DungeonEntrance")) {   // a one-way exit shaft: no name, and the game says not usable
+      if (label.empty()) label = std::string(gd::strings::kEntrance);
+      if (!is_of_interest(e, r.ci)) note = std::string(gd::strings::kLocked);
+    }
+    out.push_back({r.id, cls, label, record, r.pos, d, note, lvl, cls_i});
   }
   std::sort(out.begin(), out.end(), [](const ScanItem& a, const ScanItem& b) { return a.dist < b.dist; });
   return out;
@@ -2338,11 +2348,23 @@ bool player_screen_pos(float& x, float& y) {
   return player_world_vec(base) && project_point(world_pos_of(base), x, y);
 }
 // Where a press lands; false when there is nothing on screen to press.
-bool press_point(float& x, float& y) {
+// over_hud: the point is on the game's HUD (exe_ui::point_over_hud) -- the UI would take the click (a hotslot, a
+// menu button), the world would never see it, so it is not a press point (2026-09-04).
+bool press_point(float& x, float& y, bool* over_hud = nullptr) {
   float w, h;
+  if (over_hud) *over_hud = false;
   if (!client_size(w, h)) return false;
-  if (g_locked_id || g_point_locked) return virtual_cursor_pos(x, y) && inside_window(x, y, w, h);
-  return gd::hooks::real_cursor_in_window(x, y);
+  bool ok = (g_locked_id || g_point_locked) ? (virtual_cursor_pos(x, y) && inside_window(x, y, w, h)) : gd::hooks::real_cursor_in_window(x, y);
+  if (ok && gd::exe_ui::point_over_hud(x, y)) { if (over_hud) *over_hud = true; return false; }
+  return ok;
+}
+// A release must reach the world's mouse handler (the exe clears its held byte on the first event with both buttons
+// up, and the UI would swallow an event on the HUD like it swallows one off the window): keep it off the HUD.
+void avoid_hud(float& x, float& y, float w, float h) {
+  if (!gd::exe_ui::point_over_hud(x, y)) return;
+  float px, py;
+  if (player_screen_pos(px, py) && inside_window(px, py, w, h) && !gd::exe_ui::point_over_hud(px, py)) { x = px; y = py; return; }
+  x = w / 2; y = h * 0.3f;
 }
 // Where a release lands: always inside the window (see above).
 void release_point(float& x, float& y) {
@@ -2352,10 +2374,10 @@ void release_point(float& x, float& y) {
   bool have_player = player_screen_pos(px, py) && inside_window(px, py, w, h);
   float tx, ty;
   if (virtual_cursor_pos(tx, ty)) {
-    if (inside_window(tx, ty, w, h)) { x = tx; y = ty; return; }
-    if (have_player && gd::core::clip_toward(px, py, tx, ty, w, h, kEdgeMargin, x, y)) return;
+    if (inside_window(tx, ty, w, h)) { x = tx; y = ty; avoid_hud(x, y, w, h); return; }
+    if (have_player && gd::core::clip_toward(px, py, tx, ty, w, h, kEdgeMargin, x, y)) { avoid_hud(x, y, w, h); return; }
   }
-  if (have_player) { x = px; y = py; return; }   // the target is gone (a dead lock is released before we get here)
+  if (have_player) { x = px; y = py; avoid_hud(x, y, w, h); return; }   // the target is gone (a dead lock is released before we get here)
   x = w / 2; y = h / 2;
 }
 void release_hold(int button) {
@@ -2378,10 +2400,12 @@ void mouse_key(int button, bool held) {
     return;
   }
   float x, y;
-  if (!press_point(x, y)) {
+  bool over_hud = false;
+  if (!press_point(x, y, &over_hud)) {
     // The lock is on something the camera does not show, or nothing is locked and the real cursor is off the
-    // window: nothing to press. A hold in progress whose target just left the window ends here, on screen.
-    if (edge) gd::speech::speak((g_locked_id || g_point_locked) ? gd::strings::kTooFarAway : gd::strings::kNoTarget, true);
+    // window: nothing to press. A hold in progress whose target just left the window ends here, on screen. A point on
+    // the HUD is refused too: the click would land on a hotslot or menu button, not on the target behind it.
+    if (edge) gd::speech::speak(over_hud ? gd::strings::kBehindInterface : (g_locked_id || g_point_locked) ? gd::strings::kTooFarAway : gd::strings::kNoTarget, true);
     release_hold(button);
     return;
   }

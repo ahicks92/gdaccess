@@ -18,6 +18,7 @@
 #include "screens/in_game.h"
 #include "screens/inventory.h"
 #include "screens/quickbar.h"
+#include "shrine_table.h"
 #include "gameapi.h"
 #include <cmath>
 #include <winsock2.h>
@@ -293,6 +294,26 @@ static std::string handle(const std::string& path, const std::map<std::string, s
       out += std::format("  '{}' at ({}, {}, {}) obj={} owner={} uid={:#x}:{:#x}:{:#x}:{:#x} current={}\n", g.name, g.pos[0], g.pos[1], g.pos[2], g.object_id, g.owner, (unsigned)g.uid[0], (unsigned)g.uid[1], (unsigned)g.uid[2], (unsigned)g.uid[3], g.current);
     return out;
   }
+  if (path == "/shrines") {   // dev: the character's shrine UIDs vs the offline shrine table (src/shrine_table.h) -- is the UID the chunk GUID?
+    gameapi::ShrineUids u = gameapi::shrine_uids();
+    auto hex = [](const gameapi::UniqueId& id) { std::string h; for (int i = 0; i < 16; ++i) h += std::format("{:02x}", id.b[i]); return h; };
+    std::string out = std::format("discovered={} restored={}\n", u.discovered.size(), u.restored.size());
+    for (const gameapi::UniqueId& id : u.discovered) out += "  discovered " + hex(id) + "\n";
+    for (const gameapi::UniqueId& id : u.restored) out += "  restored   " + hex(id) + "\n";
+    out += "table:\n";
+    for (const shrine_table::Shrine& s : shrine_table::kShrines) {
+      gameapi::UniqueId id; std::memcpy(id.b, s.guid, 16);
+      bool d = std::find(u.discovered.begin(), u.discovered.end(), id) != u.discovered.end(), r = std::find(u.restored.begin(), u.restored.end(), id) != u.restored.end();
+      out += std::format("  {} {:28} '{}' chunk {} at ({}, {}, {}) corrupted={} ruined={} discovered={} restored={}\n", hex(id), s.icon, s.area, s.chunk, s.x, s.y, s.z, s.corrupted, s.ruined, d, r);
+    }
+    return out;
+  }
+  if (path == "/hud") {   // dev: the HUD rectangles the mouse keys refuse (exe_ui::hud_rects) + a point test ?x=&y=
+    std::string out;
+    for (const exe_ui::Rect& r : exe_ui::hud_rects()) out += std::format("  rect x={:.1f} y={:.1f} w={:.1f} h={:.1f}\n", r.x, r.y, r.w, r.h);
+    if (q.count("x") && q.count("y")) out += std::format("  point ({}, {}) over_hud={}\n", q.at("x"), q.at("y"), exe_ui::point_over_hud((float)atof(q.at("x").c_str()), (float)atof(q.at("y").c_str())));
+    return out.empty() ? "no hud rects\n" : out;
+  }
   if (path == "/mapnuggets") return exe_ui::map_nuggets_dump(parse_int(q.count("max") ? q.at("max") : "80", 80));   // the aerial map's cached icon nuggets (dev)
   if (path == "/mapmarkers") return world::map_markers_dump();   // the aerial map's icons, named + nearest-first (dev)
   if (path == "/sonar") {   // the sonar field: ?on=0|1 &radius= &vol= &ref= &floor= &pnear= &pfar= &dnear= &dfar= &force=
@@ -399,7 +420,13 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     return out;
   }
   if (path == "/vendor") {   // ?id=<market id candidate>: the engine's market map + market_stock(id) (dev)
-    std::string v = std::format("market window: visible={} vendor_market_id={}\n", exe_ui::ingame_window(exe_ui::ingame::kMarket).visible(), exe_ui::vendor_market_id(exe_ui::ingame_window(exe_ui::ingame::kMarket)));
+    std::string v;
+    for (unsigned off : {exe_ui::ingame::kMarket, exe_ui::ingame::kFactionVendor}) {
+      exe_ui::WindowB w = exe_ui::ingame_window(off);
+      v += std::format("window +{:#x}: visible={} market_id={} selected_type={} merchant_faction={}\n", off, w.visible(), exe_ui::vendor_market_id(w), exe_ui::vendor_selected_type(w), gameapi::merchant_faction(exe_ui::vendor_market_id(w)));
+      for (const exe_ui::VendorTab& t : exe_ui::vendor_tabs(w)) v += std::format("  tab index={} type={} button={} disabled={}\n", t.index, t.type, t.button, t.disabled);
+    }
+    for (const char* tag : {"tagFactionStateFriend1", "tagFactionStateFriend2", "tagFactionStateFriend4", "tagFactionStateFriend5"}) v += std::format("  {} -> {}\n", tag, gameapi::faction_level_value(tag));
     return v + gameapi::vendor_dump(q.count("id") ? (unsigned)parse_int(q.at("id"), 0) : 0u);
   }
   if (path == "/inv") {      // ?tip=<id>[&simple=1] | ?use=<id>[&source=N] | ?drop=<id> | ?unequip=<loc> | ?equip=<id>&loc=<loc> | ?bag=<n> | ?source=N (the UseItem ItemSource knob)

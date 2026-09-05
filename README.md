@@ -132,7 +132,7 @@ arranged around a review cursor. The game's own bindings must stay at their defa
 | Ctrl+Tab / Ctrl+Shift+Tab | Switch tabs from anywhere in a window. On the tab row itself, Left / Right open the tab you land on |
 | Enter | Activate |
 | Backspace | Secondary action: unequip an item; reclaim a skill point at a spirit guide |
-| \ (backslash) | On an item in a bag, a vendor or the stash: what you have equipped in the slot it would go to -- the slot, the item and its tooltip ("nothing equipped" for an empty slot). The game's side-by-side comparison, spoken |
+| \ (backslash) | On an item in a bag, a vendor or the stash: what you have equipped in the slot it would go to -- the slot, the item and its tooltip ("nothing equipped" for an empty slot). The game's side-by-side comparison, spoken. Works on gear whose level or attribute requirements you do not meet yet (the slot is taken from the item's kind) |
 | Space | The game's tooltip for the item; Ctrl+Space the detailed one |
 | Escape | Back / close |
 | Letters | Type-ahead to a matching item, where the screen allows it |
@@ -146,7 +146,7 @@ character; Enter selects); then Start / difficulty / game mode / Delete.
 |---|---|
 | W A S D | Move |
 | Space | Evade (with Options -> Gameplay -> Evade To Cursor OFF: in the movement direction while moving, the way you face when standing) |
-| J or Enter | Left mouse button at the reviewed thing: attack / talk / open / move, whatever a click does. Hold to hold (sustained attack). On a reviewed ground item, the game's walk-and-pick-up instead; on a reviewed door, ladder, chest, lever or shrine, the game's walk-and-use. "Too far away" when the camera does not show the thing |
+| J or Enter | Left mouse button at the reviewed thing: attack / talk / open / move, whatever a click does. Hold to hold (sustained attack). On a reviewed ground item, the game's walk-and-pick-up instead; on a reviewed door, ladder, chest, lever or shrine, the game's walk-and-use. "Too far away" when the camera does not show the thing; "behind the interface" when its point on screen lies on the HUD, where a click would hit a hotslot or menu button instead (step aside, or wait for it to move) |
 | I | Right mouse button at the reviewed thing (the right-hand skill), same rules |
 | U | Interact with the nearest usable thing within 10 units (door, chest, shrine, NPC), no aiming |
 | G | Pick up the nearest item on the ground |
@@ -165,7 +165,7 @@ itself hovers and targets it, and plays a route ping. Shift reverses; Alt jumps 
 |---|---|
 | . / Shift+. | Next / previous enemy, nearest first ("name level N", plus champion / hero / boss when it is one) |
 | , / Shift+, | Next / previous among only the highest-rarity enemies nearby (find the boss) |
-| N / Shift+N | Next / previous person or object: NPCs you can talk to; rifts, shrines, doors, levers |
+| N / Shift+N | Next / previous person or object: NPCs you can talk to; rifts, shrines, doors, levers, every dungeon entrance (a one-way exit you came in through reads "entrance, locked") |
 | B / Shift+B | Next / previous bystander (NPCs without a conversation) or breakable (barrels, crates, jugs, quest destructibles -- hold J to smash) |
 | M / Shift+M | Next / previous loot: items on the ground, containers |
 | V / Shift+V | Next / previous exit of the current room ("blocked" if the way is shut) |
@@ -174,7 +174,7 @@ itself hovers and targets it, and plays a route ping. Shift reverses; Alt jumps 
 | ; | Ping the reviewed thing again: one of three sounds (straight walk / path around / unreachable), panned, fading with distance. Also replayed automatically when the route kind changes |
 | / | Inspect the target: health percent and status effects |
 | \ | Sonar on / off: every nearby enemy, loot drop, breakable, devotion shrine (ruined shrines have their own sound; restored ones share the loot ping), dungeon entrance and other person or thing you can use (quest NPCs, merchants, doors, levers, riftgates, notes, graves) repeats its own ping, faster as it nears and panned to its side |
-| Ctrl+M | The map as a flat nearest-first list of its markers (merchants, riftgate, spirit guide, quest markers); Enter picks one to follow |
+| Ctrl+M | The map: a nearest-first list of its markers (merchants, riftgate, spirit guide, quest markers), then a second Tab stop with every devotion shrine you have discovered anywhere ("desecrated shrine, Burrwitch" / "not restored, Burrwitch Village Rift, 1200 away, 3 o'clock"); Enter picks one to follow |
 | ' | Follow the picked map marker: route ping plus "name, distance, bearing" |
 
 ### Information
@@ -234,8 +234,15 @@ quickbar slot from the hotbar manager and works against the locked target like a
 | Ctrl+K, Ctrl+G, Ctrl+H, Ctrl+V, Ctrl+B, Ctrl+X, Ctrl+Z, Ctrl+P, Ctrl+], Ctrl+\, Ctrl+Enter | The game's own group, game menu, help, achievements, drop item, item tooltips, show items, pause, toggle UI, party display, chat |
 
 NPC windows (vendor, stash, quest reward, shrine, riftgate travel, conversations) open when the NPC opens them
-and follow the menu keys above. In a vendor's Sell tab, Enter sells the whole item (a stack entire);
+and follow the menu keys above. The stash has three tabs: "your stash" and "shared stash" each list your items
+(Enter puts one in) and then what the stash holds (Enter takes it back); "manage stash" buys the next tab at the game's
+price. Windows open on their first tab; Ctrl+Tab moves you onto the tab it opened. In a vendor's Sell tab, Enter sells the whole item (a stack entire);
 Ctrl+Enter on a stack asks "sell how many of N" -- type the number and press Enter (Escape cancels).
+A faction vendor's tabs are its reputation tiers (Friendly, Respected, Honored, Revered, then Buyback); a tier you
+have not reached reads "locked, requires Respected", and a line above the items says which faction it is and your
+standing with it.
+Riftgate travel is Tab stops: "all" (your personal rift first, then Devil's Crossing, then every discovered gate
+nearest first) and one stop per act in the game's own order.
 
 ## The dev loop (how the author iterates)
 

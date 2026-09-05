@@ -1,6 +1,7 @@
 #include "screens/map_markers.h"
 #include <cmath>
 #include <format>
+#include "screens/shrine_list.h"
 #include "screens/window_base.h"
 #include "world.h"
 
@@ -11,7 +12,7 @@ using namespace gd::core;
 // is open (exe_ui::aerial_map_open) and reads the map's own icon set (world::map_markers, filled live while
 // the map is shown). One flat list, nearest-first (merchants, riftgate, spirit guide, NPCs, quest markers,
 // ...). Activating a row picks it as the follow target and closes the map; the ' key then pings it with
-// distance and heading. (No quest/non-quest tab split: world::map_markers does not classify quest markers
+// distance and heading. A second Tab stop lists every devotion shrine the character has discovered anywhere. (No quest/non-quest tab split: world::map_markers does not classify quest markers
 // yet -- every marker's `quest` is false -- so the split was vacuous. Reintroduce a per-row annotation, not
 // tabs, if that classification ever lands.)
 class MapMarkersScreen : public WindowScreen {
@@ -25,6 +26,7 @@ class MapMarkersScreen : public WindowScreen {
     world::Vec3 me{};
     bool have_me = world::player_position(me);
     b.begin_stop("list");
+    b.push_context(strings::kMapPoints, strings::kList);   // a stop title, announced on entry
     size_t shown = 0;
     for (size_t i = 0; i < all.size(); ++i) {
       const world::MapMarker& mk = all[i];
@@ -49,10 +51,25 @@ class MapMarkersScreen : public WindowScreen {
     }
     if (shown == 0)
       b.add_item(ControlId::structural("marker.none"), line_item(std::string(strings::kNoMarkersHere)));
+    b.pop_context();
+
+    // The whole world's discovered devotion shrines (the aerial map itself only shows what is nearby). Enter
+    // follows one like a marker: the ' key pings it, to chunk precision.
+    b.begin_stop("shrines");
+    b.push_context(strings::kShrinesStop, strings::kList);
+    add_shrine_rows(b, shrines_, me, have_me, [this](const shrine_table::Shrine& s, const std::string& label) {
+      world::set_follow_target(0, world::Vec3{(float)s.x, (float)s.y, (float)s.z}, label);
+      MessageBuilder m;
+      m.fragment(strings::kFollowing).fragment(label);
+      speech::speak(m.build(), true);
+      close();
+    });
+    b.pop_context();
   }
 
  private:
   Snapshot<std::vector<world::MapMarker>> markers_;
+  Snapshot<gameapi::ShrineUids> shrines_;
 };
 
 std::unique_ptr<Screen> make_map_markers() { return std::make_unique<MapMarkersScreen>(); }

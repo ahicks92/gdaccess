@@ -716,12 +716,71 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   `Level::CreatePathMesh`); neither the exe nor the mod imports them -- treated as a game bug. Crash forensics recipe:
   `gd.py status` (now survives the dead health probe), `stacks.py`, the crash reporter's `%LOCALAPPDATA%\Temp\<guid>\minidump.dmp`,
   and reading objects out of the still-alive crashed process (return-slot scan of the crashing thread's stack).
-  **Enter on a bag item no longer reaches `PlayerInventoryCtrl::UseItem` unless the item is-a OneShot or ItemNote**
+  **Enter on a bag item no longer reaches `PlayerInventoryCtrl::UseItem` unless the item is-a OneShot, ItemNote, ItemArtifactFormula
+  (blueprint), ItemFactionBooster/Warrant, ItemDifficultyUnlock or ItemDevotionReset** (the first cut, potions+notes only, refused a
+  blueprint live 2026-09-04 -- "not usable" on Guardsman's Defender; augments (ItemEnchantment) now take the component picker)
   (`gameapi::is_usable`; the screen says "not usable"): UseItem's non-potion branch (Game.dll+0x3e00c0) removes the item
   from the bag on the item's own virtual "use" before the command runs, and a crafting material (Class QuestItem, Royal
   Jelly) vanished that way live. Rule for both fixes: never hand an item to a game control the exe itself gates by
   class/state; mirror the exe's gate first. Item-moving calls all live in `gameapi_items.cpp` (RemoveItem/AddItem/
   GiveItemToPlayer/SmartAutoInsert/UseItem/UseItemOn/SendDropItemRandom/split) + `exe_ui.cpp` inventor_put/take.
+- Riftgate travel reworked + faction vendor tiers + compare fallback (2026-09-04, built + link-checked, NOT verified live;
+  the game was running under the user). Riftgate screen: Tab stops "all" (personal rift, Devil's Crossing, then nearest
+  first) and one per act (the master table `riftgate_mastertable.dbr Region001ZoneList` is a flat list authored in
+  progression order; act = the zone record's chunk letter 1a/1b/1f/1g -> `tools/gen_riftgate_zones.py` ->
+  `src/riftgate_zones.h`, icons matched by localized ZoneNameTag). The Ctrl+M map screen gained a "shrines" Tab stop (`screens/shrine_list.h`): the 28 campaign devotion shrines
+  come from world001.map's per-chunk shrine record (`tools/gen_shrines.py` -> `src/shrine_table.h`: icon record,
+  FileDescription area, zone tag, chunk origin as the position, corrupted/ruined flags, chunk GUID) and are shown when
+  `Player::GetDiscoveredShrineUIDs` / `GetShrineUIDs` (restored) contain the chunk GUID -- **that UID = chunk GUID
+  identity is a hypothesis; `/shrines` prints both sides to confirm**. The map's "sections" are 512-px image tiles,
+  not categories; the game names acts only in achievement groups. Faction vendor: same window class as the market
+  (`+0x2e188`) with tabs 1-4 = reputation tiers (tagFactionVendorTab01A..04A = Friendly/Respected/Honored/Revered,
+  tab 5 = Buyback); `exe_ui::vendor_tabs` reads the window's tab map (+0x26f8: node+0x20 Market_TypeEnum, +0x28 tab
+  button; +0x25e0 selected type; the exe disables a tab (+0x281) when its sack is empty), the lock is computed as
+  faction value < `GameEngine::GetFactionLevelValue(tagFactionStateFriend1/2/4/5)` with the merchant's faction from
+  `Character::GetVisibleFaction(market id object)`; the game itself only shows lock art + a red "Insufficient Faction
+  Status" tooltip line + tagMarketError05 on purchase. `/vendor` dumps both windows' tab maps. Backslash compare falls
+  back to `gameapi::equip_slots_by_class` (RTTI class -> EquipmentCtrlLocation) when `CanItemBePlaced` refuses every
+  slot (requirements not met). Stash status: the caravan screen (`StashScreen` in vendor.cpp) lists stash + transfer
+  sacks and moves stash -> bag; `gameapi::bag_to_stash` exists but nothing calls it; no remote stash in the game's UI,
+  but `Player::AddItemToPrivateStash(sack, itemId, bool)` + `PlayerInventoryCtrl::RemoveItem` +
+  `ControllerCharacter::SendRemoveItemFromInventory` is the game's own cursor quick-drop sequence and needs no window
+  (private stash = Player data saved in the .gdc; the transfer stash needs `GameEngine::SaveTransferStash`).
+- N and the sonar agree on entrances (2026-09-04, diagnosed live in Hanneffy Mine, built, not yet reloaded): the one-way
+  exit shaft the player came in through (`ugdoor_caveexitonewaya01_glowshaft`, `locked = True`, no description) is a
+  `DungeonEntrance` whose `IsOfInterest()` is false, so the N group (objects of interest) skipped it while the sonar's
+  transition cue (every DungeonEntrance) pinged it. Now every DungeonEntrance is in N; an unnamed one reads "entrance"
+  and a not-of-interest one carries the note "locked". `/entities` marks `[FixedActor no-interest]`; `/sonar` lists
+  what is pinging. The dev server serves ONE request at a time (parallel gd.py calls fail) and git bash rewrites
+  `/player`-style paths unless `MSYS2_ARG_CONV_EXCL="*"` is set.
+- Stash redesigned + two tab-row fixes (2026-09-04, built + link-checked, NOT verified live). `StashScreen` (vendor.cpp):
+  tabs your stash / shared stash (stops: your items -> `gameapi::bag_to_stash_any` = the game's shift-click into the
+  selected sack first then any sack with room; in the stash -> `stash_to_bag`) / manage stash (`exe_ui::caravan_panel`:
+  panels at caravan+0x13c8 private, +0x13d0 transfer, cost vector<int> at panel+0x378 = InventoryCostArray /
+  TransferPageCostArray, self-checked as [0, rising]; buying = `gameapi::buy_stash_sack` (SubtractMoney + Player::AddSack
+  / GameEngine::AddTransferSack, the exe's handler exe+0x131150/+0x1316d0 minus its UI) then `exe_ui::caravan_refresh` =
+  the exe's own tab-list rebuild exe+0x25d890(panel+0x98, sack vector) + sack dims exe+0x12ec70, signature-checked).
+  Base game: 5 private tabs (0/25k/50k/100k/200k) and 5 transfer tabs (0/50k/100k/150k/250k), 10x19 cells each, rectangles
+  only. Tab fixes in `WindowScreen`: `on_push` resets to the first tab (the remembered tab of the last visit was announced
+  while the game reopened on its first), and `select_tab` with speech now lands focus on the new tab's node (Ctrl+Tab from
+  inside a page lost its row on the rebuild and fell to the stop landing = tab 0's node, misreporting the tab).
+- Virtual cursor vs the HUD (2026-09-04, question from the user, built, not yet reloaded): YES, a J/I press whose projected
+  point lies on the HUD clicked the HUD -- the root mouse handler exe+0xbef10 hands every event to the UI child first
+  ([root+0x2b8]->HandleMouseEvent) and the world only sees unconsumed events; press_point accepted any point inside the
+  client rect, and the HUD block (toolbar + portrait/status + compass strip, 1024*scale wide, bottom-centre) is
+  x 398..1203 / y 781..900 at 1600x900 -- a near target south of the player projects there. Fix: `exe_ui::hud_rects`
+  reads the rects InGameUI::Init copies out of its positioning windows (InGameUI+0xb748 toolbar, +0xb758 status, +0xb768
+  block top-left; framework-B windows hit-test `this+0x40/+0x44` + `(this+0xa0)->vt[0x98]()` = {x,y,w,h}); `press_point`
+  refuses such a point ("behind the interface") and `release_point` moves a release off the HUD (a swallowed release
+  is the phantom-hold bug again). Not covered: the floating minimap corner. Dev: `/hud[?x=&y=]`. The world screen's
+  byte +0x121 is a per-frame "click handled" latch, not a hover flag; the game exposes no mouse-over-UI predicate.
+- Row-vanish landing + announcement fixed in the core (2026-09-04, from the stash screen: Enter on the first item bounced
+  to the tab strip and every Enter repeated the list title; 2 new doctests): (1) `GraphBuilder::add_item` stamps an
+  actionable node's `land_group` with its Tab stop key when the screen set none -- reconcile's tier-3 rule (nearest
+  survivor OF THE SAME GROUP, next first) had never fired because nothing stamped groups, so the fallback walked the
+  order backwards and the first row's predecessor is the last tab. (2) the navigator remembers the spoken node's context
+  path (`last_spoken_path_`, `GraphAnnouncer::compose_from_path`) so a landing after the spoken node vanished reads as a
+  sibling move, not as an entry from nothing that re-reads the titles.
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.

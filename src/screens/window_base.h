@@ -13,6 +13,8 @@
 #include "core/message_builder.h"
 #include "core/screen.h"
 #include "core/strings.h"
+#include "app.h"
+#include "core/navigator.h"
 #include "exe_ui.h"
 #include "gameapi.h"
 #include "hooks.h"
@@ -80,8 +82,17 @@ inline std::function<void()> item_compare(unsigned id) {
     if (!gd::gameapi::object_by_id(id)) { speech::speak(gd::strings::kNothingToCompare, true); return; }
     gd::core::MessageBuilder m;
     bool any = false;
-    for (const gd::gameapi::EquipSlot& s : gd::gameapi::equipment()) {
-      if (s.item_id == id || !gd::gameapi::can_equip(id, s.loc)) continue;
+    // The game's own placement test first; when it refuses every slot (requirements not met -- the case a player
+    // most wants to compare), the item's class decides which slots it would take.
+    std::vector<int> fallback;
+    bool any_placeable = false;
+    std::vector<gd::gameapi::EquipSlot> slots = gd::gameapi::equipment();
+    for (const gd::gameapi::EquipSlot& s : slots) if (s.item_id != id && gd::gameapi::can_equip(id, s.loc)) any_placeable = true;
+    if (!any_placeable) fallback = gd::gameapi::equip_slots_by_class(id);
+    for (const gd::gameapi::EquipSlot& s : slots) {
+      if (s.item_id == id) continue;
+      bool fits = any_placeable ? gd::gameapi::can_equip(id, s.loc) : std::find(fallback.begin(), fallback.end(), s.loc) != fallback.end();
+      if (!fits) continue;
       any = true;
       m.list_item().fragment(s.label);
       if (!s.item_id) { m.list_item().fragment(gd::strings::kNothingEquipped); continue; }
@@ -133,11 +144,17 @@ class WindowScreen : public gd::core::Screen {
     return true;
   }
   virtual void on_tab_changed(int /*index*/) {}
+  // A window opens on its first tab (2026-09-04: the remembered tab of the last visit was announced as selected while
+  // the game had reopened on its first). Screens that mirror the game's own tab (crafting, inventor) re-sync in build().
+  void on_push() override { tab_ = 0; tab_key_.clear(); }
   void select_tab(int index, bool speak) {
     if (index < 0 || index >= (int)tab_labels_.size()) return;
     tab_ = index;
     tab_key_ = tab_labels_[(size_t)index];   // remember WHICH tab, not its position
     on_tab_changed(index);
+    // Ctrl+Tab from inside a page: the old row is gone after the rebuild and focus used to fall to the stop landing (the
+    // first tab's node), which then spoke a tab other than the one just opened (2026-09-04). Land on the new tab's node.
+    if (speak) { if (gd::core::GraphNavigator* nav = gd::app::navigator()) nav->focus_node(gd::core::ControlId::structural(key_ + ".tab" + std::to_string(index)), false); }
     if (speak) {
       gd::core::MessageBuilder m;
       std::string label = tab_labels_[(size_t)index];
