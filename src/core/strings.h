@@ -246,6 +246,7 @@ inline constexpr std::string_view kEmptySlot = "empty";
 inline constexpr std::string_view kWithComponent = "with component";   // the bag tile's component badge, on the row label
 inline constexpr std::string_view kNothingEquipped = "nothing equipped";   // Backslash on an item: the slot it fits holds nothing
 inline constexpr std::string_view kNotEquipment = "not equipment";         // Backslash on a potion / component / note
+inline constexpr std::string_view kNotUsable = "not usable";               // Enter on a bag item that is neither equipment nor a consumable/note (crafting materials, quest items)
 inline constexpr std::string_view kIronBits = "iron bits";
 inline constexpr std::string_view kSkills = "skills";
 inline constexpr std::string_view kSkillPointsLeft = "skill points";

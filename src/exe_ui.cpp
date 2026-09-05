@@ -1204,6 +1204,8 @@ void Tip::dismiss() const { write_int(p, kTip_Timer, 0x1f4); write_int(p, kTip_S
 bool dialog_open() { void* dm = dialog_manager(); return dm && g_dm.GetNumDialog(dm) > 0; }
 std::string dialog_text() { void* dm = dialog_manager(); if (!dm || g_dm.GetNumDialog(dm) <= 0) return {}; return read_u16(g_dm.PeekTopDialog(dm), off::kDialog_Text); }
 int dialog_type() { void* dm = dialog_manager(); if (!dm || g_dm.GetNumDialog(dm) <= 0) return -1; return rd_or<int>(g_dm.PeekTopDialog(dm), off::kDialog_Type, -1); }
+namespace { DialogAnswer g_last_answer; }
+DialogAnswer last_dialog_answer() { return g_last_answer; }
 bool answer_dialog(bool yes) {
   void* dm = dialog_manager();
   if (!dm || g_dm.GetNumDialog(dm) <= 0) return false;
@@ -1212,6 +1214,7 @@ bool answer_dialog(bool yes) {
   struct { int party; bool yes; } r{rd_or<int>(d, off::kDialog_Party, 0), yes};
   if (type == 1) g_dm.AddResponse(dm, &r);  // Okay boxes (0) take no response; the exe's Escape path does the same
   g_dm.RemoveTopDialog(dm);
+  g_last_answer = DialogAnswer{hooks::frame(), type, r.party, yes};
   log::writef("exe_ui: answered dialog type={} party={} yes={}", type, r.party, yes);
   return true;
 }

@@ -40,8 +40,8 @@ class InventorScreen : public WindowScreen {
     uint64_t age = hooks::frame() - p.started;
     if (p.action == exe_ui::InventorAction::Dismantle) {
       exe_ui::InventorDismantle d = exe_ui::inventor_dismantle();
-      if (d.dialog_pending || exe_ui::dialog_open()) return;
-      if (d.item == p.item) { if (age < 3) return; cancel(); return; }   // the click itself needs a frame before the flag shows
+      if (d.dialog_pending || exe_ui::dialog_open()) { p.saw_dialog = true; return; }
+      if (d.item == p.item) { if (still_in_chamber_wait(p, age)) return; cancel(); return; }
       // The item is gone: results arrive in the output boxes a few frames later (the command round trip).
       if (!d.result1 && !d.result2 && age < 120) return;
       MessageBuilder m;
@@ -56,8 +56,8 @@ class InventorScreen : public WindowScreen {
       return;
     }
     exe_ui::InventorSalvage s = exe_ui::inventor_salvage();
-    if (s.dialog_pending || exe_ui::dialog_open()) return;
-    if (s.item == p.item) { if (age < 3) return; cancel(); return; }
+    if (s.dialog_pending || exe_ui::dialog_open()) { p.saw_dialog = true; return; }
+    if (s.item == p.item) { if (still_in_chamber_wait(p, age)) return; cancel(); return; }
     // Done: the game puts what you kept BACK INTO THE CHAMBER (GiveRecoveredItemToEnchanterWindow -> the box), the
     // component after Keep Add-on, the item itself otherwise -- a sighted player drags it out. Wait for it (the
     // command's round trip clears the box first), name it from the object, take it into the bag.
@@ -117,7 +117,27 @@ class InventorScreen : public WindowScreen {
 
  private:
   struct Row { unsigned id; std::string label, value; unsigned cost; };
-  struct Pending { unsigned item; exe_ui::InventorAction action; std::string result_name; uint64_t started; };
+  struct Pending {
+    unsigned item; exe_ui::InventorAction action; std::string result_name; uint64_t started;
+    bool saw_dialog = false;       // the game's confirm box was seen up
+    uint64_t dialog_closed = 0;    // the first frame it was seen gone again (0 = not yet)
+  };
+  // How long the chamber may keep the item after the confirm box closed before that means "the player said No".
+  // The exe processes the box's response on its NEXT update (Do* then clears the box and sends the command), so
+  // on the frame the box closes the panel still holds the item whatever the answer was; a Yes answered through
+  // our message box is known exactly (exe_ui::last_dialog_answer) and waits for the command instead.
+  static constexpr uint64_t kSettleFrames = 20, kCommandFrames = 180;
+  // The item is still in the chamber after the confirm box closed: No (cancel now), or Yes with the command still
+  // in flight (wait). Returns true when the caller should keep waiting.
+  bool still_in_chamber_wait(Pending& p, uint64_t age) {
+    if (age < 3) return true;   // the click itself needs a frame before the flag shows
+    if (!p.dialog_closed) p.dialog_closed = hooks::frame();
+    exe_ui::DialogAnswer a = exe_ui::last_dialog_answer();
+    bool said_yes = a.frame >= p.started && a.type == 1 && a.yes;   // (the box may open and close between two of our updates)
+    uint64_t since = hooks::frame() - p.dialog_closed;
+    if (said_yes) return since < kCommandFrames;   // the game refused after all (bits) if it never took the item
+    return since < kSettleFrames;                  // answered in the game's own UI, or no box at all: let it settle
+  }
   static std::string game_text(const char* tag, std::string fallback) {
     std::string t = tag ? textcap::speakable(hooks::localize(tag)) : std::string();
     return t.empty() ? fallback : t;

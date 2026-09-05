@@ -706,6 +706,22 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   cursor or, when its target left the window, where the player-to-target line leaves it (`core/screen_clip.h`,
   unit-tested; margin 4 px); `hooks::set_mouse_hold` now takes the position. Recovery without the fix: lock anything on
   screen and tap J once. Dev: `/peek?ptr=<world_screen+0x80>` shows the bytes (`/ui` prints `world_screen=`).
+- Inventor confirm timing (2026-09-04, built, NOT verified live): after Yes the exe clears the chamber and sends the
+  command on its NEXT update, so "item still in the chamber the frame the box closed" is not a No. `screens/inventor.cpp`
+  waits (Yes known via `exe_ui::last_dialog_answer()`, else a 20-frame settle) instead of speaking "cancelled" and handing
+  the item back mid-command (docs/inventor.md "Timing lesson"). Same-day crash triage (exit to main menu after a rift trip,
+  once): the exe's InGameUI destructor hit `Paperdoll::Destroy` on the Illusionist window's private `__PaperDollRegion`
+  whose Level had been `UnloadEntities`-torn down (null bucket vector; the 4 other paperdoll levels intact). The only
+  callers of that teardown are engine-internal (`Region::UnloadLevel` <- `World::UpdateRegionUsage`, `RebuildMapData`,
+  `Level::CreatePathMesh`); neither the exe nor the mod imports them -- treated as a game bug. Crash forensics recipe:
+  `gd.py status` (now survives the dead health probe), `stacks.py`, the crash reporter's `%LOCALAPPDATA%\Temp\<guid>\minidump.dmp`,
+  and reading objects out of the still-alive crashed process (return-slot scan of the crashing thread's stack).
+  **Enter on a bag item no longer reaches `PlayerInventoryCtrl::UseItem` unless the item is-a OneShot or ItemNote**
+  (`gameapi::is_usable`; the screen says "not usable"): UseItem's non-potion branch (Game.dll+0x3e00c0) removes the item
+  from the bag on the item's own virtual "use" before the command runs, and a crafting material (Class QuestItem, Royal
+  Jelly) vanished that way live. Rule for both fixes: never hand an item to a game control the exe itself gates by
+  class/state; mirror the exe's gate first. Item-moving calls all live in `gameapi_items.cpp` (RemoveItem/AddItem/
+  GiveItemToPlayer/SmartAutoInsert/UseItem/UseItemOn/SendDropItemRandom/split) + `exe_ui.cpp` inventor_put/take.
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.

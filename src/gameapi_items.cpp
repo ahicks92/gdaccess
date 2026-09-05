@@ -73,6 +73,8 @@ struct Api {
   bool (*Item_AreRequirementsMet)(const void*, const void*) = nullptr;
   MsvcStringW* (*Item_GetGameDescription)(const void*, MsvcStringW*, bool, bool) = nullptr;
   const void* (*ItemEquipment_GetStaticClassInfo)() = nullptr;
+  const void* (*OneShot_GetStaticClassInfo)() = nullptr;    // potions, scrolls, food, dyes, sacks: the things UseItem consumes
+  const void* (*ItemNote_GetStaticClassInfo)() = nullptr;   // notes: UseItem files them in the lore codex
   bool (*ItemEquipment_HasRelic)(const void*) = nullptr;   // a raw field read (+0x1558): only after the is-a check
   bool (*ItemEquipment_HasEnchantment)(const void*) = nullptr;   // same shape (+0x1560): the augment
   void* (*ItemEquipment_GetRelic)(const void*) = nullptr;
@@ -153,6 +155,8 @@ void load_items() {
   GAPI_LOAD(g, Item_AreRequirementsMet, Item_AreRequirementsMet);
   GAPI_LOAD(g, Item_GetGameDescription, Item_GetGameDescription);
   GAPI_LOAD(g, ItemEquipment_GetStaticClassInfo, ItemEquipment_GetStaticClassInfo);
+  GAPI_LOAD(g, OneShot_GetStaticClassInfo, OneShot_GetStaticClassInfo);
+  GAPI_LOAD(g, ItemNote_GetStaticClassInfo, ItemNote_GetStaticClassInfo);
   GAPI_LOAD(g, ItemEquipment_HasRelic, ItemEquipment_HasRelic);
   GAPI_LOAD(g, ItemEquipment_HasEnchantment, ItemEquipment_HasEnchantment);
   GAPI_LOAD(g, ItemEquipment_GetRelic, ItemEquipment_GetRelic);
@@ -196,6 +200,19 @@ bool has_component(const void* item) {
   guarded("HasRelic", [&] {
     const void* ci = g.ItemEquipment_GetStaticClassInfo();
     if (world::object_is_a(item, ci)) yes = g.ItemEquipment_HasRelic(item);
+  });
+  return yes;
+}
+// What PlayerInventoryCtrl::UseItem may be handed. Its non-potion branch (Game.dll+0x3e00c0) calls the item's
+// virtual use, and when that says "consumed" it REMOVES the item from the bag before the use command has run --
+// on a crafting material (Class QuestItem, e.g. Royal Jelly) that lost the item outright (2026-09-04, live). The
+// exe's own right-click only ever sends OneShots there (potions/scrolls/food/dyes) and notes go to the codex.
+bool is_usable(const void* item) {
+  if (!item) return false;
+  bool yes = false;
+  guarded("is_usable", [&] {
+    if (g.OneShot_GetStaticClassInfo && world::object_is_a(item, g.OneShot_GetStaticClassInfo())) yes = true;
+    else if (g.ItemNote_GetStaticClassInfo && world::object_is_a(item, g.ItemNote_GetStaticClassInfo())) yes = true;
   });
   return yes;
 }
@@ -411,7 +428,10 @@ bool use_item(unsigned id, int source) {
       ok = true;
     });
   }
-  if (!equipped && g.UseItem) ok = guarded("PlayerInventoryCtrl::UseItem", [&] { g.UseItem(ic, id, source > 0 ? source : kBagSource); });
+  if (!equipped && g.UseItem) {
+    if (!is_usable(item)) { log::writef("gameapi: use item {} refused: not equipment, not a OneShot/note", id); return false; }
+    ok = guarded("PlayerInventoryCtrl::UseItem", [&] { g.UseItem(ic, id, source > 0 ? source : kBagSource); });
+  }
   invalidate_objects();
   log::writef("gameapi: use item {} equipped={} ok={}", id, equipped, ok);
   return ok;

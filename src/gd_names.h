@@ -325,6 +325,9 @@ inline constexpr const char* Npc_GetStaticClassInfo = "?GetStaticClassInfo@Npc@G
 // public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::ItemNote::GetStaticClassInfo(void)
 inline constexpr const char* ItemNote_GetStaticClassInfo_DLL = "Game.dll";
 inline constexpr const char* ItemNote_GetStaticClassInfo = "?GetStaticClassInfo@ItemNote@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
+// public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::OneShot::GetStaticClassInfo(void)
+inline constexpr const char* OneShot_GetStaticClassInfo_DLL = "Game.dll";
+inline constexpr const char* OneShot_GetStaticClassInfo = "?GetStaticClassInfo@OneShot@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";
 // public: static class GAME::RTTI_ClassInfo const & __ptr64 __cdecl GAME::Player::GetStaticClassInfo(void)
 inline constexpr const char* Player_GetStaticClassInfo_DLL = "Game.dll";
 inline constexpr const char* Player_GetStaticClassInfo = "?GetStaticClassInfo@Player@GAME@@SAAEBVRTTI_ClassInfo@2@XZ";

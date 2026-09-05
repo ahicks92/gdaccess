@@ -353,6 +353,11 @@ bool dialog_open();
 std::string dialog_text();
 int dialog_type();               // 0 Okay, 1 Yes/No, -1 none
 bool answer_dialog(bool yes);    // game thread; Okay boxes are just removed
+// The last answer given through answer_dialog (frame 0 = none yet). A screen that pressed a game button whose
+// listener opened a confirm box reads this to tell "the player said Yes, the command is in flight" from "No":
+// the exe processes the response on its NEXT update, so right after the box closes the panel still looks untouched.
+struct DialogAnswer { uint64_t frame = 0; int type = -1; int party = 0; bool yes = false; };
+DialogAnswer last_dialog_answer();
 
 // ---- dev dumps (game thread) ----
 std::string ui_dump();           // app state, main menu slots, the whole framework A tree

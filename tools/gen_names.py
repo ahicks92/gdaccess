@@ -125,6 +125,7 @@ ENTRIES = [
     ("ItemEquipment_HasRelic", "Game", r"GAME::ItemEquipment::HasRelic\(void\)"),   # a component is attached (docs/re_item_components_compare.md)
     ("Npc_GetStaticClassInfo", "Game", r"GAME::Npc::GetStaticClassInfo\(void\)"),
     ("ItemNote_GetStaticClassInfo", "Game", r"GAME::ItemNote::GetStaticClassInfo\(void\)"),
+    ("OneShot_GetStaticClassInfo", "Game", r"GAME::OneShot::GetStaticClassInfo\(void\)"),
     ("Player_GetStaticClassInfo", "Game", r"GAME::Player::GetStaticClassInfo\(void\)"),
     ("Character_GetCurrentAttackTarget", "Game", r"GAME::Character::GetCurrentAttackTarget\("),
     ("Character_IsAlive", "Game", r"GAME::Character::IsAlive\(void\)"),

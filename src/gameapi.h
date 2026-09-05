@@ -83,6 +83,7 @@ bool dismantle_unlocked();                       // GameEngine::MainPlayerCanUse
 bool inventory_detach(unsigned id);              // PlayerInventoryCtrl::RemoveItem(id, true): the item leaves the grid but lives on (a station chamber holds it)
 bool give_item_to_player(unsigned id);           // ControllerPlayer::GiveItemToPlayer(id, false): a detached item back into the bags (the exe's chamber-return call)
 bool is_equipment(const void* item);             // is-a ItemEquipment
+bool is_usable(const void* item);                // is-a OneShot or ItemNote: what UseItem may be given (anything else it would just remove from the bag)
 std::string component_name(const void* item);    // the attached component's name (ItemEquipment::GetRelic), "" when none
 // The window's own arithmetic, so the rows can say the price before the item is in the chamber (the game's panel
 // recomputes it from the same inputs once it is): salvage = trunc(enchanterRecoveryFactor 0.05 x GetItemCost(false))

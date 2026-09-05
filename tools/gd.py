@@ -117,7 +117,7 @@ def cmd_status(a):
     pid = pids[0]
     health = None
     try: health = get("/health", timeout=3).splitlines()[0]
-    except Exception as e: health = None
+    except BaseException: health = None  # get() sys.exit()s on a dead server: SystemExit is not an Exception
     windows = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "windows.py"), str(pid)], capture_output=True, text=True).stdout
     dialogs = [l for l in windows.splitlines() if "class='#32770'" in l or "child class" in l]
     kids = subprocess.run(["powershell", "-NoProfile", "-Command", f"Get-CimInstance Win32_Process -Filter 'ParentProcessId={pid}' | Select-Object -ExpandProperty Name"],

@@ -146,6 +146,7 @@ class InventoryScreen : public WindowScreen, public AssignSource {
         if (gameapi::is_component(id)) { open_component_picker(id); return; }   // components attach; they aren't "used"
         void* p = gameapi::object_by_id(id);
         if (p && !gameapi::item_requirements_met(p)) { speech::speak(strings::kRequirementsNotMet, true); return; }
+        if (p && !gameapi::is_equipment(p) && !gameapi::is_usable(p)) { speech::speak(strings::kNotUsable, true); return; }   // crafting materials / quest items: UseItem would remove them
         gameapi::use_item(id, g_bag_source);
         invalidate();
       };

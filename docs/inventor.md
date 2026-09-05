@@ -92,3 +92,13 @@ Spawn one like the blacksmith (docs/crafting.md): Lua through `/lua`,
 `p:GiveToken("DISMANTLING_UNLOCKED")` and a re-open of the window (the tab enable is computed in Show(true)).
 Dev: `/inventor` (state + every bag item's eligibility and prices), `?tab=`, `?put=<id>`, `?take=0|1|2`,
 `?press=keepitem|keepaddon|removeaugment|dismantle`.
+
+## Timing lesson (2026-09-04, from a live session log)
+The exe processes a confirm box's response on its NEXT update: Do* reads the item id from the chamber, clears the
+box and sends the command only then. On the frame the box closes, the panel therefore still holds the item whatever
+the answer was. The screen used to read that as "the player said No", speak "cancelled" and hand the item back
+(`inventor_take`) while the game's salvage command was in flight -- the item was owned by the bag and the command at
+once for a few frames, and both Keep Item runs of that session were mis-announced as cancelled (they had succeeded).
+Now: a Yes given through our message box is known exactly (`exe_ui::last_dialog_answer`) and the screen waits for
+the command (up to 180 frames); otherwise the item must stay in the chamber 20 frames after the box closed before
+that means No. Built, not yet verified live. The `+0x10a8` pending byte read 0 during that window, so do not rely on it alone.
