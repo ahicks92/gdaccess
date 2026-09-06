@@ -39,6 +39,9 @@ struct Api {
   void (*Objective_GetText)(const void*, MsvcStringW*) = nullptr;
   int (*Objective_IsSatisfied)(const void*) = nullptr;
   void (*Event_GetText)(const void*, MsvcStringW*) = nullptr;
+  unsigned (*Task_GetUid)(const void*) = nullptr;
+  const MsvcStringA* (*Quest2_GetFileName)(const void*) = nullptr;
+  void (*Quest2Repository_CompleteQuestTask)(void*, const MsvcStringA*, unsigned) = nullptr;   // dev: the game's own task completion
   // factions
   const void* (*GetFactionPack)(const void*) = nullptr;
   MsvcStringA* (*FactionPack_GetFactionTag)(MsvcStringA*, int) = nullptr;   // static, std::string by value: hidden pointer FIRST
@@ -145,6 +148,9 @@ void load() {
   GAPI_LOAD(g, Objective_GetText, Quest2Objective_GetText);
   GAPI_LOAD(g, Objective_IsSatisfied, Quest2Objective_IsSatisfied);
   GAPI_LOAD(g, Event_GetText, Quest2Event_GetText);
+  GAPI_LOAD(g, Task_GetUid, Quest2Task_GetUid);
+  GAPI_LOAD(g, Quest2_GetFileName, Quest2_GetFileName);
+  GAPI_LOAD(g, Quest2Repository_CompleteQuestTask, Quest2Repository_CompleteQuestTask);
   GAPI_LOAD(g, GetFactionPack, Character_GetFactionPack);
   GAPI_LOAD(g, FactionPack_GetFactionTag, FactionPack_GetFactionTag);
   GAPI_LOAD(g, FactionPack_GetValue, FactionPack_GetValue);
@@ -299,6 +305,8 @@ std::vector<Quest> quests(int filter) {
         task.name = u16_text(g.Task_GetName(t));
         task.description = u16_text(g.Task_GetDescription(t));
         task.state = g.Task_GetState(t);
+        task.uid = g.Task_GetUid ? g.Task_GetUid(t) : 0;
+        task.reward_events = (int)vec_items<void*>(g.Task_GetRewards(t), 32).size();
         for (void* ob : vec_items<void*>(g.Task_GetObjectives(t), 64)) {
           if (!ob) continue;
           MsvcStringW s; init_u16(s);
@@ -323,12 +331,26 @@ bool set_quest_tracked(void* quest, bool on) {
   if (!quest || !g.Quest2_SetTracked) return false;
   return guarded("SetTracked", [&] { g.Quest2_SetTracked(quest, on); });
 }
+// Dev: complete a task the way the game's quest command does (Quest2Repository::CompleteQuestTask -> GetTaskByUid ->
+// Quest2Task::Complete: rewards run, the quest-completed event fires, the reward window opens). `quest` is a Quest2*
+// from /quests; task_index counts the quest's tasks from 0. Game thread.
+bool complete_quest_task(void* quest, int task_index) {
+  if (!quest || !g.Quest2Repository_Get || !g.Quest2Repository_CompleteQuestTask || !g.Quest2_GetFileName || !g.Quest2_GetTaskByIndex || !g.Task_GetUid) return false;
+  return guarded("CompleteQuestTask", [&] {
+    void* t = g.Quest2_GetTaskByIndex(quest, task_index);
+    if (!t) return;
+    unsigned uid = g.Task_GetUid(t);
+    const MsvcStringA* file = g.Quest2_GetFileName(quest);
+    void* repo = g.Quest2Repository_Get();
+    if (repo && file) g.Quest2Repository_CompleteQuestTask(repo, file, uid);
+  });
+}
 std::string dump_quests(int filter) {
   std::string out;
   for (const Quest& q : quests(filter)) {
     out += std::format("quest {} id={} '{}' group='{}' tracked={} complete={} inprogress={} tasks={}\n", q.p, q.id, q.name, q.group, q.tracked, q.complete, q.in_progress, q.tasks.size());
     for (const Task& t : q.tasks) {
-      out += std::format("  task {} state={} '{}' desc='{}'\n", t.p, t.state, t.name, t.description.substr(0, 120));
+      out += std::format("  task {} uid={} state={} reward_events={} '{}' desc='{}'\n", t.p, t.uid, t.state, t.reward_events, t.name, t.description.substr(0, 120));
       for (const Objective& o : t.objectives) out += std::format("    objective sat={} '{}'\n", o.satisfied, o.text);
       for (const std::string& r : t.rewards) out += std::format("    reward '{}'\n", r);
     }

@@ -670,6 +670,99 @@ inline constexpr const char* Quest2Objective_IsSatisfied = "?IsSatisfied@Quest2O
 // public: void __cdecl GAME::Quest2Event::GetText(class std::basic_string<unsigned short,struct std::char_traits<unsigned short>,class std::allocator<unsigned short> > & __ptr64)const __ptr64
 inline constexpr const char* Quest2Event_GetText_DLL = "Game.dll";
 inline constexpr const char* Quest2Event_GetText = "?GetText@Quest2Event@GAME@@QEBAXAEAV?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@@Z";
+// public: void __cdecl GAME::Quest2Task::Complete(bool) __ptr64
+inline constexpr const char* Quest2Task_Complete_DLL = "Game.dll";
+inline constexpr const char* Quest2Task_Complete = "?Complete@Quest2Task@GAME@@QEAAX_N@Z";
+// public: class GAME::Quest2 const * __ptr64 __cdecl GAME::Quest2Task::GetQuest(void)const __ptr64
+inline constexpr const char* Quest2Task_GetQuest_DLL = "Game.dll";
+inline constexpr const char* Quest2Task_GetQuest = "?GetQuest@Quest2Task@GAME@@QEBAPEBVQuest2@2@XZ";
+// public: unsigned int __cdecl GAME::Quest2Task::GetUid(void)const __ptr64
+inline constexpr const char* Quest2Task_GetUid_DLL = "Game.dll";
+inline constexpr const char* Quest2Task_GetUid = "?GetUid@Quest2Task@GAME@@QEBAIXZ";
+// public: class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const & __ptr64 __cdecl GAME::Quest2::GetFileName(void)const __ptr64
+inline constexpr const char* Quest2_GetFileName_DLL = "Game.dll";
+inline constexpr const char* Quest2_GetFileName = "?GetFileName@Quest2@GAME@@QEBAAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@XZ";
+// public: void __cdecl GAME::Quest2Repository::CompleteQuestTask(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const & __ptr64,unsigned int) __ptr64
+inline constexpr const char* Quest2Repository_CompleteQuestTask_DLL = "Game.dll";
+inline constexpr const char* Quest2Repository_CompleteQuestTask = "?CompleteQuestTask@Quest2Repository@GAME@@QEAAXAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@I@Z";
+// public: void __cdecl GAME::ScriptableActionCollection::Execute(class GAME::Entity * __ptr64)const __ptr64
+inline constexpr const char* ScriptableActionCollection_Execute_DLL = "Game.dll";
+inline constexpr const char* ScriptableActionCollection_Execute = "?Execute@ScriptableActionCollection@GAME@@QEBAXPEAVEntity@2@@Z";
+// public: class mem::vector<class GAME::ScriptableAction * __ptr64> const & __ptr64 __cdecl GAME::ScriptableActionCollection::GetActions(void)const __ptr64
+inline constexpr const char* ScriptableActionCollection_GetActions_DLL = "Game.dll";
+inline constexpr const char* ScriptableActionCollection_GetActions = "?GetActions@ScriptableActionCollection@GAME@@QEBAAEBV?$vector@PEAVScriptableAction@GAME@@@mem@@XZ";
+// public: bool __cdecl GAME::ScriptableAction::IsReward(void) __ptr64
+inline constexpr const char* ScriptableAction_IsReward_DLL = "Game.dll";
+inline constexpr const char* ScriptableAction_IsReward = "?IsReward@ScriptableAction@GAME@@QEAA_NXZ";
+// public: enum GAME::ScriptableAction::Type __cdecl GAME::ScriptableAction::GetType(void)const __ptr64
+inline constexpr const char* ScriptableAction_GetType_DLL = "Game.dll";
+inline constexpr const char* ScriptableAction_GetType = "?GetType@ScriptableAction@GAME@@QEBA?AW4Type@12@XZ";
+// public: unsigned int __cdecl GAME::ScriptableAction_GiveExperience::GetAmount(void) __ptr64
+inline constexpr const char* GiveExperience_GetAmount_DLL = "Game.dll";
+inline constexpr const char* GiveExperience_GetAmount = "?GetAmount@ScriptableAction_GiveExperience@GAME@@QEAAIXZ";
+// public: int __cdecl GAME::ScriptableAction_GiveMoney::GetAmount(void) __ptr64
+inline constexpr const char* GiveMoney_GetAmount_DLL = "Game.dll";
+inline constexpr const char* GiveMoney_GetAmount = "?GetAmount@ScriptableAction_GiveMoney@GAME@@QEAAHXZ";
+// public: unsigned int __cdecl GAME::ScriptableAction_GiveSkillPoint::GetAmount(void) __ptr64
+inline constexpr const char* GiveSkillPoint_GetAmount_DLL = "Game.dll";
+inline constexpr const char* GiveSkillPoint_GetAmount = "?GetAmount@ScriptableAction_GiveSkillPoint@GAME@@QEAAIXZ";
+// public: unsigned int __cdecl GAME::ScriptableAction_GiveAttribPoint::GetAmount(void) __ptr64
+inline constexpr const char* GiveAttribPoint_GetAmount_DLL = "Game.dll";
+inline constexpr const char* GiveAttribPoint_GetAmount = "?GetAmount@ScriptableAction_GiveAttribPoint@GAME@@QEAAIXZ";
+// public: int __cdecl GAME::ScriptableAction_GiveDevotion::GetAmount(void) __ptr64
+inline constexpr const char* GiveDevotion_GetAmount_DLL = "Game.dll";
+inline constexpr const char* GiveDevotion_GetAmount = "?GetAmount@ScriptableAction_GiveDevotion@GAME@@QEAAHXZ";
+// public: unsigned int __cdecl GAME::ScriptableAction_GiveLevel::GetAmount(void) __ptr64
+inline constexpr const char* GiveLevel_GetAmount_DLL = "Game.dll";
+inline constexpr const char* GiveLevel_GetAmount = "?GetAmount@ScriptableAction_GiveLevel@GAME@@QEAAIXZ";
+// public: int __cdecl GAME::ScriptableAction_GiveTribute::GetAmount(void) __ptr64
+inline constexpr const char* GiveTribute_GetAmount_DLL = "Game.dll";
+inline constexpr const char* GiveTribute_GetAmount = "?GetAmount@ScriptableAction_GiveTribute@GAME@@QEAAHXZ";
+// public: int __cdecl GAME::ScriptableAction_GiveFaction::GetAmount(void) __ptr64
+inline constexpr const char* GiveFaction_GetAmount_DLL = "Game.dll";
+inline constexpr const char* GiveFaction_GetAmount = "?GetAmount@ScriptableAction_GiveFaction@GAME@@QEAAHXZ";
+// public: class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > __cdecl GAME::ScriptableAction_GiveFaction::GetFactionTag(void) __ptr64
+inline constexpr const char* GiveFaction_GetFactionTag_DLL = "Game.dll";
+inline constexpr const char* GiveFaction_GetFactionTag = "?GetFactionTag@ScriptableAction_GiveFaction@GAME@@QEAA?AV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@XZ";
+// public: unsigned int __cdecl GAME::ScriptableAction_GiveItem::GetNumItems(void)const __ptr64
+inline constexpr const char* GiveItem_GetNumItems_DLL = "Game.dll";
+inline constexpr const char* GiveItem_GetNumItems = "?GetNumItems@ScriptableAction_GiveItem@GAME@@QEBAIXZ";
+// public: class GAME::Item * __ptr64 __cdecl GAME::ScriptableAction_GiveItem::GetInfoItem(unsigned int)const __ptr64
+inline constexpr const char* GiveItem_GetInfoItem_DLL = "Game.dll";
+inline constexpr const char* GiveItem_GetInfoItem = "?GetInfoItem@ScriptableAction_GiveItem@GAME@@QEBAPEAVItem@2@I@Z";
+// public: int __cdecl GAME::ScriptableAction_GiveItem::GetCount(void)const __ptr64
+inline constexpr const char* GiveItem_GetCount_DLL = "Game.dll";
+inline constexpr const char* GiveItem_GetCount = "?GetCount@ScriptableAction_GiveItem@GAME@@QEBAHXZ";
+// public: static enum GAME::FactionType __cdecl GAME::FactionPack::GetFactionFromString(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const & __ptr64)
+inline constexpr const char* FactionPack_GetFactionFromString_DLL = "Game.dll";
+inline constexpr const char* FactionPack_GetFactionFromString = "?GetFactionFromString@FactionPack@GAME@@SA?AW4FactionType@2@AEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z";
+// const GAME::ScriptableAction_GiveExperience::`vftable'
+inline constexpr const char* GiveExperience_vftable_DLL = "Game.dll";
+inline constexpr const char* GiveExperience_vftable = "??_7ScriptableAction_GiveExperience@GAME@@6B@";
+// const GAME::ScriptableAction_GiveMoney::`vftable'
+inline constexpr const char* GiveMoney_vftable_DLL = "Game.dll";
+inline constexpr const char* GiveMoney_vftable = "??_7ScriptableAction_GiveMoney@GAME@@6B@";
+// const GAME::ScriptableAction_GiveItem::`vftable'
+inline constexpr const char* GiveItem_vftable_DLL = "Game.dll";
+inline constexpr const char* GiveItem_vftable = "??_7ScriptableAction_GiveItem@GAME@@6B@";
+// const GAME::ScriptableAction_GiveRandomItem::`vftable'
+inline constexpr const char* GiveRandomItem_vftable_DLL = "Game.dll";
+inline constexpr const char* GiveRandomItem_vftable = "??_7ScriptableAction_GiveRandomItem@GAME@@6B@";
+// const GAME::ScriptableAction_GiveSkillPoint::`vftable'
+inline constexpr const char* GiveSkillPoint_vftable_DLL = "Game.dll";
+inline constexpr const char* GiveSkillPoint_vftable = "??_7ScriptableAction_GiveSkillPoint@GAME@@6B@";
+// const GAME::ScriptableAction_GiveAttribPoint::`vftable'
+inline constexpr const char* GiveAttribPoint_vftable_DLL = "Game.dll";
+inline constexpr const char* GiveAttribPoint_vftable = "??_7ScriptableAction_GiveAttribPoint@GAME@@6B@";
+// const GAME::ScriptableAction_GiveDevotion::`vftable'
+inline constexpr const char* GiveDevotion_vftable_DLL = "Game.dll";
+inline constexpr const char* GiveDevotion_vftable = "??_7ScriptableAction_GiveDevotion@GAME@@6B@";
+// const GAME::ScriptableAction_GiveLevel::`vftable'
+inline constexpr const char* GiveLevel_vftable_DLL = "Game.dll";
+inline constexpr const char* GiveLevel_vftable = "??_7ScriptableAction_GiveLevel@GAME@@6B@";
+// const GAME::ScriptableAction_GiveTribute::`vftable'
+inline constexpr const char* GiveTribute_vftable_DLL = "Game.dll";
+inline constexpr const char* GiveTribute_vftable = "??_7ScriptableAction_GiveTribute@GAME@@6B@";
 // public: class mem::vector<class GAME::UniqueId> const & __ptr64 __cdecl GAME::Player::GetMarkerUIDs(void)const __ptr64
 inline constexpr const char* Player_GetMarkerUIDs_DLL = "Game.dll";
 inline constexpr const char* Player_GetMarkerUIDs = "?GetMarkerUIDs@Player@GAME@@QEBAAEBV?$vector@VUniqueId@GAME@@@mem@@XZ";

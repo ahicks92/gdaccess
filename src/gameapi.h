@@ -34,11 +34,12 @@ std::vector<std::string> objectives();           // the HUD's objective tracker 
 // later task's). Only 1 is "done" -- any-nonzero read every open objective as done (the user's codex report).
 inline constexpr int kSatisfied = 1;
 struct Objective { std::string text; int satisfied; bool done() const { return satisfied == kSatisfied; } };   // satisfied: the enum above, raw
-struct Task { void* p; std::string name, description; int state; std::vector<Objective> objectives; std::vector<std::string> rewards; };  // state 1 available, 2 in progress, 3 complete
+struct Task { void* p; std::string name, description; int state; unsigned uid = 0; int reward_events = 0; std::vector<Objective> objectives; std::vector<std::string> rewards; };  // state 1 available, 2 in progress, 3 complete
 struct Quest { void* p; unsigned id; std::string name, group; bool tracked, complete, in_progress; std::vector<Task> tasks; };
 enum QuestFilter : int { kQuestsAll = 0, kQuestsInProgress = 1, kQuestsCompleted = 2, kQuestsTracked = 4 };
 std::vector<Quest> quests(int filter);
 bool set_quest_tracked(void* quest, bool on);
+bool complete_quest_task(void* quest, int task_index);   // DEV ONLY: the game's own CompleteQuestTask on that task (rewards run, the reward window opens)
 
 // ---- factions ----
 struct Faction { int type; std::string tag, name, level_name; float value; int level, low, high; bool unlocked; };

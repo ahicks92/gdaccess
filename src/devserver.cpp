@@ -6,6 +6,7 @@
 #include "textcap.h"
 #include "world.h"
 #include "notify.h"
+#include "quest_rewards.h"
 #include "exe_ui.h"
 #include "audio.h"
 #include "audio_mute.h"
@@ -129,6 +130,7 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     return combat::status();
   }
   if (path == "/notify") return notify::status();   // banners + error popups the game showed, and dedupe count
+  if (path == "/rewards") return quest_rewards::status();   // the last quest completions and what they handed out (src/quest_rewards.cpp)
   if (path == "/inspect") { std::string s = world::inspect_target(); return s.empty() ? "no target\n" : s + "\n"; }
   if (path == "/findskill") {  // ?id=<character>&record=<records/skills/...> -> the buff/skill name via FindSkillId
     unsigned oid = (unsigned)parse_int(q.count("id") ? q.at("id") : "0", 0);
@@ -396,7 +398,7 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     return exe_ui::activate_ptr(p) ? "activated\n" : "not a button in the current tree (see /ui)\n";
   }
   // ---- the in-world windows' model (src/gameapi.h) ----
-  if (path == "/quests") { if (q.count("track")) return gameapi::set_quest_tracked((void*)strtoull(q.at("track").c_str(), nullptr, 0), !q.count("off")) ? "ok\n" : "failed\n"; return gameapi::dump_quests(parse_int(q.count("filter") ? q.at("filter") : "0", 0)); }
+  if (path == "/quests") { if (q.count("complete")) return gameapi::complete_quest_task((void*)strtoull(q.at("complete").c_str(), nullptr, 0), parse_int(q.count("task") ? q.at("task") : "0", 0)) ? "ok\n" : "failed\n"; if (q.count("track")) return gameapi::set_quest_tracked((void*)strtoull(q.at("track").c_str(), nullptr, 0), !q.count("off")) ? "ok\n" : "failed\n"; return gameapi::dump_quests(parse_int(q.count("filter") ? q.at("filter") : "0", 0)); }
   if (path == "/objectives") { std::string out; for (const std::string& l : gameapi::objectives()) out += l + "\n"; return out.empty() ? "no objectives\n" : out; }
   if (path == "/factions") return gameapi::dump_factions();
   if (path == "/hotbar") {   // ?assign=<slot index>&skill=<id> | ?primary=<id> | ?secondary=<id> | ?activate=<index> | ?tip=<index> | ?base=&stride= (quickbar layout knob)

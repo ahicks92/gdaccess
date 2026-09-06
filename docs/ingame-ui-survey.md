@@ -135,10 +135,31 @@ pickup action exe+0x21c6c0. Hover name + health line builder is exe+0x10e940.
 `+0x120`/`+0x650` potions1/2 buttons, `+0xbe0` skillSelect, `+0x11d0` close, `+0x1508` title, rows from
 templates `potionsContainer%u`/`potionsModifier%u`.
 
-### Quest reward (`+0x8efd8`) -- EASY, modal
-`+0x1b8` questTitleString, `+0x2b0` questNameString, `+0x388` acceptButton, `+0x7e0` XPValue, reward icons
-`+0x8f0..+0xab0`. Rewards are `Quest2Task::GetRewards()` -> `Quest2Event::GetText`; there is nothing to
-choose (no ChooseReward export exists), only Accept.
+### Quest reward (`+0x8efd8`, UIQuestRewardWindow) -- DONE 2026-09-06 (`screens/modals.cpp`, `src/quest_rewards.cpp`)
+`+0x1b8` questTitleString (tagQuestRewardWindowTitle "Quest Complete" when `Quest2::IsComplete`, else
+tagQuestRewardWindowInterim "Quest Progress"), `+0x2b0` questNameString, `+0x388` the Close button (caption
+tagQuestRewardAcceptButton = "Close", registry `+0x738`), `+0x7e0` XPValue ("XP: %d", tagQuestRewardXP; drawn when
+`+0x808`), reward icon entries `vector<Control*>` at `+0x8d8/+0x8e0` (one widget class per reward kind, capacity
+`+0xbc0`). **Shown-ness is the base control byte `+0x28`**, not the generic IsVisible slot (+0x68 stays 0): the
+window is its own event listener (sub-vtable exe+0x31adc0; handler exe+0x228d80 takes the quest-completed event
+{quest id +4, vector<task uid> +8}), fills itself and sets `+0x28`; Close (exe+0x2285e0, via the +0x388 listener
+adapter exe+0x2295e0) clears it. It opens while the conversation window is still up and positions itself beside
+it (exe+0x229552 reads the conversation window's rect), and outlives the dialog. The exe builds the icon list from
+`Quest2Task::GetRewards()` (complete) / `GetIncentives()` -> `Quest2Event::Evaluate` + `GetActions` ->
+`ScriptableActionCollection::GetActions` -> `ScriptableAction::IsReward` (types 4-8, 15, 18, 20, 25, 26) ->
+per class: `ScriptableAction_Give{Money,Level,Experience,SkillPoint,AttribPoint,Devotion,Tribute,Faction}::GetAmount`,
+`GiveItem::GetNumItems/GetInfoItem(i)/GetCount`, `GiveFaction::GetFactionTag` (std::string by value; ->
+`FactionPack::GetFactionFromString` -> `FactionPack::GetFactionTag(type)` -> localize). `Quest2Event::GetText` is
+empty in practice (every task in `/quests` prints no reward text), so the codex's reward lines are vestigial.
+The mod's rows come from the pipeline instead: `Quest2Task::Complete(bool)` (the single choke point: objectives
+met, conversation turn-in and `Quest2Repository::CompleteQuestTask` all end there; it runs `AdjustRewards`, then
+each reward event's `Evaluate` + `Execute`) -> `Quest2Event::Execute` = OnActivate each action (a GiveItem
+generates its items here), `ScriptableActionCollection::Execute`, OnDeactivate each. Hooking the collection's
+Execute inside a Complete and reading the reward actions BEFORE it runs gives the amounts and the generated item
+names; the class is the object's vptr against the exported `vftable' symbols (GiveFaction's is not exported =
+the remaining reward kind). Nothing to choose, only Close. Verified live 2026-09-06 (Bounty Table turn-ins: XP, iron bits,
+an item, +/- reputation). Dev: `/rewards`; `/quests?complete=<questptr>&task=<i>` runs `Quest2Repository::CompleteQuestTask`
+(the task must be in progress for its rewards to run: Lua `Game.GetLocalPlayer():GrantQuest(questId, taskUid)` first).
 
 ### Stack split (`+0x83ed8`) -- EASY, modal
 `+0x160` ok, `+0x510` cancel, `+0xbf8` decrease, `+0xf30` increase; `GameEngine::GetItemMaxStackSize`.

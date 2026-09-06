@@ -1,6 +1,7 @@
 #include "screens/modals.h"
 #include <format>
 #include "gameapi.h"
+#include "quest_rewards.h"
 #include "screens/window_base.h"
 
 namespace gd::screens {
@@ -27,11 +28,18 @@ void add_button(GraphBuilder& b, const std::string& id, const WidgetB& btn, void
 }
 }  // namespace
 
-// Quest reward (InGameUI+0x8efd8): questTitleString +0x1b8, questNameString +0x2b0, XPValue +0x7e0, acceptButton
-// +0x388 through registry +0x738. Rewards are the quest's own (Quest2Event text) -- nothing to choose, only Accept.
+// Quest reward (InGameUI+0x8efd8, UIQuestRewardWindow): questTitleString +0x1b8 ("Quest Complete" / "Quest
+// Progress"), questNameString +0x2b0, XPValue +0x7e0, the Close button +0x388 through registry +0x738. The game
+// opens it from the quest-completed event while the conversation window is still up and positions it beside the
+// dialog, so this screen sits ABOVE the conversation (30). Shown-ness is the base control's +0x28 byte (the
+// window's handler sets it directly and its Close routine exe+0x2285e0 clears it); the generic IsVisible slot
+// reads +0x68 and stays 0 for this window (verified live 2026-09-06, "Old Scars"). The reward rows are what the
+// task handed out, captured from the game's reward pipeline (src/quest_rewards.cpp) -- the window itself only
+// draws icons for them; the XP line is the window's own text.
 class QuestRewardScreen : public WindowScreen {
  public:
-  QuestRewardScreen() : WindowScreen("quest_reward", std::string(strings::kQuestReward), exe_ui::ingame::kQuestReward, 26) {}
+  QuestRewardScreen() : WindowScreen("quest_reward", std::string(strings::kQuestReward), exe_ui::ingame::kQuestReward, 32) {}
+  bool is_active() override { exe_ui::WindowB w = window(); return exe_ui::available() && w && WidgetB{w.p}.visible(); }
   bool exclusive() const override { return true; }
   void build(GraphBuilder& b) override {
     exe_ui::WindowB w = window();
@@ -40,11 +48,18 @@ class QuestRewardScreen : public WindowScreen {
     add_text(b, "reward.title", at(w, 0x1b8));
     add_text(b, "reward.name", at(w, 0x2b0));
     add_text(b, "reward.xp", at(w, 0x7e0));
-    add_button(b, "reward.accept", at(w, 0x388), (char*)w.p + 0x738, std::string(strings::kAccept));
+    quest_rewards::Record rec;
+    if (quest_rewards::latest_for(textcap::speakable(at(w, 0x2b0).text()), rec)) {
+      int i = 0;
+      for (const quest_rewards::Reward& r : rec.rewards) {
+        if (r.kind == quest_rewards::Kind::Experience) continue;   // the window's own XP line above
+        b.add_item(ControlId::structural(std::format("reward.row{}", i++)), line_item(r.text()));
+      }
+    }
+    add_button(b, "reward.close", at(w, 0x388), (char*)w.p + 0x738, std::string(strings::kClose));
   }
-  std::vector<ScreenAction> actions() override {
-    return {{std::string(action_ids::Back), [this] { exe_ui::WindowB w = window(); if (w) at(w, 0x388).press((char*)w.p + 0x738); }}};
-  }
+  void close() override { exe_ui::WindowB w = window(); if (w) at(w, 0x388).press((char*)w.p + 0x738); }
+  std::vector<ScreenAction> actions() override { return {{std::string(action_ids::Back), [this] { close(); }}}; }
 };
 
 // Shrine: title +0x540, info +0x638, offering boxes +0x8e0 / +0xbd0 / +0xec0 (their text elements), shrine
