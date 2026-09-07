@@ -35,6 +35,7 @@
 #include "screens/modals.h"
 #include "screens/vendor.h"
 #include "screens/list_picker.h"
+#include "screens/reward_list.h"
 #include "screens/count_prompt.h"
 #include "screens/hotbar_manager.h"
 #include "screens/announcements.h"
@@ -281,6 +282,7 @@ void init() {
   g_screens.register_screen(screens::make_sound_glossary());
   g_screens.register_screen(screens::make_list_picker());
   g_screens.register_screen(screens::make_count_prompt());
+  g_screens.register_screen(screens::make_reward_notice());
   gameapi::load();
   g_last_tick = now();
   log::writef("app: initialized with {} actions", g_input.actions().size());

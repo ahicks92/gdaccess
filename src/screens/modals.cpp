@@ -2,6 +2,7 @@
 #include <format>
 #include "gameapi.h"
 #include "quest_rewards.h"
+#include "screens/reward_list.h"
 #include "screens/window_base.h"
 
 namespace gd::screens {
@@ -45,17 +46,13 @@ class QuestRewardScreen : public WindowScreen {
     exe_ui::WindowB w = window();
     if (!w) return;
     b.begin_stop("page");
-    add_text(b, "reward.title", at(w, 0x1b8));
-    add_text(b, "reward.name", at(w, 0x2b0));
-    add_text(b, "reward.xp", at(w, 0x7e0));
+    std::string name = textcap::speakable(at(w, 0x2b0).text());
+    std::vector<std::string> rows;
     quest_rewards::Record rec;
-    if (quest_rewards::latest_for(textcap::speakable(at(w, 0x2b0).text()), rec)) {
-      int i = 0;
-      for (const quest_rewards::Reward& r : rec.rewards) {
-        if (r.kind == quest_rewards::Kind::Experience) continue;   // the window's own XP line above
-        b.add_item(ControlId::structural(std::format("reward.row{}", i++)), line_item(r.text()));
-      }
-    }
+    if (quest_rewards::latest_for(name, rec))
+      for (const quest_rewards::Reward& r : rec.rewards)
+        if (r.kind != quest_rewards::Kind::Experience) rows.push_back(r.text());   // the window's own XP line is a header
+    add_reward_lines(b, "reward", {textcap::speakable(at(w, 0x1b8).text()), name, textcap::speakable(at(w, 0x7e0).text())}, rows);
     add_button(b, "reward.close", at(w, 0x388), (char*)w.p + 0x738, std::string(strings::kClose));
   }
   void close() override { exe_ui::WindowB w = window(); if (w) at(w, 0x388).press((char*)w.p + 0x738); }

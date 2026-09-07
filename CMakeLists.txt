@@ -53,7 +53,7 @@ add_library(gdaccess SHARED
   src/voice.cpp src/tts_onecore.cpp src/combat.cpp src/casts.cpp src/telegraph.cpp src/settings.cpp src/screens/announcements.cpp src/screens/mod_menu.cpp src/screens/sound_glossary.cpp src/notify.cpp src/quest_rewards.cpp src/gameapi.cpp src/gameapi_items.cpp src/gameapi_skills.cpp src/gameapi_devotion.cpp src/gameapi_pets.cpp src/screens/pets.cpp src/gameapi_loot.cpp src/screens/loot_filter.cpp src/gameapi_crafting.cpp src/screens/crafting.cpp src/screens/inventor.cpp
   src/screens/codex.cpp src/screens/factions.cpp src/screens/inventory.cpp src/screens/skills.cpp src/screens/quickbar.cpp
   src/screens/modals.cpp src/screens/vendor.cpp src/db.cpp src/rooms.cpp src/sonar.cpp src/screens/riftgate.cpp
-  src/screens/list_picker.cpp src/screens/count_prompt.cpp src/screens/hotbar_manager.cpp src/screens/map_markers.cpp)
+  src/screens/list_picker.cpp src/screens/count_prompt.cpp src/screens/reward_list.cpp src/screens/hotbar_manager.cpp src/screens/map_markers.cpp)
 # C++/WinRT (OneCore speech in src/tts_onecore.cpp): the projection headers are heavy, and windowsapp.lib's
 # api-ms-win-* imports are delay-loaded so a machine without them loses combat speech, not the whole mod.
 set_source_files_properties(src/tts_onecore.cpp PROPERTIES COMPILE_OPTIONS "/bigobj")

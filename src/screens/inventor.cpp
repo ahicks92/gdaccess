@@ -8,7 +8,9 @@
 //   Salvage: items carrying a component or an augment; Enter -> a picker of the actions that apply (Keep Item /
 //     Keep Add-on for a component, Remove Augment for an augment; Space on a row = the game's warning text).
 //   Dismantle: items above common quality; Enter dismantles (Dynamite + iron bits); the two results the game
-//     drops into the panel's output boxes are taken into the bag and named.
+//     drops into the panel's output boxes are taken into the bag and listed in the reward notice (the quest
+//     reward shape, screens/reward_list.h): rolled on the press and landing under a loud effect, a spoken line
+//     would be lost.
 // Convert / Reroll are expansion tabs; a base-game install never builds them (the buttons stay null), so they are
 // listed only when present. A tab the Inventor "has not yet learned" (Dismantle before its quest token) is
 // greyed by the game and reads its info text instead of items.
@@ -17,6 +19,7 @@
 #include <optional>
 #include "gameapi.h"
 #include "screens/list_picker.h"
+#include "screens/reward_list.h"
 #include "screens/window_base.h"
 #include "textcap.h"
 
@@ -44,15 +47,19 @@ class InventorScreen : public WindowScreen {
       if (d.item == p.item) { if (still_in_chamber_wait(p, age)) return; cancel(); return; }
       // The item is gone: results arrive in the output boxes a few frames later (the command round trip).
       if (!d.result1 && !d.result2 && age < 120) return;
-      MessageBuilder m;
-      m.fragment(std::string(strings::kDismantled));
+      // The scrap count and the bonus component were rolled on the press, and the game plays a loud effect over
+      // the moment they land -- so they are a dialog the player closes, not a line (the quest reward shape).
+      std::vector<std::string> got;
       for (int which : {1, 2}) {
         unsigned id = which == 1 ? d.result1 : d.result2;
         if (!id) continue;
         std::string name = gameapi::item_name(gameapi::object_by_id(id));
-        if (exe_ui::inventor_take(which) && !name.empty()) m.list_item().fragment(name);
+        if (exe_ui::inventor_take(which) && !name.empty()) got.push_back(name);
       }
-      finish(m.build());
+      pending_.reset();
+      gameapi::invalidate_objects();
+      invalidate();
+      open_reward_notice(std::string(strings::kDismantled), std::move(got));
       return;
     }
     exe_ui::InventorSalvage s = exe_ui::inventor_salvage();

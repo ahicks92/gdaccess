@@ -51,8 +51,11 @@ operate it is three extra keys per action):
   player said No -> back into the bag, "cancelled".
 - **Dismantle**: a "N dynamite, N iron bits" line, then one row per above-common bag item -- "name[, with
   component], dismantle cost N iron bits" (+ "too expensive" / "no dynamite"). Enter dismantles (confirm box
-  when the game asks); the two results are taken out of the output boxes into the bag and named
-  ("dismantled, Scrap (4), Serrated Spike").
+  when the game asks); the two results are taken out of the output boxes into the bag and LISTED in the
+  mod's reward notice (`screens/reward_list.h`, the same row shape as the quest reward window: title
+  "dismantled", one row per result, Close; Escape/Enter on Close returns to the item list). A notice rather
+  than a line because the results are rolled on the press and land under the game's loud dismantle effect
+  (`dismantleItemSound` = spak_fire_impact), which drowned the spoken line (2026-09-07).
 - Space = the item's tooltip, Ctrl+Space the details. Escape = the window's Show(false) (returns anything
   in a chamber).
 - Verified live: Keep Add-on on a component-bearing sword (105 bits, the Razor destroyed, the Spike back in
