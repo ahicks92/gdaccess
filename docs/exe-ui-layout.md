@@ -183,6 +183,10 @@ The riftgate travel UI is the world map: `WorldMapWindow` = MiniMap (`InGameUI+0
 `StaticTeleporter` (`RequestToUse` -> `EventManager::Send` 0x1c -> listener exe+0x21ce84: `InGameUI+0x49da0` =
 the gate's object id (= worldmap+0x200), mode 0, Show(true)); the L key (action 0x21 -> exe+0x211ea3 -> listener
 exe+0x1cde76, a toggle that leaves +0x200 alone; did nothing for a character without the personal riftgate).
+The AERIAL map (mode 1) is a sub-object at MiniMap+0xba0 (its update = exe+0x174e80): nugget vector at +0x210
+(= MiniMap+0xdb0), the icon frustum's camera at +0x638, zoom current/target floats at +0xacc/+0xad0 (= MiniMap+0x166c/
++0x1670, verified live 2026-09-11; the wheel handler exe+0x174c20 clamps 40..135 and saves options.txt mapZoom; view
+height = zoom * 3 units). docs/map-icons.md has the nugget layout and the type table.
 Close: the close button / Escape = MiniMap Show(false) (vtable +0xb0). Sections: `worldmap+0x118` std::list
 (node+0x30 = section; section +0x08/+0x10 = vector<Icon*>). Icon (ctor exe+0x28ed20): +0x00 state (1 = current),
 +0x128 int[3] world position, +0x134 owner player id (personal gates), +0x138 the gate's object id, +0x140

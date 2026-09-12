@@ -198,6 +198,7 @@ struct Api {
   unsigned (*Object_GetObjectId)(const void*) = nullptr;
   const float* (*Entity_GetRegionBoundingBox)(const void*, bool) = nullptr;  // const ABBox&: {min, max} Vec3s (verified via /blocks dump)
   const char* (*Object_GetObjectName)(const void*) = nullptr;  // `char const*` per the export (not a std::string)
+  const char* (*Resource_GetFileName)(const void*) = nullptr;  // Resource::GetFileName -- a map icon's custom symbol texture path
   const void* (*Object_GetRTTIClassInfo)(const void*) = nullptr;
   const void* (*Entity_StaticClassInfo)() = nullptr;
   const void* (*Character_StaticClassInfo)() = nullptr;
@@ -319,6 +320,7 @@ void load_api() {
   LOAD(Object_GetObjectId, Object_GetObjectId);
   LOAD(Entity_GetRegionBoundingBox, Entity_GetRegionBoundingBox);
   LOAD(Object_GetObjectName, Object_GetObjectName);
+  LOAD(Resource_GetFileName, Resource_GetFileName);
   LOAD(Object_GetRTTIClassInfo, Object_GetRTTIClassInfo);
   LOAD(Entity_StaticClassInfo, Entity_GetStaticClassInfo);
   LOAD(Character_StaticClassInfo, Character_GetStaticClassInfo);
@@ -1178,19 +1180,73 @@ std::string entities_dump(float max_dist, bool frustum) {
 }
 
 // ---- the aerial map's icons (map_markers) ----
+// MinimapGameNugget (0xA0, read live 2026-09-11, docs/map-icons.md): +0x08 type, +0x10 the icon's own name
+// (basic_string<u16>: the localized AreaDescription of a point of interest, the hero's name; empty on the
+// class-driven icons), +0x50 the custom symbol texture (type 14 only; a Resource, so GetFileName names it),
+// +0x58 Region*, +0x60 region-relative position. The type is the value each class's AppendDetailMapData writes
+// (Game.dll static RE): 0 hero, 1 party member, 2 Npc, 3 teleporter/riftgate, 4 StaticRespawner, 5 FixedItemShrine,
+// 6 AreaOfInterest, 7 NpcMerchant, 8 hero Monster, 10 NpcSkillReallocator, 11 NpcEnchanter (inventor), 12 the grave,
+// 13 NpcCaravan, 14 record-driven custom symbol (mapNuggetType = Custom: barricades), 15 NpcCrafter, 16 StaticShrine,
+// 17 boss Monster, 18 NpcTransmuter. Spoken with the game's own rollover words (tagMapSymbol*) where it has them.
 namespace {
-const char* nugget_type_label(int t) {
+std::string nugget_type_name(int t) {
+  auto tag = [](const char* tg) { return gd::hooks::localize(tg); };
   switch (t) {
-    case 3: return "riftgate";
-    case 7: return "merchant";
-    case 10: return "spirit guide";
-    case 13: return "caravan";
-    case 2: return "person";
-    default: return "marker";
+    case 0: return tag("tagMapSymbolHero");
+    case 1: return tag("tagMapSymbolGroup");
+    case 2: return tag("tagMapSymbolNPC");
+    case 3: return tag("tagMapSymbolRiftgate");
+    case 4: return tag("tagMapSymbolRespawn");
+    case 5: case 16: return tag("tagMapSymbolShrine");
+    case 6: return tag("tagMapSymbolAOI");
+    case 7: return tag("tagMapSymbolVendor");
+    case 8: return std::string(gd::strings::kHeroMonster);
+    case 10: return tag("tagMapSymbolWitch");
+    case 11: return tag("tagMapSymbolInventor");
+    case 12: return std::string(gd::strings::kYourGrave);
+    case 13: return tag("tagMapSymbolSmuggler");
+    case 14: return std::string(gd::strings::kObstacle);
+    case 15: return tag("tagMapSymbolSmith");
+    case 17: return std::string(gd::strings::kBossMonster);
+    case 18: return std::string(gd::strings::kIllusionist);
+    default: return std::string(gd::strings::kMapMarker);
   }
 }
-bool read_nugget_type(void* nug, int& type) {
-  __try { type = *(const int*)((const char*)nug + 0x08); return true; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+// POD read of one nugget under SEH (no C++ objects inside __try): type, the name as UTF-16 (truncated to the buffer),
+// and the custom symbol texture pointer.
+struct NugFields { int type; char16_t name[128]; size_t name_len; const void* texture; };
+bool read_nugget_fields(const void* nug, NugFields& f) {
+  __try {
+    const char* b = (const char*)nug;
+    f.type = *(const int*)(b + 0x08);
+    const MsvcStringW* s = (const MsvcStringW*)(b + 0x10);
+    const char16_t* src = s->capacity >= 8 ? s->u.ptr : s->u.buf;
+    size_t n = s->size < 127 ? s->size : 127;
+    f.name_len = 0;
+    if (src && s->size < 4096) { for (size_t i = 0; i < n; ++i) f.name[i] = src[i]; f.name_len = n; }
+    f.texture = *(const void* const*)(b + 0x50);
+    return true;
+  } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+const char* texture_file_name(const void* tex) {
+  if (!tex || !g_api.Resource_GetFileName) return nullptr;
+  __try { return g_api.Resource_GetFileName(tex); } __except (EXCEPTION_EXECUTE_HANDLER) { return nullptr; }
+}
+std::string narrow_u16(const char16_t* s, size_t n) {
+  std::string out;
+  for (size_t i = 0; i < n; ++i) { char16_t c = s[i]; out += c < 0x80 ? (char)c : '?'; }
+  return out;
+}
+// The custom symbol's kind from its texture path: every shipped custom symbol is a mapsymbol_dynamicobstacle*
+// (barricades, rubble walls, the Burrwitch bridge debris) -> "obstacle"; anything else reads by its file stem.
+std::string custom_symbol_name(const void* tex) {
+  const char* fn = texture_file_name(tex);
+  if (!fn) return std::string(gd::strings::kObstacle);
+  std::string path(fn);
+  if (path.find("dynamicobstacle") != std::string::npos) return std::string(gd::strings::kObstacle);
+  size_t slash = path.find_last_of("/\\"), dot = path.find_last_of('.');
+  std::string stem = path.substr(slash == std::string::npos ? 0 : slash + 1, dot == std::string::npos || dot < slash ? std::string::npos : dot - (slash == std::string::npos ? 0 : slash + 1));
+  return stem.empty() ? std::string(gd::strings::kMapMarker) : stem;
 }
 }  // namespace
 
@@ -1203,18 +1259,20 @@ std::vector<MapMarker> map_markers() {
   size_t count = 0;
   if (!gd::exe_ui::aerial_nugget_span(begin, count)) return out;   // the aerial map is not open / not populated
 
-  // First pass: read the nuggets (type + world position), dropping the hero marker.
-  struct Raw { int type; Vec3 pos; float dist; };
+  // First pass: read the nuggets (type, own name, symbol, world position), dropping the hero marker.
+  struct Raw { int type; std::string name; Vec3 pos; float dist; };
   std::vector<Raw> raws;
   float maxd = 0;
   for (size_t i = 0; i < count; ++i) {
     char* nug = (char*)begin + i * 0xA0;
-    int type = -1;
-    if (!read_nugget_type(nug, type) || type == 0) continue;   // 0 = the hero (player) marker
+    NugFields f{};
+    if (!read_nugget_fields(nug, f) || f.type == 0) continue;   // 0 = the hero (player) marker
     Vec3 pos;
     if (!world_point(nug + 0x58, pos)) continue;
     float d = std::sqrt((pos.x - me.x) * (pos.x - me.x) + (pos.z - me.z) * (pos.z - me.z));
-    raws.push_back({type, pos, d});
+    std::string name = f.name_len ? narrow_u16(f.name, f.name_len) : std::string();
+    if (name.empty() && f.type == 14) name = custom_symbol_name(f.texture);
+    raws.push_back({f.type, std::move(name), pos, d});
     if (d > maxd) maxd = d;
   }
 
@@ -1261,8 +1319,14 @@ std::vector<MapMarker> map_markers() {
       float d = std::sqrt((e.pos.x - pos.x) * (e.pos.x - pos.x) + (e.pos.z - pos.z) * (e.pos.z - pos.z));
       if (d < best) { best = d; he = &e; }
     }
-    if (he) { m.id = he->id; m.label = he->label; } else { m.label = nugget_type_label(rw.type); }
-    m.quest = false;   // quest-marker types not yet observed; the objective overlay is GetMarkerUIDs (see markers_dump)
+    // Label: the icon's own name (points of interest carry theirs), else the entity the icon sits on (a merchant's or
+    // NPC's name), else the kind in the game's own rollover words.
+    if (!rw.name.empty()) m.label = rw.name;
+    else if (he) m.label = he->label;
+    else m.label = nugget_type_name(rw.type);
+    if (he) m.id = he->id;
+    m.quest = rw.type == 6;   // a point of interest: the quest-bound ones exist only while their task is active
+    if (m.label.empty()) m.label = std::string(gd::strings::kMapMarker);
     out.push_back(std::move(m));
   }
   std::sort(out.begin(), out.end(), [](const MapMarker& a, const MapMarker& b) { return a.dist < b.dist; });
@@ -1273,7 +1337,7 @@ std::string map_markers_dump() {
   std::vector<MapMarker> ms = map_markers();
   std::string s = std::format("{} map markers\n", ms.size());
   for (const MapMarker& m : ms)
-    s += std::format("  {:6.1f}  type={:<3} {:<12} '{}' id={} at ({:.1f},{:.1f},{:.1f}){}\n", m.dist, m.type, nugget_type_label(m.type), m.label, m.id, m.pos.x, m.pos.y, m.pos.z, m.quest ? " [quest]" : "");
+    s += std::format("  {:6.1f}  type={:<3} {:<14} '{}' id={} at ({:.1f},{:.1f},{:.1f}){}\n", m.dist, m.type, nugget_type_name(m.type), m.label, m.id, m.pos.x, m.pos.y, m.pos.z, m.quest ? " [poi]" : "");
   return s;
 }
 bool set_target(unsigned id) {

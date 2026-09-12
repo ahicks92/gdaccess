@@ -810,6 +810,14 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   mod keeps yaw 0 deliberately: the world geometry is on the axis-aligned tile grid, so yaw 0 is what makes walls read
   straight and W follow corridors; the default yaw would turn every corridor into a NE/NW diagonal. Player rule (README):
   the game's north = 11 o'clock, east = 1-2, south = 4-5, west = 7. Nothing in the mod's wording should call yaw 0 "north".
+- Map icons named as the game names them + widest zoom (2026-09-11, `docs/map-icons.md`, built, NOT yet reloaded): the
+  sighted "your objective is that way" is a point-of-interest record (`records/ui/mapaerial/poi`, class AreaOfInterest,
+  53 of 100 bound to a quest task and shown only while it is active) on the aerial map, plus the quest log prose; the
+  map is an orthographic camera (view height = mapZoom * 3 units, wheel clamp 40..135 -> at most 405 x ~650 units)
+  and its icons come from that frustum. `world::map_markers` now reads the nugget's own name (+0x10), the custom symbol
+  texture (+0x50, `Resource::GetFileName`, "obstacle") and speaks kinds with the game's `tagMapSymbol*` words;
+  `exe_ui::aerial_zoom_set` (MiniMap+0x166c/+0x1670, verified live) holds 135 while the Ctrl+M screen is open.
+  Decided with the user: no icon gathering beyond the sighted reach, no offline quest-POI table -- parity first.
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.

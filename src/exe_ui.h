@@ -216,6 +216,13 @@ void riftgate_map_close();                 // the close button: MiniMap Show(fal
 std::string map_nuggets_dump(int maxn);    // dev: the aerial map's cached MinimapGameNugget vector
 bool aerial_nugget_span(void*& begin, size_t& count);   // the live nugget vector (0xA0 stride); false when the map has not populated it
 bool aerial_map_open();                    // the local aerial map (M / Ctrl+M): MiniMap shown, mode 1
+// The aerial map's zoom: the map is an orthographic camera whose view height is zoom * 3 world units; the wheel
+// clamps it to kAerialZoomMin..kAerialZoomMax (exe+0x174c42/+0x174c5d) and saves it as options.txt mapZoom.
+// The icon list is gathered from that camera's frustum, so the zoom IS the reach of the map. Fields at
+// MiniMap+0x166c (current) / +0x1670 (target), verified live 2026-09-11 (docs/map-icons.md).
+inline constexpr float kAerialZoomMin = 40.0f, kAerialZoomMax = 135.0f;
+float aerial_zoom();                       // the current value, 0 when the map object is unavailable
+bool aerial_zoom_set(float zoom);          // writes current + target (no lerp), clamped to the wheel's range
 void aerial_map_close();                   // MiniMap Show(false)
 namespace ingame {
 constexpr unsigned kPromptBox = 0x7378, kCharacter = 0x52258 /*the multiplayer Inspect twin*/, kInventory = 0xbbf0 /*the C/I window*/,  // (+0xb138/+0xb158 are record-path strings)

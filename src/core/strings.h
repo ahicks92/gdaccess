@@ -244,6 +244,13 @@ inline constexpr std::string_view kMapMarkers = "map";
 inline constexpr std::string_view kQuestMarkers = "quest markers";
 inline constexpr std::string_view kMapPoints = "points of interest";
 inline constexpr std::string_view kNoMarkersHere = "nothing on the map here";
+// Map icon kinds the game has no rollover text for (the others speak the game's tagMapSymbol* words; docs/map-icons.md)
+inline constexpr std::string_view kObstacle = "obstacle";           // a barricade / rubble wall drawn with a dynamic-obstacle symbol
+inline constexpr std::string_view kHeroMonster = "hero monster";
+inline constexpr std::string_view kBossMonster = "boss";
+inline constexpr std::string_view kYourGrave = "your grave";
+inline constexpr std::string_view kIllusionist = "illusionist";
+inline constexpr std::string_view kMapMarker = "marker";            // an icon kind not yet seen (its type number is logged)
 inline constexpr std::string_view kNoQuestMarkers = "no quest markers";
 inline constexpr std::string_view kFollowing = "following";
 inline constexpr std::string_view kNotFollowing = "not following anything";

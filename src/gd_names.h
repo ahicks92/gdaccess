@@ -64,6 +64,9 @@ inline constexpr const char* Entity_GetCoords = "?GetCoords@Entity@GAME@@QEBA?AV
 // public: class GAME::Region * __ptr64 __cdecl GAME::Entity::GetRegion(void)const __ptr64
 inline constexpr const char* Entity_GetRegion_DLL = "Engine.dll";
 inline constexpr const char* Entity_GetRegion = "?GetRegion@Entity@GAME@@QEBAPEAVRegion@2@XZ";
+// public: char const * __ptr64 __cdecl GAME::Resource::GetFileName(void)const __ptr64
+inline constexpr const char* Resource_GetFileName_DLL = "Engine.dll";
+inline constexpr const char* Resource_GetFileName = "?GetFileName@Resource@GAME@@QEBAPEBDXZ";
 // protected: virtual class GAME::WorldCoords __cdecl GAME::Character::GetFootCoords(bool) __ptr64
 inline constexpr const char* Character_GetFootCoords_DLL = "Game.dll";
 inline constexpr const char* Character_GetFootCoords = "?GetFootCoords@Character@GAME@@MEAA?AVWorldCoords@2@_N@Z";

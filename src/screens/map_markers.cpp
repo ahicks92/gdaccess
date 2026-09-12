@@ -10,16 +10,30 @@ using namespace gd::core;
 
 // Ctrl+M injects the game's M, which opens the local aerial map; this screen becomes current while that map
 // is open (exe_ui::aerial_map_open) and reads the map's own icon set (world::map_markers, filled live while
-// the map is shown). One flat list, nearest-first (merchants, riftgate, spirit guide, NPCs, quest markers,
-// ...). Activating a row picks it as the follow target and closes the map; the ' key then pings it with
-// distance and heading. A second Tab stop lists every devotion shrine the character has discovered anywhere. (No quest/non-quest tab split: world::map_markers does not classify quest markers
-// yet -- every marker's `quest` is false -- so the split was vacuous. Reintroduce a per-row annotation, not
-// tabs, if that classification ever lands.)
+// the map is shown). One flat list, nearest-first, each icon named as the game names it: a point of
+// interest by its own text ("Burrwitch Road", "Burial Hill Entrance" -- the quest-bound ones exist only while
+// their task is active), a person or merchant by the entity under the icon, a barricade "obstacle", the rest by
+// the game's rollover word (Riftgate, Healer, Smith, Spirit Guide ...). The map is an orthographic camera and its
+// icons come from that camera's frustum, so while this screen is open the zoom is pushed to the wheel's maximum
+// (the sighted reach: 405 x ~650 units) and restored on leaving. Activating a row picks it as the follow target
+// and closes the map; the ' key then pings it with distance and heading. A second Tab stop lists every devotion
+// shrine the character has discovered anywhere. docs/map-icons.md has the survey.
 class MapMarkersScreen : public WindowScreen {
  public:
   MapMarkersScreen() : WindowScreen("mapmarkers", std::string(strings::kMapMarkers), exe_ui::ingame::kMiniMap, 13) {}
   bool is_active() override { return exe_ui::aerial_map_open(); }
   void close() override { exe_ui::aerial_map_close(); }
+  void on_focus() override {
+    WindowScreen::on_focus();
+    if (saved_zoom_ <= 0.0f) {
+      saved_zoom_ = exe_ui::aerial_zoom();
+      if (saved_zoom_ > 0.0f && exe_ui::aerial_zoom_set(exe_ui::kAerialZoomMax)) markers_.invalidate();
+    }
+  }
+  void on_unfocus() override {
+    if (saved_zoom_ > 0.0f) { exe_ui::aerial_zoom_set(saved_zoom_); saved_zoom_ = 0.0f; }
+    WindowScreen::on_unfocus();
+  }
 
   void build(GraphBuilder& b) override {
     const std::vector<world::MapMarker>& all = markers_.get([] { return world::map_markers(); }, 15);
@@ -70,6 +84,7 @@ class MapMarkersScreen : public WindowScreen {
  private:
   Snapshot<std::vector<world::MapMarker>> markers_;
   Snapshot<gameapi::ShrineUids> shrines_;
+  float saved_zoom_ = 0.0f;   // the player's own mapZoom while we hold the map at the maximum
 };
 
 std::unique_ptr<Screen> make_map_markers() { return std::make_unique<MapMarkersScreen>(); }

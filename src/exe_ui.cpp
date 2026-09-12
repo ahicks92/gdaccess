@@ -393,6 +393,29 @@ void aerial_map_close() {
   WindowB mm = ingame_window(ingame::kMiniMap);
   if (mm) mm.show(false);
 }
+// Zoom fields: the map-update method exe+0x174e80 runs on the aerial sub-object at MiniMap+0xba0 (its nugget vector
+// at +0x210 = MiniMap+0xdb0, the one aerial_nugget_span reads); it lerps [+0xacc] toward [+0xad0] and builds the
+// icon frustum from the current value. Both written so the next update gathers at the new reach.
+constexpr size_t kMM_Zoom = 0xba0 + 0xacc, kMM_ZoomTarget = 0xba0 + 0xad0;
+float aerial_zoom() {
+  void* ui = ingame_ui();
+  if (!ui || !available()) return 0.0f;
+  return rd_or<float>((char*)ui + ingame::kMiniMap, kMM_Zoom, 0.0f);
+}
+bool aerial_zoom_set(float zoom) {
+  void* ui = ingame_ui();
+  if (!ui || !available()) return false;
+  if (zoom < kAerialZoomMin) zoom = kAerialZoomMin;
+  if (zoom > kAerialZoomMax) zoom = kAerialZoomMax;
+  char* mm = (char*)ui + ingame::kMiniMap;
+  float cur = rd_or<float>(mm, kMM_Zoom, -1.0f);
+  if (cur < kAerialZoomMin - 1.0f || cur > kAerialZoomMax + 1.0f) return false;   // not the field we think (layout drift): leave it alone
+  __try {
+    *(float*)(mm + kMM_Zoom) = zoom;
+    *(float*)(mm + kMM_ZoomTarget) = zoom;
+    return true;
+  } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
 std::vector<Riftgate> riftgates() {
   std::vector<Riftgate> out;
   void* wm = worldmap();

@@ -27,6 +27,7 @@ ENTRIES = [
     ("ControllerPlayer_SetControllerMovementLength", "Game", r"GAME::ControllerPlayer::SetControllerMovementLength\("),
     ("Entity_GetCoords", "Engine", r"GAME::Entity::GetCoords\(void\)"),
     ("Entity_GetRegion", "Engine", r"GAME::Entity::GetRegion\(void\)"),
+    ("Resource_GetFileName", "Engine", r"GAME::Resource::GetFileName\(void\)"),   # names a map icon's custom symbol texture (docs/map-icons.md)
     ("Character_GetFootCoords", "Game", r"GAME::Character::GetFootCoords\(bool\)"),
     ("Character_GetCurrentLife", "Game", r"GAME::Character::GetCurrentLife\(void\)"),
     ("Character_GetLifeLimit", "Game", r"GAME::Character::GetLifeLimit\(void\)"),
