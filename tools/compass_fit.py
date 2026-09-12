@@ -4,7 +4,7 @@ and the free best fit, then every anchor. Anchors = a direction the game's text 
 Text_EN lore) gives between two places; the places are room centroids (surface regions only). 2026-09-11."""
 import os
 import sqlite3, math
-c = sqlite3.connect(r"D:\projects\in_progress\gdaccess\assets\rooms.db")
+c = sqlite3.connect(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "rooms.db"))
 UG = ("_ug", "cave", "cellar", "undercity", "interior", "armory", "outcast", "deeps", "mine", "crypt", "tomb", "lab", "transit")
 cent = {}
 for name, region, n, x, z in c.execute("select area_name, region_key, count(*), avg(anchor_x), avg(anchor_z) from rooms where area_name is not null group by area_name, region_key"):
