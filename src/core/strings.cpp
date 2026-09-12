@@ -127,6 +127,26 @@ MessageBuilder& push_stack(MessageBuilder& m, std::string_view name, unsigned st
   return m;
 }
 MessageBuilder& push_stat(MessageBuilder& m, std::string_view label, std::string_view value) { return m.fragment(label).fragment(value); }
+std::string strip_markup(std::string_view text) {
+  std::string out;
+  out.reserve(text.size());
+  for (size_t i = 0; i < text.size(); ++i) {
+    char c = text[i];
+    if (c == '{' && i + 3 < text.size() && text[i + 1] == '^' && text[i + 3] == '}') {   // {^x}
+      if (text[i + 2] == 'n' || text[i + 2] == 'N') out += ' ';
+      i += 3;
+      continue;
+    }
+    if (c == '^' && i + 1 < text.size()) {   // ^x
+      if (text[i + 1] == '^') { out += '^'; ++i; continue; }
+      if (text[i + 1] == 'n' || text[i + 1] == 'N') out += ' ';
+      ++i;
+      continue;
+    }
+    out += c;
+  }
+  return out;
+}
 MessageBuilder& push_skill_level(MessageBuilder& m, unsigned level, unsigned max_level) { return m.list_item().fragment(kLevel).fragment(std::format("{} of {}", level, max_level)); }
 MessageBuilder& push_shortfall(MessageBuilder& m, std::string_view label, int have, int need) { return m.list_item().fragment(label).fragment(std::format("{} of {}", have, need)); }
 MessageBuilder& push_faction(MessageBuilder& m, std::string_view name, std::string_view level_name, float value, int low, int high) {

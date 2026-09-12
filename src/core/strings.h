@@ -405,6 +405,10 @@ gd::core::MessageBuilder& push_range_hint(gd::core::MessageBuilder& m, unsigned 
 gd::core::MessageBuilder& push_stack(gd::core::MessageBuilder& m, std::string_view name, unsigned stack);
 // "<label>: <value>" -- a sheet row
 gd::core::MessageBuilder& push_stat(gd::core::MessageBuilder& m, std::string_view label, std::string_view value);
+// The game's inline text markup, removed: "{^b}Text" / "^bText" carry a colour letter (b, r, g, y, w, o, E ...),
+// "{^n}" / "^n" is a line break (becomes a space). Everything spoken from a game string that may carry markup
+// (map icon names, tag texts) goes through here; a doubled "^^" is not markup.
+std::string strip_markup(std::string_view text);
 // "<name>, level 3 of 12" -- a skill row
 gd::core::MessageBuilder& push_skill_level(gd::core::MessageBuilder& m, unsigned level, unsigned max_level);
 // ", Physique 391 of 392" -- one failed requirement (what the character has, what the item needs)

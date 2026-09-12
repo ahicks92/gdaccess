@@ -51,7 +51,7 @@ std::string wall_compare(int dirs, float max_dist, float step);  // dev: A/B fla
 // is not open). type = the nugget's icon category (state-aware: 0 hero (dropped), 2 person, 3 riftgate,
 // 7 merchant, 10 spirit guide, 13 caravan, ...); label/id come from matching the icon to a rendered entity.
 // quest markers (the objective overlay, GetMarkerUIDs/StaticMarker) are not yet folded in -- see markers_dump.
-struct MapMarker { unsigned id = 0; int type = 0; bool quest = false; std::string label; Vec3 pos; float dist = 0; };
+struct MapMarker { unsigned id = 0; int type = 0; bool quest = false; std::string label; std::string symbol; Vec3 pos; float dist = 0; };   // symbol: a custom icon's texture path (type 14), dev dump only
 std::vector<MapMarker> map_markers();   // nearest first; needs the aerial map open
 std::string map_markers_dump();         // dev: /mapmarkers
 

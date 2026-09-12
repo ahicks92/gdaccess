@@ -1238,11 +1238,13 @@ std::string narrow_u16(const char16_t* s, size_t n) {
   return out;
 }
 // The custom symbol's kind from its texture path: every shipped custom symbol is a mapsymbol_dynamicobstacle*
-// (barricades, rubble walls, the Burrwitch bridge debris) -> "obstacle"; anything else reads by its file stem.
-std::string custom_symbol_name(const void* tex) {
+// (barricades, rubble walls, the Burrwitch bridge debris) -> "obstacle"; anything else reads by its file stem; an
+// unreadable texture name is an unknown "marker", never an obstacle.
+std::string custom_symbol_name(const void* tex, std::string* path_out) {
   const char* fn = texture_file_name(tex);
-  if (!fn) return std::string(gd::strings::kObstacle);
+  if (!fn) return std::string(gd::strings::kMapMarker);
   std::string path(fn);
+  if (path_out) *path_out = path;
   if (path.find("dynamicobstacle") != std::string::npos) return std::string(gd::strings::kObstacle);
   size_t slash = path.find_last_of("/\\"), dot = path.find_last_of('.');
   std::string stem = path.substr(slash == std::string::npos ? 0 : slash + 1, dot == std::string::npos || dot < slash ? std::string::npos : dot - (slash == std::string::npos ? 0 : slash + 1));
@@ -1260,7 +1262,7 @@ std::vector<MapMarker> map_markers() {
   if (!gd::exe_ui::aerial_nugget_span(begin, count)) return out;   // the aerial map is not open / not populated
 
   // First pass: read the nuggets (type, own name, symbol, world position), dropping the hero marker.
-  struct Raw { int type; std::string name; Vec3 pos; float dist; };
+  struct Raw { int type; std::string name; std::string symbol; Vec3 pos; float dist; };
   std::vector<Raw> raws;
   float maxd = 0;
   for (size_t i = 0; i < count; ++i) {
@@ -1270,9 +1272,10 @@ std::vector<MapMarker> map_markers() {
     Vec3 pos;
     if (!world_point(nug + 0x58, pos)) continue;
     float d = std::sqrt((pos.x - me.x) * (pos.x - me.x) + (pos.z - me.z) * (pos.z - me.z));
-    std::string name = f.name_len ? narrow_u16(f.name, f.name_len) : std::string();
-    if (name.empty() && f.type == 14) name = custom_symbol_name(f.texture);
-    raws.push_back({f.type, std::move(name), pos, d});
+    std::string name = f.name_len ? gd::strings::strip_markup(narrow_u16(f.name, f.name_len)) : std::string();   // "{^b}..." colour codes
+    std::string symbol;
+    if (name.empty() && f.type == 14) name = custom_symbol_name(f.texture, &symbol);
+    raws.push_back({f.type, std::move(name), std::move(symbol), pos, d});
     if (d > maxd) maxd = d;
   }
 
@@ -1311,6 +1314,7 @@ std::vector<MapMarker> map_markers() {
     const Vec3& pos = rw.pos;
     MapMarker m{};
     m.type = rw.type;
+    m.symbol = rw.symbol;
     m.pos = pos;
     m.dist = rw.dist;
     float best = 4.0f;
@@ -1337,7 +1341,7 @@ std::string map_markers_dump() {
   std::vector<MapMarker> ms = map_markers();
   std::string s = std::format("{} map markers\n", ms.size());
   for (const MapMarker& m : ms)
-    s += std::format("  {:6.1f}  type={:<3} {:<14} '{}' id={} at ({:.1f},{:.1f},{:.1f}){}\n", m.dist, m.type, nugget_type_name(m.type), m.label, m.id, m.pos.x, m.pos.y, m.pos.z, m.quest ? " [poi]" : "");
+    s += std::format("  {:6.1f}  type={:<3} {:<14} '{}' id={} at ({:.1f},{:.1f},{:.1f}){}{}\n", m.dist, m.type, nugget_type_name(m.type), m.label, m.id, m.pos.x, m.pos.y, m.pos.z, m.quest ? " [poi]" : "", m.symbol.empty() ? "" : " symbol=" + m.symbol);
   return s;
 }
 bool set_target(unsigned id) {
