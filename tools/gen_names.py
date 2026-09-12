@@ -351,6 +351,13 @@ ENTRIES = [
     ("GameEngine_GetItemColorText", "Game", r"GAME::GameEngine::GetItemColorText\("),
     ("Item_AreRequirementsMet", "Game", r"GAME::Item::AreRequirementsMet\(class GAME::Character const"),
     ("Item_GetLevelRequirement", "Game", r"GAME::Item::GetLevelRequirement\(void\)"),
+    # The equip gate's numbers (docs/ingame-ui-survey.md "Requirements"): the virtual requirement getters (ItemEquipment
+    # overrides; dispatched by slot), the game's own reduced-requirement compare, and the per-slot attached flag
+    ("Item_GetStrengthRequirement", "Game", r"GAME::Item::GetStrengthRequirement\(void\)"),
+    ("Item_GetDexterityRequirement", "Game", r"GAME::Item::GetDexterityRequirement\(void\)"),
+    ("Item_GetIntelligenceRequirement", "Game", r"GAME::Item::GetIntelligenceRequirement\(void\)"),
+    ("Item_MeetsRequirements", "Game", r"GAME::Item::MeetsRequirements\(float,float,float\)"),
+    ("EquipmentCtrl_IsItemAttached", "Game", r"GAME::EquipmentCtrl::IsItemAttached\(unsigned int\)"),
     ("Item_vftable_plain", "Game", r"const GAME::Item::`vftable'$"),
     ("GameEngine_GetItemMaxStackSize", "Game", r"GAME::GameEngine::GetItemMaxStackSize\("),
     # Stack split, as the exe's stack-split window's OK does (exe+0x1dcb70, read 2026-08-26): clone the item

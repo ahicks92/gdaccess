@@ -3,6 +3,7 @@
 // are virtual and dispatched through the item's own vtable.
 #include "gameapi.h"
 #include "gameapi_internal.h"
+#include "core/strings.h"
 #include <algorithm>
 #include <format>
 
@@ -32,6 +33,10 @@ struct Api {
   bool (*Equip_RemoveItem)(void*, unsigned) = nullptr;
   bool (*Equip_SmartAutoInsert)(void*, unsigned, MemVec*, bool) = nullptr;
   bool (*Equip_CanItemBePlaced)(const void*, int, unsigned) = nullptr;
+  bool (*Equip_IsItemAttached)(const void*, unsigned) = nullptr;       // the slot's attached byte by item id (all 12 body slots + both hands)
+  bool (*Item_MeetsRequirements)(const void*, float, float, float) = nullptr;   // (value, requirement, reduction %) -- the game's reduced compare
+  unsigned (*GetCharLevel)(const void*) = nullptr;
+  float (*GetTotalCharAttribute)(const void*, int) = nullptr;         // = CharAttributeAccumulator::GetValue on the character's accumulator (Game.dll+0x69400)
   bool (*Ctrl_GetAlternateEquipment)(const void*) = nullptr;   // the active weapon set (A/B) on the controller
   void (*Ctrl_SetAlternateEquipment)(void*, bool) = nullptr;   // swap the active weapon set (only the two hands change)
   unsigned (*GetCurrentMoney)(const void*) = nullptr;
@@ -103,6 +108,7 @@ struct Api {
   bool loaded = false;
 } g;
 int g_s_ui = -1, g_s_simple = -1, g_s_stack = -1, g_s_req = -1, g_s_desc = -1, g_s_cost = -1, g_s_class = -1;
+int g_s_lvlreq = -1, g_s_physreq = -1, g_s_cunreq = -1, g_s_spireq = -1;   // Item::Get{Level,Strength,Dexterity,Intelligence}Requirement (vt+0x528..+0x540)
 int slot_in(const void* f) { int s = vslot(g.Item_vftable, f); return s >= 0 ? s : vslot(g.Item_vftable_plain, f); }
 constexpr int kBagSource = 1;   // ItemSource: 1 bag, 2 private stash, 3 transfer, 4 trade, 5 station slot, 7 caravan reagents
 
@@ -194,6 +200,10 @@ void load_items() {
   GAPI_LOAD(g, Player_GetCurrentDynamite, Player_GetCurrentDynamite);
   GAPI_LOAD(g, GameEngine_MainPlayerCanUseDismantle, GameEngine_MainPlayerCanUseDismantle);
   GAPI_LOAD(g, GiveItemToPlayer, ControllerPlayer_GiveItemToPlayer);
+  GAPI_LOAD(g, Equip_IsItemAttached, EquipmentCtrl_IsItemAttached);
+  GAPI_LOAD(g, Item_MeetsRequirements, Item_MeetsRequirements);
+  GAPI_LOAD(g, GetCharLevel, Character_GetCharLevel);
+  GAPI_LOAD(g, GetTotalCharAttribute, Character_GetTotalCharAttribute);
   GAPI_LOAD(g, Item_vftable, Item_vftable);
   GAPI_LOAD(g, Item_vftable_plain, Item_vftable_plain);
   g_s_ui = slot_in((const void*)g.Item_GetUIDisplayText);
@@ -204,6 +214,24 @@ void load_items() {
   g_s_cost = slot_in((const void*)g.Item_GetItemCost);              // the Inventor's Update calls vt+0x598 (ItemEquipment overrides it)
   g_s_class = slot_in((const void*)g.Item_GetItemClassification);   // vt+0x5b0
   log::writef("gameapi: Item slots ui={} simple={} stack={} req={} desc={} cost={} class={}", g_s_ui, g_s_simple, g_s_stack, g_s_req, g_s_desc, g_s_cost, g_s_class);
+  // The requirement getters sit right before AreRequirementsMet (ItemEquipment::AreRequirementsMet calls vt+0x528/
+  // +0x530/+0x538/+0x540 for level/physique/cunning/spirit, then the check is vt+0x548). The base bodies may be
+  // COMDAT-folded (all "return 0"), so resolve each by export and, when that is ambiguous, take the position relative
+  // to the AreRequirementsMet slot -- only if THAT slot resolved, which pins the layout to this build.
+  {
+    auto fn_slot = [](const char* dll, const char* name) { return slot_in((const void*)detail::fn<void*>(dll, name)); };
+    g_s_lvlreq = fn_slot(Item_GetLevelRequirement_DLL, Item_GetLevelRequirement);
+    g_s_physreq = fn_slot(Item_GetStrengthRequirement_DLL, Item_GetStrengthRequirement);
+    g_s_cunreq = fn_slot(Item_GetDexterityRequirement_DLL, Item_GetDexterityRequirement);
+    g_s_spireq = fn_slot(Item_GetIntelligenceRequirement_DLL, Item_GetIntelligenceRequirement);
+    if (g_s_req > 4) {
+      if (g_s_lvlreq < 0) g_s_lvlreq = g_s_req - 4;
+      if (g_s_physreq < 0) g_s_physreq = g_s_req - 3;
+      if (g_s_cunreq < 0) g_s_cunreq = g_s_req - 2;
+      if (g_s_spireq < 0) g_s_spireq = g_s_req - 1;
+    }
+    log::writef("gameapi: requirement slots level={} physique={} cunning={} spirit={}", g_s_lvlreq, g_s_physreq, g_s_cunreq, g_s_spireq);
+  }
 }
 void* inv_ctrl() { load_items(); void* c = controller(); return c && g.GetInventoryCtrl ? g.GetInventoryCtrl(c) : nullptr; }
 void* equip_ctrl() { load_items(); void* c = controller(); return c && g.GetEquipmentCtrl ? g.GetEquipmentCtrl(c) : nullptr; }
@@ -332,6 +360,61 @@ bool item_requirements_met(const void* item) {
   if (f && p) guarded("Item::AreRequirementsMet", [&] { ok = f(item, p); });
   return ok;
 }
+// Why the game refuses an item (docs/ingame-ui-survey.md "Requirements"). ItemEquipment::AreRequirementsMet
+// (Game.dll+0x32f810) compares the character's RAW accumulator values -- fractional; the sheet truncates them, so
+// "Physique 392" on the sheet can be 391.7 and fail a 392 requirement -- with each requirement reduced by the
+// character's requirement-reduction attributes:
+//   effective = (int)(req - req * 0.01 * reduction + 0.5);  met = value >= effective  (= Item::MeetsRequirements)
+// level: reduction attr 0x36 (tagCharLevelReqReduction); physique: attr [item+0xdf8] + [item+0xdec] + [item+0xe04];
+// cunning: [+0xdfc] + [+0xdf0] + [+0xe08]; spirit: [+0xe00] + [+0xdf4] + [+0xe0c] (the item class's own reduction
+// types, e.g. tagCharShieldStrengthReqReductionR; the first of each triple is read unconditionally, the others only
+// when nonzero), and attr 0x35 ("Reduction to Attribute Requirements") added to all three when positive. Those nine
+// item offsets are the only non-export facts, so the replica is SELF-CHECKED against the game's own verdict and
+// reports nothing on disagreement (the caller then speaks the bare "requirements not met").
+std::vector<Shortfall> requirement_shortfalls(const void* item) {
+  load_items();
+  std::vector<Shortfall> out;
+  void* p = player();
+  if (!item || !p || !g.Item_MeetsRequirements || !g.GetCharLevel || !g.GetTotalCharAttribute) return out;
+  auto req_fn = [&](int slot) { return (unsigned (*)(const void*))vfn(item, slot); };
+  auto lvl = req_fn(g_s_lvlreq); auto phys = req_fn(g_s_physreq); auto cun = req_fn(g_s_cunreq); auto spi = req_fn(g_s_spireq);
+  if (!lvl || !phys || !cun || !spi) return out;
+  const bool equipment = is_equipment(item);
+  bool ok = true;
+  guarded("requirement_shortfalls", [&] {
+    auto attr = [&](int type) { return g.GetTotalCharAttribute(p, type); };
+    auto attr_id = [&](size_t off) { int v = 0; memcpy(&v, (const char*)item + off, sizeof v); if (v < 0 || v >= 0x200) { ok = false; return 0; } return v; };
+    auto reduction = [&](size_t first, size_t second, size_t third) {
+      float r = attr(attr_id(first));
+      if (int a = attr_id(second)) r += attr(a);
+      if (int b = attr_id(third)) r += attr(b);
+      return r;
+    };
+    struct Row { std::string label; float value; unsigned req; float red; };
+    std::vector<Row> rows;
+    rows.push_back({std::string(strings::kLevel), (float)g.GetCharLevel(p), lvl(item), attr(0x36)});
+    if (equipment) {
+      float all = attr(0x35); if (all < 0) all = 0;
+      rows.push_back({localize("tagCharAttributeName02"), attr(1), phys(item), reduction(0xdf8, 0xdec, 0xe04) + all});   // Physique
+      rows.push_back({localize("tagCharAttributeName01"), attr(2), cun(item), reduction(0xdfc, 0xdf0, 0xe08) + all});    // Cunning
+      rows.push_back({localize("tagCharAttributeName03"), attr(3), spi(item), reduction(0xe00, 0xdf4, 0xe0c) + all});    // Spirit
+    }
+    if (!ok) return;
+    bool mine = true;
+    for (const Row& r : rows) {
+      if (r.req == 0 || g.Item_MeetsRequirements(item, r.value, (float)r.req, r.red)) continue;
+      mine = false;
+      int need = (int)((float)r.req - (float)r.req * 0.01f * r.red + 0.5f);   // the game's effective (reduced) requirement
+      out.push_back({r.label, (int)r.value, need});
+    }
+    if (mine != item_requirements_met(item)) {   // the self-check: our replica disagrees with the game -> say nothing specific
+      log::writef("gameapi: requirement replica disagrees with AreRequirementsMet for item {} (ours={}), dropping the reason", (const void*)item, mine);
+      out.clear();
+    }
+  });
+  if (!ok) out.clear();
+  return out;
+}
 std::vector<std::string> item_tooltip(const void* item, bool simple, bool details) {
   load_items();
   std::vector<std::string> out;
@@ -402,6 +485,10 @@ std::vector<EquipSlot> equipment() {
       if (s.label.size() > 2 && s.label.front() == '(' && s.label.back() == ')') s.label = s.label.substr(1, s.label.size() - 2);  // the tags read "(Right Hand)"
       s.item_id = g.Equip_GetItemId(ec, loc);
       s.item = s.item_id ? object_by_id(s.item_id) : nullptr;
+      // Equipped but detached: EquipmentCtrl::Sift (run from AttributesHaveChanged) clears the slot's attached byte
+      // when the character stops meeting the item's requirements and re-attaches when they do again; the item stays
+      // in the slot and contributes nothing meanwhile (the game greys it). IsItemAttached reads that byte by id.
+      s.inactive = s.item_id && g.Equip_IsItemAttached && !g.Equip_IsItemAttached(ec, s.item_id);
       s.name = item_name(s.item);
       s.component = has_component(s.item);
       out.push_back(std::move(s));

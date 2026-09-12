@@ -798,6 +798,13 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   `Quest2Task::Complete` calls for one real one) and they pushed the real record out of the ring. Dev: `/rewards`;
   `/quests?complete=<questptr>&task=<i>` = the game's own `Quest2Repository::CompleteQuestTask` (rewards run only when the task
   is IN PROGRESS -- stage it first with Lua `Game.GetLocalPlayer():GrantQuest(questId, taskUid)`; `/quests` prints `uid=`).
+- Equip requirements explained (2026-09-11, built, NOT yet reloaded; docs/ingame-ui-survey.md "Requirements"): the sheet
+  TRUNCATES attributes (they are fractional floats; the game compares the raw value, so a rounded "392" failed a 392
+  requirement), Enter on a bag item you can't wear says which stat is short ("requirements not met, Physique 391 of
+  392": `gameapi::requirement_shortfalls`, a replica of `ItemEquipment::AreRequirementsMet` incl. the requirement-
+  reduction attributes, SELF-CHECKED against the game's verdict -- nine item offsets are the only non-export facts), and
+  an equipped item the game has detached (`EquipmentCtrl::Sift` on any attribute change: stays in the slot, contributes
+  nothing) reads "<name>, inactive" via the exported `IsItemAttached(id)`.
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.

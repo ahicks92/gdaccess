@@ -964,6 +964,21 @@ inline constexpr const char* Item_AreRequirementsMet = "?AreRequirementsMet@Item
 // public: virtual unsigned int __cdecl GAME::Item::GetLevelRequirement(void)const __ptr64
 inline constexpr const char* Item_GetLevelRequirement_DLL = "Game.dll";
 inline constexpr const char* Item_GetLevelRequirement = "?GetLevelRequirement@Item@GAME@@UEBAIXZ";
+// public: virtual unsigned int __cdecl GAME::Item::GetStrengthRequirement(void)const __ptr64
+inline constexpr const char* Item_GetStrengthRequirement_DLL = "Game.dll";
+inline constexpr const char* Item_GetStrengthRequirement = "?GetStrengthRequirement@Item@GAME@@UEBAIXZ";
+// public: virtual unsigned int __cdecl GAME::Item::GetDexterityRequirement(void)const __ptr64
+inline constexpr const char* Item_GetDexterityRequirement_DLL = "Game.dll";
+inline constexpr const char* Item_GetDexterityRequirement = "?GetDexterityRequirement@Item@GAME@@UEBAIXZ";
+// public: virtual unsigned int __cdecl GAME::Item::GetIntelligenceRequirement(void)const __ptr64
+inline constexpr const char* Item_GetIntelligenceRequirement_DLL = "Game.dll";
+inline constexpr const char* Item_GetIntelligenceRequirement = "?GetIntelligenceRequirement@Item@GAME@@UEBAIXZ";
+// protected: bool __cdecl GAME::Item::MeetsRequirements(float,float,float)const __ptr64
+inline constexpr const char* Item_MeetsRequirements_DLL = "Game.dll";
+inline constexpr const char* Item_MeetsRequirements = "?MeetsRequirements@Item@GAME@@IEBA_NMMM@Z";
+// public: bool __cdecl GAME::EquipmentCtrl::IsItemAttached(unsigned int)const __ptr64
+inline constexpr const char* EquipmentCtrl_IsItemAttached_DLL = "Game.dll";
+inline constexpr const char* EquipmentCtrl_IsItemAttached = "?IsItemAttached@EquipmentCtrl@GAME@@QEBA_NI@Z";
 // const GAME::Item::`vftable'
 inline constexpr const char* Item_vftable_plain_DLL = "Game.dll";
 inline constexpr const char* Item_vftable_plain = "??_7Item@GAME@@6B@";

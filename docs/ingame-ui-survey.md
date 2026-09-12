@@ -218,6 +218,23 @@ IsActiveForMainPlayer`, `GetOffering1..3Id`, `GetOffering1..3DisplayName` (u16 b
   UseItem/AddItem/RemoveItem`, `ControllerPlayer::UseItem(id, ItemSource, bool)`, `SendDropItemRandom(id)`,
   `InventorySack::Sort`.
 - Obstacles: presenting a 2-D grid linearly; item moves are a sequenced state machine; id -> Item* sweep.
+- **Requirements** (static RE 2026-09-11, from a live "Devil's Grin" refusal at sheet Physique 392 / requirement 392):
+  `ItemEquipment::AreRequirementsMet` (Game.dll+0x32f810) = base `Item::AreRequirementsMet` (level: `[char+0x1760]`
+  vs vt+0x528 `GetLevelRequirement`, reduction attr 0x36) then physique / cunning / spirit = accumulator attrs 1/2/3
+  (`Character::GetTotalCharAttribute` IS `CharAttributeAccumulator::GetValue` on `char+0xf78`) vs vt+0x530/+0x538/
+  +0x540 (`GetStrength/Dexterity/IntelligenceRequirement`, TQ names). Each requirement is reduced by the character's
+  reduction attributes -- per item class, ids stored on the item at `+0xdec..+0xe0c` (three per attribute; the first
+  read unconditionally) plus attr 0x35 "Reduction to Attribute Requirements" on all three when positive -- as
+  `effective = (int)(req - req*0.01*red + 0.5)` and compared against the RAW float (`Item::MeetsRequirements(value,
+  req, red)`, exported). Attributes are fractional (391.7 fails 392), so the mod's sheet now TRUNCATES.
+  `gameapi::requirement_shortfalls` replicates this and self-checks against the game's verdict; the bag's Enter says
+  "requirements not met, Physique 391 of 392". **Losing a requirement later does not unequip**:
+  `EquipmentCtrl::AttributesHaveChanged` -> `Sift` per slot clears the `EquipmentInfo` attached byte (+8; hands:
+  their own sub-object, item +0x28 / attached +0x30) and sends `SendEquipDetachAction`; the item stays in the slot,
+  greyed, contributing nothing, and re-attaches when the requirement is met again. `EquipmentCtrl::IsItemAttached(id)`
+  reads the byte for all 14 slots -> `EquipSlot::inactive` -> "<name>, inactive" on the equipment tab. Consequence: a
+  temporary stat boost to equip something is undone the moment the boost goes. The tooltip's requirement lines are
+  the same text met or not (the itembox colours them by `failsRequirementsColor*`), so the text cannot tell.
 
 ### Character sheet (stat tabs of the same window) -- MEDIUM (numbers yes, layout ours)
 No single sheet builder exists (`Character::CreateUISummaryText` is the PET summary). Numbers:

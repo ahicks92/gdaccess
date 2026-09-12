@@ -498,7 +498,9 @@ std::vector<Stat> character_sheet() {
   std::vector<Stat> out;
   void* p = player();
   if (!p) return out;
-  auto num = [](double v) { return std::format("{:.0f}", v); };
+  // Truncate, never round: attributes are fractional floats and the equip gate compares the raw value against a
+  // whole-number requirement, so 391.7 must read "391" (a rounded "392" let a 392-Physique shield refuse, 2026-09-11).
+  auto num = [](double v) { return std::format("{}", (long long)v); };
   guarded("sheet", [&] {
     std::string cls;
     if (g.GetClassNameA) { MsvcStringW s; init_u16(s); g.GetClassNameA(p, &s); cls = take_u16(s); }

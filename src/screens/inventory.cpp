@@ -111,6 +111,7 @@ class InventoryScreen : public WindowScreen, public AssignSource {
       std::string label = s.label.empty() ? std::format("slot {}", s.loc) : s.label;
       std::string name = s.name.empty() ? std::string(strings::kEmptySlot) : s.name;
       if (s.component) { MessageBuilder cm; cm.fragment(name).fragment(strings::kWithComponent); name = cm.build(); }   // "Splintered Club with component": part of the name
+      if (s.inactive) { MessageBuilder im; im.fragment(name).list_item().fragment(strings::kInactive); name = im.build(); }   // "Devil's Grin, inactive": equipped but detached by the game (requirements no longer met)
       unsigned id = s.item_id; int loc = s.loc;
       // Enter opens the equip picker: everything across all bags that fits this slot (weapons/off-hands go to
       // the ACTIVE weapon set, since equip() uses the current EquipmentCtrl). Its first entry, "empty",
@@ -145,7 +146,12 @@ class InventoryScreen : public WindowScreen, public AssignSource {
       auto activate = [this, id] {
         if (gameapi::is_component(id)) { open_component_picker(id); return; }   // components attach; they aren't "used"
         void* p = gameapi::object_by_id(id);
-        if (p && !gameapi::item_requirements_met(p)) { speech::speak(strings::kRequirementsNotMet, true); return; }
+        if (p && !gameapi::item_requirements_met(p)) {   // "requirements not met, Physique 391 of 392"
+          MessageBuilder rm; rm.fragment(strings::kRequirementsNotMet);
+          for (const gameapi::Shortfall& sf : gameapi::requirement_shortfalls(p)) strings::push_shortfall(rm, sf.label, sf.have, sf.need);
+          speech::speak(rm.build(), true);
+          return;
+        }
         if (p && !gameapi::is_equipment(p) && !gameapi::is_usable(p)) { speech::speak(strings::kNotUsable, true); return; }   // crafting materials / quest items: UseItem would remove them
         gameapi::use_item(id, g_bag_source);
         invalidate();

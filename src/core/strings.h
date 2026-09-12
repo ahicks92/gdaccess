@@ -295,6 +295,7 @@ inline constexpr std::string_view kOffensiveAbility = "offensive ability";
 inline constexpr std::string_view kDefensiveAbility = "defensive ability";
 inline constexpr std::string_view kDps = "damage per second";
 inline constexpr std::string_view kRequirementsNotMet = "requirements not met";
+inline constexpr std::string_view kInactive = "inactive";   // an equipped item the game has detached (requirements no longer met), on the slot's name
 inline constexpr std::string_view kAttach = "attach";
 inline constexpr std::string_view kComponent = "component";
 inline constexpr std::string_view kNoCompatibleItems = "no compatible items";
@@ -399,6 +400,8 @@ gd::core::MessageBuilder& push_stack(gd::core::MessageBuilder& m, std::string_vi
 gd::core::MessageBuilder& push_stat(gd::core::MessageBuilder& m, std::string_view label, std::string_view value);
 // "<name>, level 3 of 12" -- a skill row
 gd::core::MessageBuilder& push_skill_level(gd::core::MessageBuilder& m, unsigned level, unsigned max_level);
+// ", Physique 391 of 392" -- one failed requirement (what the character has, what the item needs)
+gd::core::MessageBuilder& push_shortfall(gd::core::MessageBuilder& m, std::string_view label, int have, int need);
 // "<name>, <level name>, 1500 of 5000" -- a faction row
 gd::core::MessageBuilder& push_faction(gd::core::MessageBuilder& m, std::string_view name, std::string_view level_name, float value, int low, int high);
 

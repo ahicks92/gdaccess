@@ -74,7 +74,7 @@ struct Bag { int index; std::string name; unsigned width, height; std::vector<Ba
 std::vector<Bag> bags();
 int selected_bag();
 bool select_bag(int index);
-struct EquipSlot { int loc; std::string label; unsigned item_id; void* item; std::string name; bool component = false; };   // loc = EquipmentCtrlLocation 1..14
+struct EquipSlot { int loc; std::string label; unsigned item_id; void* item; std::string name; bool component = false; bool inactive = false; };   // loc = EquipmentCtrlLocation 1..14; inactive = equipped but detached (requirements no longer met)
 bool has_component(const void* item);            // ItemEquipment::HasRelic, after an is-a ItemEquipment check (false for anything else)
 bool has_augment(const void* item);              // ItemEquipment::HasEnchantment, same guard (an augment = the game's "enchantment")
 int item_classification(const void* item);       // Item::GetItemClassification(true) (virtual): 0 common, 1 magical, 2 rare, 3 epic, 4 legendary, 5 quest...; -1 unknown
@@ -93,6 +93,12 @@ std::string component_name(const void* item);    // the attached component's nam
 unsigned salvage_cost(const void* item);
 unsigned dismantle_cost(const void* item);
 std::vector<EquipSlot> equipment();
+// Which requirements an item fails and by how much: label (level / the game's attribute names), what the character
+// has (truncated like the sheet), the effective requirement (after the character's requirement reductions). Empty
+// when the item is usable OR when the replica of the game's check disagrees with the game (then only the bare
+// "requirements not met" is safe to say). See gameapi_items.cpp for the check.
+struct Shortfall { std::string label; int have; int need; };
+std::vector<Shortfall> requirement_shortfalls(const void* item);
 bool alternate_weapons();                        // the weapon-swap set in use (EquipmentCtrl::GetIsAlternate)
 bool can_equip(unsigned item_id, int loc);
 std::vector<int> equip_slots_by_class(unsigned item_id);   // the slots its class fits, requirements ignored (Backslash compare on gear you can't wear yet)       // EquipmentCtrl::CanItemBePlaced -- the equip picker's filter

@@ -128,6 +128,7 @@ MessageBuilder& push_stack(MessageBuilder& m, std::string_view name, unsigned st
 }
 MessageBuilder& push_stat(MessageBuilder& m, std::string_view label, std::string_view value) { return m.fragment(label).fragment(value); }
 MessageBuilder& push_skill_level(MessageBuilder& m, unsigned level, unsigned max_level) { return m.list_item().fragment(kLevel).fragment(std::format("{} of {}", level, max_level)); }
+MessageBuilder& push_shortfall(MessageBuilder& m, std::string_view label, int have, int need) { return m.list_item().fragment(label).fragment(std::format("{} of {}", have, need)); }
 MessageBuilder& push_faction(MessageBuilder& m, std::string_view name, std::string_view level_name, float value, int low, int high) {
   m.list_item().fragment(name);
   if (!level_name.empty()) m.list_item().fragment(level_name);
