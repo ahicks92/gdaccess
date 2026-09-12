@@ -29,7 +29,7 @@ namespace walltones {
 // south.wav behind both centred, east.wav hard right, west.wav hard left), volume = (1 - d/range)^2 of the
 // free distance in that direction, applied directly (no smoothing, like wotr's WallTones channel). Probed
 // every frame; each probe walks the navmesh in kStep. Directions are WORLD north/east/south/west: the camera is
-// pinned north-up (world::pin_camera), so screen-up is -z and the tones no longer read the camera yaw
+// pinned at yaw 0 (world::pin_camera), so screen-up is -z (the grid axis the tones call north; the game's own north is 50 deg off, docs/compass.md) and the tones no longer read the camera yaw
 // (2026-09-01). One bank only: wotr's set 1 (walls) + set 2 (obstacles) split is gone -- the only classifier we
 // had (walkable mesh 2-4 u beyond the stop = "obstacle") measured thickness, not what the blocker is, and most
 // blockers fell on the obstacle side. Set 2 is the bank kept: the user heard it as clearly louder than set 1 even

@@ -201,7 +201,7 @@ static void register_actions() {
   m.register_action("ingame.announcements", "Announcement toggles", InputCategory::InGame, [] { screens::open_announcements(); }).bind(0x14);   // T
   // The mouse buttons (J left, I right, Enter = left; hold to hold) are polled per frame by the in-game screen,
   // not dispatched as actions: a hold needs the key's held state, not a press.
-  // The camera is locked (far zoom, north up) by the in-game screen; no zoom/rotate keys.
+  // The camera is locked (far zoom, yaw 0 = grid up; the game's dialogue north is 50 deg clockwise of it, docs/compass.md) by the in-game screen; no zoom/rotate keys.
   // The game's less frequent functions, lifted to Ctrl + their default key (docs/controls.md): the chord is
   // ours, the plain key is injected into the game's poll, so the game's own map stays untouched and the
   // plain letters are free for the mod. Frequent keys (WASD, 1-0, Space, E, R, U, Escape) pass through

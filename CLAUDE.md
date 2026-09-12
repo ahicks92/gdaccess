@@ -204,7 +204,7 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   unreachable word -- can say "straight" through a rock; not yet switched), rooms.cpp's two permissive pre-filters ahead
   of `find_path`, and dev routes (/navprobe, /teleport, /blocks). docs/re_wall_sliding.md section 7 has the measurements.
   Wall tones (reworked 2026-09-01, `docs/re_wall_sliding.md`): ONE bank (wotr's set 2, assets/audio/walltones/2;
-  set 1 vendored, unused), world-fixed compass directions (the camera is pinned north-up; no yaw), per-frame
+  set 1 vendored, unused), world-fixed compass directions (the camera is pinned to yaw 0 = grid-up, which the tones call north; no yaw), per-frame
   RECTANGLE probes -- 7 parallel lanes 0.5 u apart per direction, free distance = the FARTHEST lane, so a wall is a
   wall only when the whole 1.5 u half-width hits it and silence means "you can go this way, mostly straight" (the
   WASD command walks to a point 1.25 u ahead and the navmesh snap pulls the character into any opening laterally
@@ -266,7 +266,7 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   camera does not show: "too far away" on the key, nothing sent; the review readout says "distant" for it and
   the cursor override is only parked while it is on screen. **Camera locked** (`world::pin_camera`, per frame
   from the in-game screen; the user found zoom does not change what they hear): `GameCamera::SetZoom` at the
-  far end of its range (+0x590..+0x594, current fraction +0x584) and `SetCameraYaw(0)` = north up, re-applied
+  far end of its range (+0x590..+0x594, current fraction +0x584) and `SetCameraYaw(0)` = grid up (NOT the game's north, see the 2026-09-11 compass note), re-applied
   when the game drifts them; the zoom preset keys were removed. Far zoom brought the 25-unit-away dummy on screen. The Interact key (`tagUse`, action 0x36) and Pickup
   (0x37) are proximity searches, not cursor actions (`re_interact_key.md`); `tools/arc_unpack.py` reads the
   game's localized strings offline. Review groups now use the game's own predicates (2026-08-22): people =
@@ -805,6 +805,11 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   reduction attributes, SELF-CHECKED against the game's verdict -- nine item offsets are the only non-export facts), and
   an equipped item the game has detached (`EquipmentCtrl::Sift` on any attribute change: stays in the slot, contributes
   nothing) reads "<name>, inactive" via the exported `IsItemAttached(id)`.
+- **The game's north is NOT the mod's** (2026-09-11, `docs/compass.md`, `tools/compass_fit.py`): the dialogue's compass is
+  screen-up at the DEFAULT camera (yaw 0.8727), fitted over 26 text anchors (rms 34 deg; yaw 0 scores 63, yaw pi/2 51). The
+  mod keeps yaw 0 deliberately: the world geometry is on the axis-aligned tile grid, so yaw 0 is what makes walls read
+  straight and W follow corridors; the default yaw would turn every corridor into a NE/NW diagonal. Player rule (README):
+  the game's north = 11 o'clock, east = 1-2, south = 4-5, west = 7. Nothing in the mod's wording should call yaw 0 "north".
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.

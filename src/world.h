@@ -147,7 +147,9 @@ std::string effects_dump(unsigned id);   // dev: /effects?id= (raw buff ids + re
 void mouse_key(int button, bool held);
 // Whether an entity projects inside the game window (the camera shows it).
 bool on_screen(unsigned id);
-// Camera lock (per frame from the in-game screen): zoom at the far end of its range, yaw 0 (north up).
+// Camera lock (per frame from the in-game screen): zoom at the far end of its range, yaw 0 = world -z up = the tile
+// grid's axis (what the wall tones call "north"). NOT the game's north: the dialogue's compass is screen-up at the
+// default camera (yaw 0.8727); keeping the grid frame is deliberate (docs/compass.md).
 void pin_camera();
 // Bearing of a world point from the player as a clock hour (12 = screen-up), and distance in units.
 int clock_hour(const Vec3& p);

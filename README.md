@@ -154,7 +154,11 @@ character; Enter selects); then Start / difficulty / game mode / Delete.
 | F | Swap weapon set (announces "weapon set N" and the two hands) |
 | Escape | Game menu |
 
-The camera is fixed by the mod (far zoom, north up); there are no camera keys.
+The camera is fixed by the mod (far zoom, yaw 0); there are no camera keys. With yaw 0 the screen lines up with
+the world's tile grid, so walls and corridors run straight along your clock and W follows them. **The game's own
+compass words are rotated 50 degrees from that clock**: when dialogue or a quest says "north", that is your
+11 o'clock; its east is between 1 and 2 o'clock, its south between 4 and 5, its west about 7 o'clock
+(`docs/compass.md` has the measurement).
 
 ### Finding things: the review cursor
 
