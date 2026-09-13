@@ -31,7 +31,11 @@ struct Api {
   unsigned (*Skill_GetMasteryId)(const void*) = nullptr;
   unsigned (*Skill_GetMasteryLevel)(const void*) = nullptr;
   unsigned (*Skill_GetMasteryLevelRequirement)(const void*) = nullptr;
-  const MemVec* (*Skill_GetModifiers)(const void*) = nullptr;   // a base skill's modifier skill ids
+  const MemVec* (*Skill_GetModifiers)(const void*) = nullptr;   // a base skill's Skill_Modifier ids (Skill+0x140)
+  const MemVec* (*Skill_GetSecondarySkills)(const void*) = nullptr;   // a base skill's SkillSecondary ids (Skill+0x170): the pet modifiers
+  const MemVec* (*Skill_GetBaseSkills)(const void*) = nullptr;   // a sub-skill's base skill ids (Skill+0x1b8): the forward link, both kinds
+  bool (*Skill_IsBaseSkillEnabled)(const void*) = nullptr;   // the game's own learn gate: no base skills, or one of them learned
+  bool (*Skill_IsSecondary)(const void*) = nullptr;   // byte Skill+0xad; live TRUE on the base summon, FALSE on its pet modifiers -- not "is a sub-skill"
   bool (*Skill_IsLocked)(const void*) = nullptr;
   bool (*Skill_IsSkillTheMasterySkill)(const void*) = nullptr;
   bool (*Skill_IsSkillModifier)(const void*) = nullptr;
@@ -108,6 +112,10 @@ void load_skills() {
   GAPI_LOAD(g, Skill_GetMasteryLevel, Skill_GetMasteryLevel);
   GAPI_LOAD(g, Skill_GetMasteryLevelRequirement, Skill_GetMasteryLevelRequirement);
   GAPI_LOAD(g, Skill_GetModifiers, Skill_GetModifiers);
+  GAPI_LOAD(g, Skill_GetSecondarySkills, Skill_GetSecondarySkills);
+  GAPI_LOAD(g, Skill_GetBaseSkills, Skill_GetBaseSkills);
+  GAPI_LOAD(g, Skill_IsBaseSkillEnabled, Skill_IsBaseSkillEnabled);
+  GAPI_LOAD(g, Skill_IsSecondary, Skill_IsSecondary);
   GAPI_LOAD(g, Skill_IsLocked, Skill_IsLocked);
   GAPI_LOAD(g, Skill_IsSkillTheMasterySkill, Skill_IsSkillTheMasterySkill);
   GAPI_LOAD(g, Skill_IsSkillModifier, Skill_IsSkillModifier);
@@ -176,11 +184,16 @@ SkillInfo read_skill(void* s) {
     i.mastery_id = g.Skill_GetMasteryId ? g.Skill_GetMasteryId(s) : 0;
     i.mastery_level = g.Skill_GetMasteryLevel ? g.Skill_GetMasteryLevel(s) : 0;
     i.mastery_req = g.Skill_GetMasteryLevelRequirement ? g.Skill_GetMasteryLevelRequirement(s) : 0;
-    // i.modified_skill_id (the base a modifier enhances) is filled by skills() via the reverse of Skill::GetModifiers;
-    // Skill::GetModifiedSkillId is a different (transform/replace) relationship and reads 0 for tree modifiers.
+    // The base a sub-skill enhances: Skill::GetBaseSkills (the forward link the game's own learn gate walks) --
+    // filled for Skill_Modifier AND SkillSecondary sub-skills (the Occultist's pet modifiers: Storm Spirit is a
+    // SkillSecondary_PetModifier, 2026-09-13). skills() adds the reverse of GetModifiers/GetSecondarySkills as a
+    // fallback. Skill::GetModifiedSkillId is a different (transform/replace) relationship and reads 0 for tree skills.
+    if (g.Skill_GetBaseSkills) { std::vector<unsigned> bases = vec_items<unsigned>(g.Skill_GetBaseSkills(s), 8); if (!bases.empty()) i.modified_skill_id = bases[0]; }
     i.locked = g.Skill_IsLocked ? g.Skill_IsLocked(s) : false;
     i.is_mastery = g.Skill_IsSkillTheMasterySkill ? g.Skill_IsSkillTheMasterySkill(s) : false;
-    i.modifier = g.Skill_IsSkillModifier ? g.Skill_IsSkillModifier(s) : false;
+    // "modifier" to the player = a tree sub-skill of another skill: the Skill_Modifier class OR anything with a base
+    // skill (the pet modifiers). NOT Skill::IsSecondary: live it reads true on Summon Familiar and false on Storm Spirit.
+    i.modifier = (g.Skill_IsSkillModifier && g.Skill_IsSkillModifier(s)) || i.modified_skill_id != 0;
     i.item_auto = g.Skill_IsItemSkillAuto ? g.Skill_IsItemSkillAuto(s) : false;
     if (auto f = (bool (*)(const void*))vfn(s, g_s_enabled)) i.enabled = f(s);
     if (auto f = (const void* (*)(const void*))vfn(s, g_s_profile)) { const void* prof = f(s); if (prof && g.Profile_GetSkillTier) i.tier = g.Profile_GetSkillTier(prof); }
@@ -201,16 +214,19 @@ std::vector<SkillInfo> skills() {
     guarded("GetSkillList", [&] { ptrs = vec_items<void*>(g.SM_GetSkillList(sm), 1024); });
     for (void* s : ptrs) if (s) out.push_back(read_skill(s));
   }
-  // Fill each modifier's base skill (what it "modifies") by reversing Skill::GetModifiers: a base skill lists the
-  // ids of the modifier skills attached to it. GetModifiedSkillId is a different relationship and reads 0 here.
-  if (g.Skill_GetModifiers) {
-    std::unordered_map<unsigned, unsigned> base_of;   // modifier id -> base skill id
+  // Fallback for a sub-skill whose GetBaseSkills read empty: reverse the base skills' own lists. A base skill keeps
+  // its Skill_Modifier ids in GetModifiers and its SkillSecondary ids (pet modifiers) in GetSecondarySkills.
+  if (g.Skill_GetModifiers || g.Skill_GetSecondarySkills) {
+    std::unordered_map<unsigned, unsigned> base_of;   // sub-skill id -> base skill id
     for (const SkillInfo& s : out) {
-      std::vector<unsigned> mods;
-      guarded("GetModifiers", [&] { if (const MemVec* v = g.Skill_GetModifiers(s.p)) mods = vec_items<unsigned>(v, 64); });
-      for (unsigned m : mods) base_of[m] = s.id;
+      std::vector<unsigned> subs;
+      guarded("GetModifiers", [&] {
+        if (g.Skill_GetModifiers) if (const MemVec* v = g.Skill_GetModifiers(s.p)) subs = vec_items<unsigned>(v, 64);
+        if (g.Skill_GetSecondarySkills) if (const MemVec* v = g.Skill_GetSecondarySkills(s.p)) for (unsigned m : vec_items<unsigned>(v, 64)) subs.push_back(m);
+      });
+      for (unsigned m : subs) base_of[m] = s.id;
     }
-    for (SkillInfo& s : out) { auto it = base_of.find(s.id); if (it != base_of.end()) s.modified_skill_id = it->second; }
+    for (SkillInfo& s : out) { if (s.modified_skill_id) continue; auto it = base_of.find(s.id); if (it != base_of.end()) s.modified_skill_id = it->second; }
   }
   return out;
 }
@@ -232,21 +248,28 @@ std::string skill_name_by_id(unsigned skill_id) {
   });
   return name;
 }
-// The base skill a modifier enhances (reverse of Skill::GetModifiers), or 0. On-demand (a key press), so the
-// one-pass scan over the skill list is fine.
+// The base skill a sub-skill (modifier or secondary) enhances, or 0: Skill::GetBaseSkills first, else the reverse
+// of the base skills' GetModifiers / GetSecondarySkills. On-demand (a key press), so the one-pass scan is fine.
 unsigned modifier_base_id(const void* skill) {
+  load_skills();
+  if (!skill) return 0;
+  unsigned base = 0;
+  if (g.Skill_GetBaseSkills) guarded("GetBaseSkills", [&] { std::vector<unsigned> b = vec_items<unsigned>(g.Skill_GetBaseSkills(skill), 8); if (!b.empty()) base = b[0]; });
+  if (base) return base;
   const void* sm = skill_manager();
-  if (!sm || !skill || !g.SM_GetSkillList || !g.Skill_GetModifiers || !g.Object_GetObjectId) return 0;
+  if (!sm || !g.SM_GetSkillList || !g.Object_GetObjectId) return 0;
   unsigned my = 0; guarded("obj id", [&] { my = g.Object_GetObjectId(skill); });
   if (!my) return 0;
-  unsigned base = 0;
   std::vector<void*> ptrs;
   guarded("GetSkillList", [&] { ptrs = vec_items<void*>(g.SM_GetSkillList(sm), 1024); });
   for (void* s : ptrs) {
     if (!s) continue;
-    std::vector<unsigned> mods;
-    guarded("GetModifiers", [&] { if (const MemVec* v = g.Skill_GetModifiers(s)) mods = vec_items<unsigned>(v, 64); });
-    for (unsigned m : mods) if (m == my) { guarded("obj id", [&] { base = g.Object_GetObjectId(s); }); break; }
+    std::vector<unsigned> subs;
+    guarded("GetModifiers", [&] {
+      if (g.Skill_GetModifiers) if (const MemVec* v = g.Skill_GetModifiers(s)) subs = vec_items<unsigned>(v, 64);
+      if (g.Skill_GetSecondarySkills) if (const MemVec* v = g.Skill_GetSecondarySkills(s)) for (unsigned m : vec_items<unsigned>(v, 64)) subs.push_back(m);
+    });
+    for (unsigned m : subs) if (m == my) { guarded("obj id", [&] { base = g.Object_GetObjectId(s); }); break; }
     if (base) break;
   }
   return base;
@@ -332,7 +355,9 @@ std::vector<std::string> skill_tooltip(const void* skill) {
 // Whether the character can put a point into this skill right now, and if not, a spoken reason. Replicates the
 // game's own skill-icon gate (the SkillReasons builder exe+0x2492b0): points>0, below max, and either the
 // mastery skill (with a free mastery slot when committing a new one) or a non-mastery whose mastery bar has
-// reached its GetMasteryLevelRequirement and whose base skill (for a modifier) is already learned. "" = allowed.
+// reached its GetMasteryLevelRequirement and whose base skill (for a sub-skill) is learned -- that last test is the
+// game's own Skill::IsBaseSkillEnabled (walks GetBaseSkills; true when there is none), so it covers Skill_Modifier
+// and SkillSecondary sub-skills alike. "" = allowed.
 std::string can_learn_skill(const void* skill) {
   load_skills(); void* p = player();
   if (!skill || !p) return std::string(strings::kCannot);
@@ -347,14 +372,11 @@ std::string can_learn_skill(const void* skill) {
     unsigned mlvl = g.Skill_GetMasteryLevel ? g.Skill_GetMasteryLevel(skill) : 0;
     unsigned mreq = g.Skill_GetMasteryLevelRequirement ? g.Skill_GetMasteryLevelRequirement(skill) : 0;
     if (mlvl < mreq) { reason = std::format("{} {}", strings::kRequiresMastery, mreq); return; }
-    if (g.Skill_IsSkillModifier && g.Skill_IsSkillModifier(skill)) {   // a modifier needs its base skill learned
+    if (g.Skill_IsBaseSkillEnabled && !g.Skill_IsBaseSkillEnabled(skill)) {   // a sub-skill needs its base skill learned
       unsigned base = modifier_base_id(skill);
       void* bs = base ? object_by_id(base) : nullptr;
-      unsigned blvl = (bs && g.Skill_GetSkillLevel) ? g.Skill_GetSkillLevel(bs) : 0;
-      if (base && blvl == 0) {
-        std::string bname = bs ? read_skill(bs).name : std::string();
-        reason = bname.empty() ? std::string(strings::kRequirementsNotMet) : std::format("{} {}", strings::kRequires, bname);
-      }
+      std::string bname = bs ? read_skill(bs).name : std::string();
+      reason = bname.empty() ? std::string(strings::kRequirementsNotMet) : std::format("{} {}", strings::kRequires, bname);
     }
   });
   return reason;

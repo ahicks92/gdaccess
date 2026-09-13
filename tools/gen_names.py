@@ -394,6 +394,9 @@ ENTRIES = [
     ("Skill_GetMasteryLevel", "Game", r"GAME::Skill::GetMasteryLevel\(void\)"),
     ("Skill_GetMasteryLevelRequirement", "Game", r"GAME::Skill::GetMasteryLevelRequirement\("),
     ("Skill_GetModifiers", "Game", r"GAME::Skill::GetModifiers\(void\)"),   # a base skill's modifier skill ids (reverse-mapped)
+    ("Skill_GetSecondarySkills", "Game", r"GAME::Skill::GetSecondarySkills\(void\)"),   # a base skill's secondary sub-skill ids (pet modifiers live here)
+    ("Skill_IsBaseSkillEnabled", "Game", r"GAME::Skill::IsBaseSkillEnabled\("),   # the game's own learn gate for a sub-skill
+    ("Skill_IsSecondary", "Game", r"GAME::Skill::IsSecondary\(void\)"),
     ("Skill_IsLocked", "Game", r"GAME::Skill::IsLocked\(void\)"),
     ("Skill_IsSkillTheMasterySkill", "Game", r"GAME::Skill::IsSkillTheMasterySkill\("),
     ("Skill_IsSkillModifier", "Game", r"GAME::Skill::IsSkillModifier\("),

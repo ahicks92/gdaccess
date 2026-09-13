@@ -127,7 +127,7 @@ class SkillsScreen : public WindowScreen, public AssignSource {
   void add_skill(GraphBuilder& b, const gameapi::SkillInfo& s, const std::vector<gameapi::SkillInfo>& list, bool reclaim) {
     std::string label = s.name.empty() ? s.record : s.name;
     unsigned level = s.level, max = s.max_level, req = s.mastery_req; bool locked = s.locked, mastery = s.is_mastery, modifier = s.modifier;
-    std::string modifies;   // a modifier says which base skill it enhances (Skill::GetModifiedSkillId)
+    std::string modifies;   // a modifier says which base skill it enhances (Skill::GetBaseSkills)
     if (modifier && s.modified_skill_id) for (const gameapi::SkillInfo& x : list) if (x.id == s.modified_skill_id) { modifies = x.name; break; }
     unsigned cost = reclaim ? gameapi::reclaim_cost() : 0;
     auto value = [level, max, req, locked, mastery, modifier, modifies, reclaim, cost] {

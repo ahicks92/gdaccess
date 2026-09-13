@@ -154,10 +154,10 @@ unsigned quickbar_slot_index(int bar, int k);    // bar 0..3, k 1..10
 // ---- skills ----
 struct SkillInfo {
   void* p; unsigned id; std::string name, record; unsigned level, max_level, ultimate_level, mastery_id, mastery_req, tier;
-  bool locked, is_mastery, enabled, modifier;
+  bool locked, is_mastery, enabled, modifier;   // modifier = a tree sub-skill of another skill (Skill_Modifier, or anything with a base skill: the pet modifiers)
   bool item_auto = false;   // Skill::IsItemSkillAuto: an auto-triggered item skill (a proc / chance-on-attack) -- not player-assignable
   unsigned mastery_level = 0;       // Skill::GetMasteryLevel: this skill's mastery bar level (for the requirement gate)
-  unsigned modified_skill_id = 0;   // Skill::GetModifiedSkillId: the base skill a modifier enhances (0 = not a modifier)
+  unsigned modified_skill_id = 0;   // Skill::GetBaseSkills[0]: the base skill a sub-skill enhances (0 = none)
 };
 std::vector<SkillInfo> skills();                 // the UI skill list, in the game's order
 unsigned skill_points();

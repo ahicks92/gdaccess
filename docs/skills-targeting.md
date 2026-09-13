@@ -93,14 +93,27 @@ not enabled, plus a mastery-slot rule. Driving `IncrementSkillLevel` directly (a
 gate, which is why learning ignored requirements.
 
 - **`gameapi::can_learn_skill(skill)`** replicates it with exports: points>0, level<max, `GetMasteryLevel >=
-  GetMasteryLevelRequirement`, and (for a modifier) its base skill learned. Returns "" or the spoken reason
+  GetMasteryLevelRequirement`, and the game's own **`Skill::IsBaseSkillEnabled`** (byte 2 verbatim: true when the
+  skill has no base skills, else when one of them has a level). Returns "" or the spoken reason
   ("needs mastery N", "requires <base>", "no points"). `learn_skill` refuses on a non-empty reason. The mastery
   ("class training") skill has req 0 / no base, so it is always learnable (raising the bar); choosing a *new*
   class stays a separate flow (`skills_set_pane`).
-- **Modifier -> base link.** `Skill::GetModifiedSkillId` (`*(uint*)(this+0x1e0)`) is a *different*
-  (transform/replace) relationship and reads **0** for tree modifiers. The tree link is the base skill's
-  **`Skill::GetModifiers()`** (a `mem::vector<uint>` of its modifier ids); `skills()` reverses it into
-  `SkillInfo::modified_skill_id`, so a modifier reads "modifies Cadence" and the learn gate can name the base.
+- **Sub-skill -> base link (corrected 2026-09-13).** `Skill::GetModifiedSkillId` (`*(uint*)(this+0x1e0)`) is a
+  *different* (transform/replace) relationship and reads **0** for tree skills. The tree keeps THREE id vectors on a
+  `Skill`: `GetModifiers()` (+0x140, the `Skill_Modifier` sub-skills), `GetSecondarySkills()` (+0x170, the
+  `SkillSecondary` sub-skills) and, on the sub-skill itself, **`GetBaseSkills()`** (+0x1b8, the forward link, which
+  `IsBaseSkillEnabled` walks). `skills()` now fills `SkillInfo::modified_skill_id` from `GetBaseSkills` (reverse of
+  the other two only as a fallback) and `SkillInfo::modifier` is `IsSkillModifier || has a base` (NOT `Skill::IsSecondary`, byte +0xad: live it is true on Summon Familiar and false on Storm Spirit).
+  - Why: the Occultist's pet modifiers (Mend Flesh, Storm Spirit, Lightning Strike; Ember Claw, Hellfire, Infernal
+    Breath) are `SkillSecondary_PetModifier` records, NOT `Skill_Modifier` -- `IsSkillModifier` (an is-a test
+    against `Skill_Modifier`) said false, and the reverse of `GetModifiers` never saw them (verified live: Summon
+    Familiar's modifier vector empty, its secondary vector = the three ids). So they read as plain skills, could be
+    learned without the summon, and -- the spirit-guide bug -- the summon's last point could be reclaimed under
+    them, because `can_reclaim_skill`'s dependants pass keys off `modified_skill_id`. The Shaman's Corrupted Storm
+    was fine only because `Skill_SpawnPetTransmuter` is-a `Skill_Modifier` despite its `_petmodifier` file name.
+    The exe's byte 0xa uses `Skill::GetSkillDependancies` + `Character::FindSkillId`, the same relation by record
+    name. Built; NOT yet verified live (a character orphaned by the old gate -- Storm Spirit 2, Summon Familiar 0 --
+    stays that way until a point goes back into the summon or Storm Spirit is reclaimed).
 - **Reclaim mode = a spirit guide.** The NPC class is `NpcSkillReallocator`; talking to one calls
   `GameEngine::DisplaySkillReallocationWindow` (forwards through `[GameEngine+0x19b0]` vtable+0x60), which opens
   the skills window with the reclaim flag set. That flag is **skills window +0x1f4c** (the handler reads it as

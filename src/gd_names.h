@@ -1072,6 +1072,15 @@ inline constexpr const char* Skill_GetMasteryLevelRequirement = "?GetMasteryLeve
 // public: class mem::vector<unsigned int> const & __ptr64 __cdecl GAME::Skill::GetModifiers(void)const __ptr64
 inline constexpr const char* Skill_GetModifiers_DLL = "Game.dll";
 inline constexpr const char* Skill_GetModifiers = "?GetModifiers@Skill@GAME@@QEBAAEBV?$vector@I@mem@@XZ";
+// public: class mem::vector<unsigned int> const & __ptr64 __cdecl GAME::Skill::GetSecondarySkills(void)const __ptr64
+inline constexpr const char* Skill_GetSecondarySkills_DLL = "Game.dll";
+inline constexpr const char* Skill_GetSecondarySkills = "?GetSecondarySkills@Skill@GAME@@QEBAAEBV?$vector@I@mem@@XZ";
+// public: bool const __cdecl GAME::Skill::IsBaseSkillEnabled(void)const __ptr64
+inline constexpr const char* Skill_IsBaseSkillEnabled_DLL = "Game.dll";
+inline constexpr const char* Skill_IsBaseSkillEnabled = "?IsBaseSkillEnabled@Skill@GAME@@QEBA?B_NXZ";
+// public: bool const __cdecl GAME::Skill::IsSecondary(void)const __ptr64
+inline constexpr const char* Skill_IsSecondary_DLL = "Game.dll";
+inline constexpr const char* Skill_IsSecondary = "?IsSecondary@Skill@GAME@@QEBA?B_NXZ";
 // public: bool __cdecl GAME::Skill::IsLocked(void)const __ptr64
 inline constexpr const char* Skill_IsLocked_DLL = "Game.dll";
 inline constexpr const char* Skill_IsLocked = "?IsLocked@Skill@GAME@@QEBA_NXZ";

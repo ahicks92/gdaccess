@@ -349,8 +349,12 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   `gameapi::can_learn_skill` replicates the game's SkillReasons gate (exe+0x2492b0) -- points>0, level<max,
   `Skill::GetMasteryLevel >= GetMasteryLevelRequirement`, and a modifier's base skill learned -- and `learn_skill`
   refuses with the spoken reason ("needs mastery N", "requires Cadence", "no points"). **Modifiers name their
-  base**: `Skill::GetModifiedSkillId` reads 0 for tree modifiers, so `skills()` reverses each base's
-  `Skill::GetModifiers()` into `SkillInfo::modified_skill_id` -> "Discord, modifies Cadence". **Refund only at a
+  base**: `Skill::GetModifiedSkillId` reads 0 for tree modifiers, so `skills()` reads the sub-skill's own
+  `Skill::GetBaseSkills()` into `SkillInfo::modified_skill_id` -> "Discord, modifies Cadence" (2026-09-13: was the
+  reverse of `GetModifiers`, which misses the Occultist's `SkillSecondary_PetModifier` skills -- Storm Spirit etc.
+  live in `GetSecondarySkills`, so they read as plain skills and the summon's last point could be reclaimed under
+  them at a spirit guide; `modifier` = `IsSkillModifier || has a base` (`Skill::IsSecondary` is true on the SUMMON, not its modifiers); the learn gate is now the game's own
+  `Skill::IsBaseSkillEnabled`; built, NOT verified live). **Refund only at a
   spirit guide**: talking to an `NpcSkillReallocator` calls `GameEngine::DisplaySkillReallocationWindow`, setting
   the reclaim flag at **skills window +0x1f4c** (the click handler exe+0x248380 reads it as `[controller+0x1e1c]`,
   controller = window+0x130); `exe_ui::skills_reclaim_mode()` reads it. In reclaim mode `screens/skills.cpp` shows
