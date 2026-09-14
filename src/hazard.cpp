@@ -31,7 +31,7 @@ constexpr float kLaneSpacing = 0.5f;
 // ---- knobs (dev route /hazard) ----
 bool g_enabled = true;
 float g_range = 10.0f;      // lane range, units
-int g_lanes = 3;            // side lanes each way, like the wall tones (half-width 1.5 u)
+int g_lanes = 1;            // side lanes each way: half-width 0.5 u (the walls use 1.5; that band read a pool beside the path as "ahead", by ear 2026-09-13)
 float g_gain = 1.0f;        // lane loop volume
 float g_bed_gain = 0.45f;   // bed loop volume (1.0 was too loud by ear)
 float g_spread = 0.5f;      // bed pan: left at -spread, right at +spread
