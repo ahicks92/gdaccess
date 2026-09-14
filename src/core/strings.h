@@ -124,6 +124,24 @@ inline constexpr std::string_view kAnnounceTelegraph = "telegraph cues";        
 inline constexpr std::string_view kAnnounceSwitches = "announcement settings";   // the T overlay's two Tab stops (context labels)
 inline constexpr std::string_view kAnnounceShapes = "telegraph filter";
 inline constexpr std::string_view kTelegraphShapeLabels[5] = {"swing cues", "stomp cues", "wave cues", "shot cues", "ring cues"};   // the T overlay's second stop (telegraph::kShapeNames order)
+// ---- the Ctrl+Backslash overlay (screens/cue_settings.cpp, src/cues.h): which positioned cues play, channel volumes ----
+inline constexpr std::string_view kCueSettings = "sound cue settings";
+inline constexpr std::string_view kCueSwitches = "cues";            // stop 1: one on/off row per cue
+inline constexpr std::string_view kCueVolumes = "volumes";          // stop 2: percent per channel
+inline constexpr std::string_view kCueWallTones = "wall tones";
+inline constexpr std::string_view kCueHazardLanes = "harmful ground nearby";
+inline constexpr std::string_view kCueHazardInside = "standing in harmful ground";
+inline constexpr std::string_view kCueHazardExit = "way out of harmful ground";
+inline constexpr std::string_view kCueEnemies = "enemy pings";
+inline constexpr std::string_view kCueLoot = "loot pings";
+inline constexpr std::string_view kCueEntrances = "entrance pings";
+inline constexpr std::string_view kCueBreakables = "breakable pings";
+inline constexpr std::string_view kCueShrines = "shrine pings";
+inline constexpr std::string_view kCueInteractables = "interactable pings";
+inline constexpr std::string_view kVolumeWalls = "wall tone volume";
+inline constexpr std::string_view kVolumeHazards = "harmful ground volume";
+inline constexpr std::string_view kVolumeEnemies = "enemy ping volume";
+inline constexpr std::string_view kVolumeOther = "other ping volume";   // loot, entrances, breakables, shrines, interactables
 inline constexpr std::string_view kPets = "pets";                 // the [ / ] review group and the pet overlay
 inline constexpr std::string_view kStanceNormal = "normal";       // Monster::ControllerType 0 / 1 / 2 (docs/pets.md)
 inline constexpr std::string_view kStanceAggressive = "aggressive";
@@ -203,6 +221,7 @@ inline constexpr std::string_view kBehindInterface = "behind the interface";   /
 inline constexpr std::string_view kTooFarAway = "too far away";  // a click on a reviewed thing the camera does not show
 inline constexpr std::string_view kDistant = "distant";          // the same thing while cycling through the review list
 inline constexpr std::string_view kPercent = "percent";
+inline std::string percent(int value) { return std::to_string(value) + " " + std::string(kPercent); }   // "70 percent"
 inline constexpr std::string_view kKeyBindings = "key bindings";
 // ---- combat (spoken through the positional voices: Mark at the enemy, Zira for the player) ----
 inline constexpr std::string_view kHealth = "health";

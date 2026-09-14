@@ -6,6 +6,7 @@
 #include "audio.h"
 #include "casts.h"
 #include "combat.h"
+#include "cues.h"
 #include "hazard.h"
 #include "rooms.h"
 #include "screens/hotbar_manager.h"
@@ -108,16 +109,17 @@ static void tick() {
   // Every frame, like wotr (the 100 ms throttle was audible as lag); up to 80 navmesh point tests per frame.
   double t = app::now();
   g_last = t;
-  if (!g_enabled || !world::in_world()) { silence(); return; }
+  if (!g_enabled || !world::in_world() || !cues::enabled(cues::WallTones)) { silence(); return; }   // the player's switch (Ctrl+Backslash)
   ensure_loaded();
   // Follow the game's own focus behaviour: it mutes when its window is not the foreground, so do we.
   HWND fg = GetForegroundWindow();
   bool audible = fg && fg == FindWindowA("Grim Dawn", nullptr);
+  float user = cues::gain(cues::Walls);   // the player's channel volume on top of the dev gain
   for (int i = 0; i < 4; ++i) {
     float d = rect_distance(i);
     g_dist[i] = d;
     float v = d >= g_range ? 0.0f : 1.0f - d / g_range;
-    audio::set_loop_volume(kToneId + i, audible ? v * v * g_gain : 0.0f);
+    audio::set_loop_volume(kToneId + i, audible ? v * v * g_gain * user : 0.0f);
   }
 }
 std::string probe_timing(int iters) {   // dev: time the navmesh probing part of one tick (no audio writes)

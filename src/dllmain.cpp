@@ -3,6 +3,7 @@
 #include "audio.h"
 #include "audio_mute.h"
 #include "casts.h"
+#include "cues.h"
 #include "settings.h"
 #include "telegraph.h"
 #include "combat.h"
@@ -32,6 +33,7 @@ static DWORD WINAPI init_thread(LPVOID) {
   gd::log::init();
   gd::log::write("gdaccess: loaded");
   gd::settings::init();
+  gd::cues::init();   // the Ctrl+Backslash cue switches / channel volumes (after settings)
   // GDACCESS_MUTE=1 (set by the dev launcher): speech is recorded but not voiced, game audio session muted.
   bool mute = env_flag(L"GDACCESS_MUTE");
   gd::speech::set_muted(mute);

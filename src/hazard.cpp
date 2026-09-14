@@ -8,6 +8,7 @@
 #include <vector>
 #include "app.h"
 #include "audio.h"
+#include "cues.h"
 #include "log.h"
 #include "world.h"
 
@@ -191,13 +192,13 @@ void merge_islands(std::vector<Island> fresh, double now) {
   if (g_cycle >= (int)g_islands.size()) g_cycle = 0;
   (void)now;
 }
-void pulse_island(const Island& is, const world::Vec3& p) {
+void pulse_island(const Island& is, const world::Vec3& p, float user) {
   float dx = (float)is.entry.x + 0.5f - p.x, dz = (float)is.entry.z + 0.5f - p.z;
   float len = std::sqrt(dx * dx + dz * dz);
   if (len < 1e-3f) return;
   float east = dx / len, north = -dz / len;   // north = -z (the mod's compass)
   float freq = g_pitch_lo * std::pow(g_pitch_hi / g_pitch_lo, (north + 1.0f) * 0.5f);
-  audio::pulse(freq, g_pulse_ms, g_pulse_vol, east);
+  audio::pulse(freq, g_pulse_ms, g_pulse_vol * user, east);
 }
 std::string clock_of(float dx, float dz) {
   float a = std::atan2(dx, -dz) * 180.0f / 3.14159265f; if (a < 0) a += 360.0f;
@@ -219,23 +220,26 @@ void tick() {
   HWND fg = GetForegroundWindow();
   bool audible = fg && fg == FindWindowA("Grim Dawn", nullptr);
   double now = app::now();
+  // The player's switches and channel volume (Ctrl+Backslash, src/cues.h) sit on top of the dev knobs.
+  float user = cues::gain(cues::Hazards);
   // lanes
+  bool lanes_on = cues::enabled(cues::HazardLanes);
   for (int i = 0; i < 4; ++i) {
-    float d = lane_distance(i, p);
+    float d = lanes_on ? lane_distance(i, p) : g_range;
     g_dist[i] = d;
     float v = d >= g_range ? 0.0f : 1.0f - d / g_range;
-    audio::set_loop_volume(kLaneLoopId + i, audible ? v * v * g_gain : 0.0f);
+    audio::set_loop_volume(kLaneLoopId + i, audible ? v * v * g_gain * user : 0.0f);
   }
   // bed
   bool inside = world::hazard_at(p, &g_rate, &g_type);
   if (inside != g_inside) { g_inside = inside; g_islands.clear(); g_cycle = 0; g_last_search = 0; g_next_pulse = now + 0.2; }
-  float bed = inside && audible ? g_bed_gain : 0.0f;
+  float bed = inside && audible && cues::enabled(cues::HazardInside) ? g_bed_gain * user : 0.0f;
   audio::set_loop_volume(kBedLoopId, bed); audio::set_loop_volume(kBedLoopId + 1, bed);
-  if (!inside) return;
+  if (!inside || !cues::enabled(cues::HazardExit)) return;
   // pointer
   if (now - g_last_search >= g_search_s) { g_last_search = now; merge_islands(find_islands(p, now), now); }
   if (!g_islands.empty() && now >= g_next_pulse) {
-    if (audible) pulse_island(g_islands[g_cycle], p);
+    if (audible) pulse_island(g_islands[g_cycle], p, user);
     ++g_cycle;
     if (g_cycle >= (int)g_islands.size()) { g_cycle = 0; g_next_pulse = now + g_period + g_gap; }
     else g_next_pulse = now + g_period;

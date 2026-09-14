@@ -1,4 +1,5 @@
 #include "sonar.h"
+#include "cues.h"
 #include <windows.h>
 #include <algorithm>
 #include <cmath>
@@ -57,12 +58,13 @@ void tick() {
   double now = app::now();
   std::vector<core::SonarField::Item> items;
   g_live.clear();
-  collect(world::ScanGroup::Enemies, kEnemy, items);
-  collect(world::ScanGroup::Loot, kLoot, items);
-  collect(world::ScanGroup::Transitions, kTransition, items);
-  collect(world::ScanGroup::Destructibles, kDestructible, items);
-  collect(world::ScanGroup::Shrines, kShrineRuined, items);
-  collect(world::ScanGroup::Interactables, kInteractable, items);
+  // The player's per-cue switches (Ctrl+Backslash, src/cues.h): a group that is off is not even collected.
+  if (cues::enabled(cues::Enemies)) collect(world::ScanGroup::Enemies, kEnemy, items);
+  if (cues::enabled(cues::Loot)) collect(world::ScanGroup::Loot, kLoot, items);
+  if (cues::enabled(cues::Entrances)) collect(world::ScanGroup::Transitions, kTransition, items);
+  if (cues::enabled(cues::Breakables)) collect(world::ScanGroup::Destructibles, kDestructible, items);
+  if (cues::enabled(cues::Shrines)) collect(world::ScanGroup::Shrines, kShrineRuined, items);
+  if (cues::enabled(cues::Interactables)) collect(world::ScanGroup::Interactables, kInteractable, items);
   auto pings = g_field.update(items, now);   // each thing pulses on its own period, phase-staggered
   if (pings.empty() || !audible()) return;
   for (const core::SonarField::Ping& p : pings) {
@@ -70,7 +72,8 @@ void tick() {
     if (f == g_live.end()) continue;
     const Placed& pl = f->second;
     audio::play_sample(audio::module_dir() + "assets\\audio\\interactables\\" + kCue[p.kind],
-                       pl.gain * g_vol * db_to_gain(g_trim_db[pl.kind]), pl.pan, world::rear_shelf_db(pl.ahead));
+                       pl.gain * g_vol * db_to_gain(g_trim_db[pl.kind]) * cues::gain(pl.kind == kEnemy ? cues::EnemyChannel : cues::Other),
+                       pl.pan, world::rear_shelf_db(pl.ahead));   // the player's channel volume: enemies apart from the rest
     ++g_fired;
   }
 }
