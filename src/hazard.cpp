@@ -33,13 +33,13 @@ bool g_enabled = true;
 float g_range = 10.0f;      // lane range, units
 int g_lanes = 3;            // side lanes each way, like the wall tones (half-width 1.5 u)
 float g_gain = 1.0f;        // lane loop volume
-float g_bed_gain = 1.0f;    // bed loop volume
+float g_bed_gain = 0.45f;   // bed loop volume (1.0 was too loud by ear)
 float g_spread = 0.5f;      // bed pan: left at -spread, right at +spread
-float g_period = 0.5f;      // seconds between island pulses
-float g_gap = 0.8f;         // extra pause after the last island of a round
+float g_period = 0.2f;      // seconds between island pulses (0.5 was too slow by ear, 2026-09-13)
+float g_gap = 0.35f;        // extra pause after the last island of a round
 int g_cap = 4;              // islands per round, nearest first
 int g_radius = 15;          // search radius, cells (1 unit)
-float g_pulse_vol = 0.35f;
+float g_pulse_vol = 0.7f;
 int g_pulse_ms = 90;
 float g_pitch_lo = 220.0f;  // due south
 float g_pitch_hi = 880.0f;  // due north
@@ -59,11 +59,14 @@ int g_cycle = 0;
 
 struct Cell { int x, z; bool operator<(const Cell& o) const { return x != o.x ? x < o.x : z < o.z; } bool operator==(const Cell& o) const { return x == o.x && z == o.z; } };
 struct Island {
-  std::vector<Cell> cells;   // clean cells (the exit ground), for identity across searches
+  std::vector<Cell> cells;   // clean cells (the exit ground), for identity across searches; sorted once merged
+  std::vector<std::pair<Cell, int>> exits;   // exit cells with their painted walk, sorted by cell (entry hysteresis)
   Cell entry{0, 0};          // the clean cell with the shortest painted walk from the player
   int walk = 0;              // that walk, in cells
+  float entry_dist = 0;      // straight-line distance player -> entry (tie-break among equal walks)
   double first_seen = 0;
 };
+constexpr int kEntryHyst = 1;   // keep the previous entry while its walk is within this many cells of the best
 std::vector<Island> g_islands;
 
 void ensure_loaded() {
@@ -136,14 +139,19 @@ std::vector<Island> find_islands(const world::Vec3& p, double now) {
   }
   // flood the exits among clean cells; label islands
   std::map<Cell, int> label; std::vector<Island> out;
+  auto dist_to = [&](const Cell& c) { float dx = (float)c.x + 0.5f - p.x, dz = (float)c.z + 0.5f - p.z; return std::sqrt(dx * dx + dz * dz); };
+  auto consider = [&](Island& is, const Cell& c, int w) {   // shorter walk wins; equal walks go to the cell nearest the player
+    float d = dist_to(c);
+    if (w < is.walk || (w == is.walk && d < is.entry_dist)) { is.walk = w; is.entry = c; is.entry_dist = d; }
+  };
   for (const Cell& e : exits) {
-    if (label.count(e)) { Island& is = out[label[e]]; if (walk[e] < is.walk) { is.walk = walk[e]; is.entry = e; } continue; }
-    int id = (int)out.size(); out.push_back(Island{{}, e, walk[e], now});
+    if (label.count(e)) { Island& is = out[label[e]]; consider(is, e, walk[e]); is.exits.push_back({e, walk[e]}); continue; }
+    int id = (int)out.size(); out.push_back(Island{{}, {{e, walk[e]}}, e, walk[e], dist_to(e), now});
     std::deque<Cell> f; f.push_back(e); label[e] = id;
     while (!f.empty()) {
       Cell c = f.front(); f.pop_front(); out[id].cells.push_back(c);
       auto w = walk.find(c);
-      if (w != walk.end() && w->second < out[id].walk) { out[id].walk = w->second; out[id].entry = c; }
+      if (w != walk.end() && !(c == e)) { consider(out[id], c, w->second); out[id].exits.push_back({c, w->second}); }
       for (int n = 0; n < 4; ++n) {
         Cell m{c.x + dx[n], c.z + dz[n]};
         if (!s.inside(m) || label.count(m)) continue;
@@ -152,6 +160,7 @@ std::vector<Island> find_islands(const world::Vec3& p, double now) {
       }
     }
   }
+  for (Island& is : out) std::sort(is.exits.begin(), is.exits.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
   return out;
 }
 // Keep the previous round's order where the islands persist (identity = shared cells); newcomers go last; an island
@@ -162,7 +171,14 @@ void merge_islands(std::vector<Island> fresh, double now) {
     for (auto it = fresh.begin(); it != fresh.end(); ++it) {
       bool shared = false;
       for (const Cell& c : it->cells) { if (std::binary_search(old.cells.begin(), old.cells.end(), c)) { shared = true; break; } }
-      if (shared) { it->first_seen = old.first_seen; ordered.push_back(std::move(*it)); fresh.erase(it); break; }
+      if (shared) {
+        it->first_seen = old.first_seen;
+        // Entry hysteresis: the old entry stays while it is still an exit of this island and its painted walk is
+        // within kEntryHyst of the best -- otherwise equal-walk exits on different edges swap the bearing every step.
+        auto ex = std::lower_bound(it->exits.begin(), it->exits.end(), old.entry, [](const std::pair<Cell, int>& a, const Cell& c) { return a.first < c; });
+        if (ex != it->exits.end() && ex->first == old.entry && ex->second <= it->walk + kEntryHyst) { it->entry = old.entry; it->walk = ex->second; }
+        ordered.push_back(std::move(*it)); fresh.erase(it); break;
+      }
     }
   }
   std::sort(fresh.begin(), fresh.end(), [](const Island& a, const Island& b) { return a.walk < b.walk; });
