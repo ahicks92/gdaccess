@@ -120,6 +120,36 @@ def gen_inside_low(rng, fc):
 
 
 GENS = {"sizzle": gen_sizzle}
+
+# The pointer is synthesized in the mod (audio::pulse: triangle, 10 ms rise, linear decay); this preview is the
+# sound glossary's demo of it and must track src/hazard.cpp's defaults: 90 ms, level 0.7, a round of three
+# islands 0.2 s apart then a 0.35 s gap, pitch 220 Hz due south .. 880 due north (log), pan = east/west.
+PULSE_MS, PULSE_VOL, PERIOD, GAP, LO, HI = 90, 0.7, 0.2, 0.35, 220.0, 880.0
+
+
+def gen_exit_preview():
+    def tri(f, n):
+        t = np.arange(n) / SR; ph = (t * f) % 1.0
+        return 4 * np.abs(ph - 0.5) - 1
+    def pulse(f):
+        n = int(SR * PULSE_MS / 1000)
+        env = np.clip(np.minimum(np.linspace(0, 1, n) / 0.11, np.linspace(1, 0, n)), 0, 1)
+        return tri(f, n) * env * PULSE_VOL
+    def gains(pan):
+        a = (pan + 1) / 4 * np.pi; return np.cos(a), np.sin(a)
+    # three islands: south-west, east, north-north-east -- one round repeated four times
+    islands = [(-0.6, -0.8), (1.0, 0.0), (0.4, 0.9)]   # (east, north)
+    total = 4 * (len(islands) * PERIOD + GAP) + 0.5
+    out = np.zeros((int(SR * total), 2)); t0 = 0.0
+    for _ in range(4):
+        for east, north in islands:
+            f = LO * (HI / LO) ** ((north + 1) / 2); gl, gr = gains(east)
+            p = pulse(f); i = int(t0 * SR)
+            out[i:i + len(p), 0] += p * gl; out[i:i + len(p), 1] += p * gr
+            t0 += PERIOD
+        t0 += GAP
+    return out
+
 BEDS = {"inside_throb": gen_inside_throb, "inside_low": gen_inside_low}
 
 
@@ -151,6 +181,9 @@ def main():
             write(os.path.join(out, name, f"{side}.wav"), x); pair.append(x)
             print(f"{name}/{side}.wav  rms {20*np.log10(np.sqrt(np.mean(x**2))):.1f} dBFS  peak {20*np.log10(np.max(np.abs(x))):.1f} dBFS")
         write_stereo(os.path.join(out, name, "preview.wav"), pair[0], pair[1])
+    prev = gen_exit_preview()
+    write_stereo(os.path.join(out, "exit_pulse_preview.wav"), prev[:, 0], prev[:, 1])
+    print(f"exit_pulse_preview.wav  {len(prev)/SR:.1f} s, peak {20*np.log10(np.max(np.abs(prev))):.1f} dBFS")
 
 
 if __name__ == "__main__":
