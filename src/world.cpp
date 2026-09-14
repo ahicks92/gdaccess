@@ -463,6 +463,31 @@ bool player_world_vec(Buf& out_wv, void** out_region = nullptr) {
 // dispatch through the vtable instead -- its slot is where Object's own vftable holds that export.
 // RTTI_ClassInfo (measured 2026-08-21): +0 vptr, +8 const char* name ("Player", "Monster", ...).
 int g_rtti_slot = -1;
+// A game object's vtable, and the slot it dispatches to, must lie inside the game's own images (the exe,
+// Engine.dll, Game.dll). A freed object whose memory was reused carries garbage there; calling through it ran
+// arbitrary bytes and corrupted the heap (the cast tracker, VM report 2026-09-14). Every class lookup goes
+// through here, so the guard covers every feature that inspects objects.
+struct ImageRange { uintptr_t lo = 0, hi = 0; };
+const ImageRange* game_images() {
+  static ImageRange r[3]; static bool init = false;
+  if (!init) {
+    init = true;
+    HMODULE mods[3] = {GetModuleHandleW(nullptr), GetModuleHandleA("Engine.dll"), GetModuleHandleA("Game.dll")};
+    for (int i = 0; i < 3; ++i) {
+      if (!mods[i]) continue;
+      auto* dos = (const IMAGE_DOS_HEADER*)mods[i];
+      auto* nt = (const IMAGE_NT_HEADERS64*)((const char*)mods[i] + dos->e_lfanew);
+      r[i].lo = (uintptr_t)mods[i]; r[i].hi = r[i].lo + nt->OptionalHeader.SizeOfImage;
+    }
+  }
+  return r;
+}
+bool in_game_image(const void* p) {
+  const ImageRange* r = game_images();
+  uintptr_t a = (uintptr_t)p;
+  for (int i = 0; i < 3; ++i) if (r[i].lo && a >= r[i].lo && a < r[i].hi) return true;
+  return false;
+}
 const void* rtti_of(const void* obj) {
   if (!obj || !g_api.Object_GetRTTIClassInfo) return nullptr;
   if (g_rtti_slot == -1) {
@@ -472,8 +497,11 @@ const void* rtti_of(const void* obj) {
         if (g_api.Object_vftable[i] == (void*)g_api.Object_GetRTTIClassInfo) { g_rtti_slot = i; break; }
     log::writef("world: Object::GetRTTIClassInfo vtable slot = {}", g_rtti_slot);
   }
-  if (g_rtti_slot < 0) return g_api.Object_GetRTTIClassInfo(obj);
+  if (IsBadReadPtr(obj, sizeof(void*))) return nullptr;
   void** vt; memcpy(&vt, obj, sizeof vt);
+  if (!in_game_image(vt) || IsBadReadPtr(vt, (g_rtti_slot < 0 ? 1 : g_rtti_slot + 1) * sizeof(void*))) return nullptr;
+  if (g_rtti_slot < 0) return g_api.Object_GetRTTIClassInfo(obj);
+  if (!in_game_image(vt[g_rtti_slot])) return nullptr;
   return ((const void* (*)(const void*))vt[g_rtti_slot])(obj);
 }
 std::string rtti_name(const void* ci) {

@@ -17,6 +17,7 @@
 #include "exe_ui.h"
 #include "devserver.h"
 #include "hooks.h"
+#include "crash.h"
 #include "log.h"
 #include "speech.h"
 
@@ -32,6 +33,7 @@ static int env_int(const wchar_t* name, int def) {
 static DWORD WINAPI init_thread(LPVOID) {
   gd::log::init();
   gd::log::write("gdaccess: loaded");
+  gd::crash::install();   // first: a fault anywhere below leaves its address in the log
   gd::settings::init();
   gd::cues::init();   // the Ctrl+T cue switches / channel volumes (after settings)
   // GDACCESS_MUTE=1 (set by the dev launcher): speech is recorded but not voiced, game audio session muted.
@@ -78,6 +80,7 @@ extern "C" __declspec(dllexport) DWORD WINAPI gdaccess_unload(LPVOID) {
   gd::audio::shutdown();
   gd::world::remove();
   gd::hooks::remove();
+  gd::crash::remove();
   gd::speech::shutdown();
   // The detours are gone, but the game thread may still be inside one of our hook bodies (the per-frame tick
   // runs from Engine::Update): let any in-flight frame finish before the injector unmaps this DLL.

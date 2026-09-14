@@ -21,12 +21,17 @@ namespace {
 using namespace gd::names;
 
 enum class Kind : char { Start = 'S', Hit = 'H', End = 'E', Now = 'N', Callback = 'C' };
-// The hook body keeps plain data only (SEH rule); everything that needs game objects is resolved in tick().
+// The hook body keeps plain data only (SEH rule). Everything read FROM the caster / skill objects (id, class names,
+// record path, animation time) is read here, inside the hook, while they are alive: tick() runs on the next
+// in-world frame, which can be minutes later (a slow machine loading + the intro cutscene), and by then the game
+// has freed them. Reading the class through a freed object's vtable ran garbage and corrupted the heap (a VM
+// report, 2026-09-14). `skill` is kept as an opaque key for matching Start/Hit/End and is never dereferenced.
 struct Raw {
   Kind kind; const char* which; double t = 0;
-  unsigned caster_id = 0; const void* caster = nullptr; const void* skill = nullptr; unsigned target = 0;
+  unsigned caster_id = 0; const void* skill = nullptr; unsigned target = 0;
   bool has_pt = false; world::Vec3 pt; int anim_ms = -1; unsigned a = 0, b = 0; bool ok = true;
   char name[80] = {};
+  char cls[64] = "?", scls[64] = "?", rec[200] = "?";
 };
 std::deque<Raw> g_pending;              // game thread only
 std::deque<std::string> g_lines, g_cb_lines; std::mutex g_mu;
@@ -149,34 +154,41 @@ void push(Raw& r) {
   r.t = app::now();
   if (g_pending.size() < 512) g_pending.push_back(r); else ++g_dropped;
 }
+// The object reads, all of them, while the hook has the live objects.
+void read_objects(Raw& r, const void* ch, const void* skill) {
+  r.skill = skill;
+  read_id(ch, r.caster_id);
+  read_class(ch, r.cls, sizeof r.cls);
+  if (skill) { read_class(skill, r.scls, sizeof r.scls); read_record(skill, r.rec, sizeof r.rec); }
+}
 void on_start(const char* which, void* skill, void* ch, unsigned tid, const void* wv, bool ok) {
   ++g_n_start;
-  Raw r{Kind::Start, which}; r.skill = skill; r.caster = ch; r.target = tid; r.ok = ok;
-  read_id(ch, r.caster_id); read_anim_left(ch, r.anim_ms); r.has_pt = read_point(wv, r.pt);
+  Raw r{Kind::Start, which}; r.target = tid; r.ok = ok;
+  read_objects(r, ch, skill); read_anim_left(ch, r.anim_ms); r.has_pt = read_point(wv, r.pt);
   push(r);
 }
 void on_hit(const char* which, void* skill, void* ch, const void* name, unsigned tid, const void* wv) {
   ++g_n_hit;
-  Raw r{Kind::Hit, which}; r.skill = skill; r.caster = ch; r.target = tid;
-  read_id(ch, r.caster_id); read_anim_left(ch, r.anim_ms); r.has_pt = read_point(wv, r.pt); read_name(name, r.name, sizeof r.name);
+  Raw r{Kind::Hit, which}; r.target = tid;
+  read_objects(r, ch, skill); read_anim_left(ch, r.anim_ms); r.has_pt = read_point(wv, r.pt); read_name(name, r.name, sizeof r.name);
   push(r);
 }
 void on_end(const char* which, void* skill, void* ch, bool ok) {
   ++g_n_end;
-  Raw r{Kind::End, which}; r.skill = skill; r.caster = ch; r.ok = ok;
-  read_id(ch, r.caster_id); read_anim_left(ch, r.anim_ms);
+  Raw r{Kind::End, which}; r.ok = ok;
+  read_objects(r, ch, skill); read_anim_left(ch, r.anim_ms);
   push(r);
 }
 void on_now(const char* which, void* skill, void* ch, const void* name, unsigned tid, const void* wv) {
   ++g_n_now;
-  Raw r{Kind::Now, which}; r.skill = skill; r.caster = ch; r.target = tid;
-  read_id(ch, r.caster_id); r.has_pt = read_point(wv, r.pt); read_name(name, r.name, sizeof r.name);
+  Raw r{Kind::Now, which}; r.target = tid;
+  read_objects(r, ch, skill); r.has_pt = read_point(wv, r.pt); read_name(name, r.name, sizeof r.name);
   push(r);
 }
 void on_callback(void* ch, const void* name, unsigned a, unsigned b, const void* wv, bool ok) {
   ++g_n_cb;
-  Raw r{Kind::Callback, a == 0xffffffff ? "char" : "skill"}; r.caster = ch; r.a = a; r.b = b; r.ok = ok;
-  read_id(ch, r.caster_id); read_anim_left(ch, r.anim_ms); r.has_pt = read_point(wv, r.pt); read_name(name, r.name, sizeof r.name);
+  Raw r{Kind::Callback, a == 0xffffffff ? "char" : "skill"}; r.a = a; r.b = b; r.ok = ok;
+  read_objects(r, ch, nullptr); read_anim_left(ch, r.anim_ms); r.has_pt = read_point(wv, r.pt); read_name(name, r.name, sizeof r.name);
   push(r);
 }
 
@@ -242,9 +254,7 @@ void tick() {
   unsigned pid = world::player_id();
   while (!g_pending.empty()) {
     Raw r = g_pending.front(); g_pending.pop_front();
-    char cls[64] = "?", scls[64] = "?", rec[200] = "?";
-    read_class(r.caster, cls, sizeof cls);
-    if (r.skill) { read_class(r.skill, scls, sizeof scls); read_record(r.skill, rec, sizeof rec); }
+    const char *cls = r.cls, *scls = r.scls, *rec = r.rec;   // read in the hook; the objects may be gone by now
     std::string label = r.caster_id == pid ? "PLAYER" : world::label_of(r.caster_id);
     world::Vec3 cp; float dist = -1;
     if (have_me && world::entity_position(r.caster_id, cp)) dist = std::sqrt((cp.x - me.x) * (cp.x - me.x) + (cp.z - me.z) * (cp.z - me.z));

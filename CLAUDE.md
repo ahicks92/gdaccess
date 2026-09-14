@@ -838,6 +838,18 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   yet verified live): per-cue on/off (wall tones, harmful ground as one, each sonar group -- an off group is not collected)
   and six percent volumes (walls, hazards, enemy pings, other pings, the Mark voice, the Zira voice) multiplied onto the dev knobs, 5 % steps on a -60..0 dB scale (3 dB each, 0 = silence) with a preview of the channel's sound at the new level; persisted as `cue.*` /
   `volume.*` in settings.txt like T's keys. (Ctrl+Backslash was the first key: 1Password's global autofill chord took it before the game.)
+- Freed-object crash fixed (2026-09-14, a Discord report from a VM run; verified live: world entered, /casts still
+  names classes + records, /entities fine, no stray crash lines): `casts.cpp` stored raw caster/skill pointers in its
+  hooks and read their class names in `tick()`, which runs on the next in-world frame -- minutes later under emulation
+  (load + intro cutscene), after the game freed them; one call through a reused object's vtable ran garbage,
+  corrupted the heap and ntdll fast-failed the process (no crash reporter, the window just vanished). Now every
+  object read happens inside the hook (`read_objects`), `Raw::skill` is an opaque key. `world::rtti_of` refuses any
+  vtable (or slot) outside the exe/Engine.dll/Game.dll images, which covers every class lookup. `src/crash.cpp`
+  = a first-chance vectored exception handler writing code/address/registers + a return-address scan of the stack
+  (module+rva, no heap, own file handle) to gdaccess.log; ordinary codes are deduped per (code, address) and
+  capped at 200, heap corruption / fast-fail / execute faults always logged. `tools/vsdev.cmd` finds any VS 2022
+  edition through vswhere (Build Tools included). Note for anyone reading a tester's log: a new character's intro
+  cutscene runs minutes with the mod silent (Escape skips it), and the VM's load is slow.
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.
