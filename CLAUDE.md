@@ -833,7 +833,11 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   standing in it, and a triangle-pulse pointer cycling every reachable safe island (pitch = north/south, pan =
   east/west, order hysteresis). Sounds from `tools/gen_hazard_cues.py`, chosen by ear; sound glossary has the section.
   Skill hazards (traps, the boss's geysers) are the normal, resistable pipeline. "Purity" (`IsPurityActive`) is an unset
-  Titan Quest leftover. NOT yet heard by the user in play (built + reloaded, lookup verified at 8 points).
+  Titan Quest leftover. Heard and tuned by the user in play (bed 0.45, pulse 0.7 at 0.2 s, lanes half-width 0.5).
+- **Ctrl+Backslash = sound cue settings** (2026-09-13, `src/cues.{h,cpp}` + `screens/cue_settings.cpp`, modelled on T; built, NOT
+  yet verified live): per-cue on/off (wall tones, the three hazard layers, each sonar group -- an off group is not collected)
+  and four percent volumes (walls, hazards, enemy pings, other pings) multiplied onto the dev knobs; persisted as `cue.*` /
+  `volume.*` in settings.txt like T's keys. The game's Toggle Party Display lift was dropped for the key (multiplayer HUD only).
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.

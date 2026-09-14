@@ -77,6 +77,8 @@ search on`; `?at=x,z` probes a point; `?time=N` times the passes):
 Pitch neighbours the pointer competes with: interactable ping 524 Hz, unknown 800, review "unreachable" 876; the
 enemy sonar pulse is at 14 kHz. If it collides by ear, `lo`/`hi` move it.
 
-Not done: no persisted settings (the config screen is planned; the feature is for learning layouts), pets are not
+Player settings (2026-09-13): the Ctrl+Backslash overlay (`src/cues.h`, `screens/cue_settings.cpp`) switches each of the
+three layers on its own and scales all three by one "harmful ground" volume; both persist in settings.txt and sit on
+top of the dev knobs. Not done: pets are not
 warned, and the search treats paint as passable at a cost without rounding to ticks (a 6 u and a 9 u exit both cost one
 second at a run).
