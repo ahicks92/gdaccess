@@ -834,7 +834,7 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   east/west, order hysteresis). Sounds from `tools/gen_hazard_cues.py`, chosen by ear; sound glossary has the section.
   Skill hazards (traps, the boss's geysers) are the normal, resistable pipeline. "Purity" (`IsPurityActive`) is an unset
   Titan Quest leftover. Heard and tuned by the user in play (bed 0.45, pulse 0.7 at 0.2 s, lanes half-width 0.5).
-- **F8 = sound cue settings** (2026-09-13, `src/cues.{h,cpp}` + `screens/cue_settings.cpp`, modelled on T; built, NOT
+- **Ctrl+T = sound cue settings** (2026-09-13, `src/cues.{h,cpp}` + `screens/cue_settings.cpp`, modelled on T; built, NOT
   yet verified live): per-cue on/off (wall tones, the three hazard layers, each sonar group -- an off group is not collected)
   and six percent volumes (walls, hazards, enemy pings, other pings, the Mark voice, the Zira voice) multiplied onto the dev knobs; persisted as `cue.*` /
   `volume.*` in settings.txt like T's keys. (Ctrl+Backslash was the first key: 1Password's global autofill chord took it before the game.)

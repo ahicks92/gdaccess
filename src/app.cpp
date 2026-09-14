@@ -200,7 +200,7 @@ static void register_actions() {
   m.register_action("rooms.describe", "Describe the room", InputCategory::InGame, [] { rooms::speak_description(); }).bind(0x2d);   // X
   m.register_action("rooms.note", "Note this place for authoring", InputCategory::InGame, [] { rooms::note_place(); });   // unbound since 2026-09-01 (dev route /note); T = announcements
   m.register_action("ingame.announcements", "Announcement toggles", InputCategory::InGame, [] { screens::open_announcements(); }).bind(0x14);   // T
-  m.register_action("ingame.cueSettings", "Sound cue settings", InputCategory::InGame, [] { screens::open_cue_settings(); }).bind(0x42);   // F8 (Ctrl+Backslash was the first pick; 1Password owns that chord system-wide)
+  m.register_action("ingame.cueSettings", "Sound cue settings", InputCategory::InGame, [] { screens::open_cue_settings(); }).bind(0x14, true, false, false);   // Ctrl+T, next to T's announcement settings (Ctrl+Backslash was the first pick; 1Password owns that chord system-wide)
   // The mouse buttons (J left, I right, Enter = left; hold to hold) are polled per frame by the in-game screen,
   // not dispatched as actions: a hold needs the key's held state, not a press.
   // The camera is locked (far zoom, yaw 0 = grid up; the game's dialogue north is 50 deg clockwise of it, docs/compass.md) by the in-game screen; no zoom/rotate keys.

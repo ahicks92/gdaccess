@@ -109,7 +109,7 @@ static void tick() {
   // Every frame, like wotr (the 100 ms throttle was audible as lag); up to 80 navmesh point tests per frame.
   double t = app::now();
   g_last = t;
-  if (!g_enabled || !world::in_world() || !cues::enabled(cues::WallTones)) { silence(); return; }   // the player's switch (F8)
+  if (!g_enabled || !world::in_world() || !cues::enabled(cues::WallTones)) { silence(); return; }   // the player's switch (Ctrl+T)
   ensure_loaded();
   // Follow the game's own focus behaviour: it mutes when its window is not the foreground, so do we.
   HWND fg = GetForegroundWindow();

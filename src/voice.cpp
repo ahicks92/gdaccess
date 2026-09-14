@@ -104,7 +104,7 @@ void worker() {
     audio::Pcm pcm = render(s);
     if (!pcm) continue;
     if (s.policy == Policy::Overlap && s.group && audio::group_count(s.group) >= g_max[slot(s.voice)].load()) { ++g_dropped_cap; continue; }
-    float user = cues::gain(s.voice == Which::Mark ? cues::VoiceMark : cues::VoiceZira);   // the player's per-voice volume (F8)
+    float user = cues::gain(s.voice == Which::Mark ? cues::VoiceMark : cues::VoiceZira);   // the player's per-voice volume (Ctrl+T)
     audio::play_pcm(pcm, s.gain * g_gain.load() * user, s.pan, s.group, s.policy == Policy::Replace, false, 0.0f, s.predelay_ms);
   }
   g_cache.clear();

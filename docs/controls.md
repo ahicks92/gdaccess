@@ -55,8 +55,8 @@ screenshots. Rows in the game's order; "-" = unassigned.
 | Toggle UI | ] | - |
 
 Not on this page: Escape = game menu (pause), left mouse = move/attack at cursor (in Keyboard movement mode:
-attack/interact at cursor), right mouse = secondary skill slot, F1 = not bound by the game (F8 is the
-mod's sound cue settings; F2-F7 are pets).
+attack/interact at cursor), right mouse = secondary skill slot, F1 = not bound by the game (F2-F7 are pets; F8 and
+F9 are free).
 
 ## How the mod uses this (2026-08-21)
 In the world the mod owns the keyboard. Direct pass-through (the frequent keys): WASD, 1-0, Space, E, R, U,
@@ -112,7 +112,7 @@ stationary attack, Ctrl pet targeting) and typing into the game's chat field.
 | X | The current room: title, then the authored description ("no description yet" until then), through the screen reader |
 | F1 | G D Access menu (anywhere): sound glossary (every mod sound as a tree; landing on a row plays it) and, in the world, the combat announcement settings |
 | T | Announcement toggles overlay. Stop 1: outgoing announcements off / brief / full (brief = hit, crit, miss, blocked; Dodge reads as miss), incoming announcements on/off, incoming hit announcements on/off ("hit" per attack reaching you, from the victim-side resolver, so it works while invincible), telegraph cues off / your target / highest tier / all (Enter cycles, Left/Right step). Stop 2: swing / stomp / wave / shot / ring cues on/off. Enter flips a row and speaks the new state, Escape closes. Persisted in `%LOCALAPPDATA%\\gdaccess\\settings.txt`. (The authoring note that used to live on T is the dev route `/note`.) |
-| F8 | Sound cue settings overlay (`screens/cue_settings.cpp`, state in `src/cues.h`, same shape as T). Stop 1 "cues": on/off per positioned cue -- wall tones, harmful ground nearby (the sizzle lanes), standing in harmful ground (the bed), way out of harmful ground (the pointer), enemy / loot / entrance / breakable / shrine / interactable pings (a sonar group that is off is not collected at all). Stop 2 "volumes": wall tones, harmful ground, enemy pings, other pings, the Mark voice, the Zira voice, 0..100 percent (Left/Right 10, Enter +10 wrapping to 0), multiplied onto the dev knobs (`/walltones?vol=`, `/hazard?vol=`, `/sonar?vol=`, `/voice?vol=`; the voice factor is applied on the voice worker at play time), so 100 = the tuned defaults. Persisted as `cue.*` / `volume.*` keys in settings.txt. Escape closes; a game window covers and closes it |
+| Ctrl+T | Sound cue settings overlay (`screens/cue_settings.cpp`, state in `src/cues.h`, same shape as T). Stop 1 "cues": on/off per positioned cue -- wall tones, harmful ground nearby (the sizzle lanes), standing in harmful ground (the bed), way out of harmful ground (the pointer), enemy / loot / entrance / breakable / shrine / interactable pings (a sonar group that is off is not collected at all). Stop 2 "volumes": wall tones, harmful ground, enemy pings, other pings, the Mark voice, the Zira voice, 0..100 percent (Left/Right 10, Enter +10 wrapping to 0), multiplied onto the dev knobs (`/walltones?vol=`, `/hazard?vol=`, `/sonar?vol=`, `/voice?vol=`; the voice factor is applied on the voice worker at play time), so 100 = the tuned defaults. Persisted as `cue.*` / `volume.*` keys in settings.txt. Escape closes; a game window covers and closes it |
 | V / Shift+V | Next / previous exit of the current room: one more review group like . N B M -- destination title (or "room N"), "blocked" if the live mesh refuses the opening, distance, clock bearing, "i of n"; the landing pings the route, ; re-pings, the cursor parks on the opening |
 
 ## The main menu (2026-08-22)
@@ -150,6 +150,6 @@ Passed straight to the game (src/screens/in_game.cpp `passes_key`): WASD, 1-0, Y
 Alt/Right Alt (held: show items), F2-F7. Every other game function is reachable only as Ctrl + its default
 key (the `game.*` lifts in src/app.cpp: C/I N Q M O K G H J V L B X Z P, Backspace, \, ], Enter, Tab, `,` `.`).
 The mod's plain keys: `.` `,` N B M V (review groups; Shift = back, Alt = nearest), `;` `'` `/` `\`, J I G F,
-K H Q X T, F8, and Ctrl+1..0, Ctrl+- Ctrl+=, Ctrl+`, Ctrl+Shift+P. Still free: F9, the bracket keys,
+K H Q X T, and Ctrl+1..0, Ctrl+- Ctrl+=, Ctrl+`, Ctrl+T, Ctrl+Shift+P. Still free: F8, F9, the bracket keys,
 Insert/Delete/Home/End/PgUp/PgDn, the arrow keys, numpad. Ctrl+letter chords arrive with flags and are unused
 by the game.
