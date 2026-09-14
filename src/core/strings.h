@@ -116,7 +116,7 @@ inline constexpr std::string_view kGlossaryTelegraphStomp = "stomp: a blast all 
 inline constexpr std::string_view kGlossaryTelegraphWave = "wave: a strip travelling the way the attacker faces, step sideways";
 inline constexpr std::string_view kGlossaryTelegraphShot = "shot: a projectile or beam aimed at you, sidestep";
 inline constexpr std::string_view kGlossaryTelegraphRing = "ring: projectiles in every direction, run outward";
-inline constexpr std::string_view kAnnouncements = "announcements";          // the T overlay
+inline constexpr std::string_view kAnnouncements = "announcement config";    // the T overlay (and its F1 row)
 inline constexpr std::string_view kAnnounceOutgoing = "outgoing announcements";   // your hits, kills, XP (Mark)
 inline constexpr std::string_view kAnnounceIncoming = "incoming announcements";   // your health steps, effects on you (Zira)
 inline constexpr std::string_view kAnnounceIncomingHits = "incoming hit announcements";   // "hit" per attack that reaches you
@@ -125,7 +125,7 @@ inline constexpr std::string_view kAnnounceSwitches = "announcement settings";  
 inline constexpr std::string_view kAnnounceShapes = "telegraph filter";
 inline constexpr std::string_view kTelegraphShapeLabels[5] = {"swing cues", "stomp cues", "wave cues", "shot cues", "ring cues"};   // the T overlay's second stop (telegraph::kShapeNames order)
 // ---- the Ctrl+T overlay (screens/cue_settings.cpp, src/cues.h): which positioned cues play, channel volumes ----
-inline constexpr std::string_view kCueSettings = "sound cue settings";
+inline constexpr std::string_view kCueSettings = "sonar config";   // the Ctrl+T overlay (and its F1 row)
 inline constexpr std::string_view kCueSwitches = "cues";            // stop 1: one on/off row per cue
 inline constexpr std::string_view kCueVolumes = "volumes";          // stop 2: percent per channel
 inline constexpr std::string_view kCueWallTones = "wall tones";

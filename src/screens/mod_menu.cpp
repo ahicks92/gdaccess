@@ -5,6 +5,7 @@
 #include "core/screen.h"
 #include "core/strings.h"
 #include "screens/announcements.h"
+#include "screens/cue_settings.h"
 #include "screens/sound_glossary.h"
 #include "screens/window_base.h"
 #include "world.h"
@@ -28,8 +29,10 @@ class ModMenuScreen : public Screen {
   void build(GraphBuilder& b) override {
     b.begin_stop("page");
     b.add_item(ControlId::structural("mod.glossary"), row_item(std::string(strings::kSoundGlossary), {}, [] { g_open = false; open_sound_glossary(); }));
-    if (world::in_world())
+    if (world::in_world()) {   // the two in-world config overlays (T and Ctrl+T)
       b.add_item(ControlId::structural("mod.announcements"), row_item(std::string(strings::kAnnouncements), {}, [] { g_open = false; open_announcements(); }));
+      b.add_item(ControlId::structural("mod.cues"), row_item(std::string(strings::kCueSettings), {}, [] { g_open = false; open_cue_settings(); }));
+    }
   }
 };
 }  // namespace
