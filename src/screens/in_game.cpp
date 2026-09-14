@@ -6,6 +6,7 @@
 #include "audio.h"
 #include "casts.h"
 #include "combat.h"
+#include "hazard.h"
 #include "rooms.h"
 #include "screens/hotbar_manager.h"
 #include "screens/pets.h"
@@ -205,6 +206,7 @@ class InGameScreen : public Screen {
     world::show_all_tick();
     sonar::tick();
     walltones::tick();
+    hazard::tick();   // painted damage ground: lanes + bed + exit pointer (src/hazard.cpp)
     // The mouse buttons as keys, with real hold semantics: J (or Enter) = left, I = right, for as long as the
     // key is down and no modifier is held (Ctrl+J/I are lifted game keys).
     constexpr int kJ = 0x24, kI = 0x17, kEnter = 0x1c;
@@ -217,8 +219,8 @@ class InGameScreen : public Screen {
     world::mouse_key(1, left);
     world::mouse_key(2, right);
   }
-  void on_unfocus() override { walltones::silence(); world::mouse_key(1, false); world::mouse_key(2, false); }
-  void on_pop() override { walltones::silence(); world::mouse_key(1, false); world::mouse_key(2, false); rooms::reset(); sonar::reset(); quickbar_reset(); pets_reset(); }
+  void on_unfocus() override { walltones::silence(); hazard::silence(); world::mouse_key(1, false); world::mouse_key(2, false); }
+  void on_pop() override { walltones::silence(); hazard::silence(); world::mouse_key(1, false); world::mouse_key(2, false); rooms::reset(); sonar::reset(); quickbar_reset(); pets_reset(); }
 
  private:
   bool suppress_left_ = false;   // a left-mouse key held over from the screen that just closed

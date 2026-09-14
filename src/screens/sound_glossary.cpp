@@ -44,6 +44,13 @@ std::vector<Section> sections() {
       {strings::kGlossaryPingStraight, "review_straight.wav"},
       {strings::kGlossaryPingPath, "review_path.wav"},
       {strings::kGlossaryPingUnreachable, "review_unreachable.wav"}}},
+    {"hazards", strings::kGlossaryHazards, {   // src/hazard.cpp: painted damage ground (docs/hazards.md)
+      {strings::kGlossaryHazardAhead, "hazards\\sizzle\\north.wav", 0.0f},
+      {strings::kGlossaryHazardRight, "hazards\\sizzle\\east.wav", 1.0f},
+      {strings::kGlossaryHazardBehind, "hazards\\sizzle\\south.wav", 0.0f, -10.0f},
+      {strings::kGlossaryHazardLeft, "hazards\\sizzle\\west.wav", -1.0f},
+      {strings::kGlossaryHazardInside, "hazards\\inside_low\\left.wav"},
+      {strings::kGlossaryHazardExit, "hazards\\exit_pulse_preview.wav"}}},
     {"telegraphs", strings::kGlossaryTelegraphs, {
       {strings::kGlossaryTelegraphSwing, tele[0].c_str(), 0.0f, 0.0f, 1.0f, true},
       {strings::kGlossaryTelegraphStomp, tele[1].c_str(), 0.0f, 0.0f, 1.0f, true},

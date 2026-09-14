@@ -822,6 +822,18 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   texture (+0x50, `Resource::GetFileName`, "obstacle") and speaks kinds with the game's `tagMapSymbol*` words;
   `exe_ui::aerial_zoom_set` (MiniMap+0x166c/+0x1670, verified live) holds 135 while the Ctrl+M screen is open.
   Decided with the user: no icon gathering beyond the sighted reach, no offline quest-POI table -- parity first.
+- **Painted damage ground = the engine's sector damage layer, unresistable** (2026-09-13, `docs/hazards.md`, verified live in
+  the Amalgamation's yard): per-chunk sector table 7 (`DamageSectorData`, defined in the map header: name, amount, type,
+  fx) is read once a second by `TickManager::Tick` and applied as amount x max life straight through
+  `CombatManager::ApplyDamage` -- no resistance (Aether Act3 Boss 0.12, Aether01 0.15, Aether02 0.30, poisons 0.02..0.20);
+  the glowing hotspot decorations are only the picture. `world::hazard_at(point)` is that lookup for any point
+  (`Level::GetSectorLayers` -> `SectorLayers::GetTargetId(7, x, z)` region-relative ints -> `SectorDataManager::GetSectorData`
+  on `gEngine+8`), `world::mesh_contains` the closest-point containment gate. `src/hazard.cpp` (on by default, `/hazard`
+  knobs, `?at=x,z` probe): sizzle lanes on the wall-tone rectangle (nearest lane), a 260 Hz sizzle bed pair while
+  standing in it, and a triangle-pulse pointer cycling every reachable safe island (pitch = north/south, pan =
+  east/west, order hysteresis). Sounds from `tools/gen_hazard_cues.py`, chosen by ear; sound glossary has the section.
+  Skill hazards (traps, the boss's geysers) are the normal, resistable pipeline. "Purity" (`IsPurityActive`) is an unset
+  Titan Quest leftover. NOT yet heard by the user in play (built + reloaded, lookup verified at 8 points).
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.

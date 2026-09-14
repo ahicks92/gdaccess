@@ -29,6 +29,8 @@ struct Tone {
   float target = 0;       // requested
   float pan = 0;
   int remaining = -1;     // beep: samples left (-1 = continuous)
+  int total = 0;          // pulse: samples at the start (the decay envelope's length)
+  int wave = 0;           // 0 sine, 1 triangle
   bool dead = false;
 };
 // A looping mono sample at a fixed pan; volume applied directly (the wotr WallTones channel).
@@ -111,8 +113,10 @@ void data_callback(ma_device*, void* out, const void*, ma_uint32 frames) {
         else --t.remaining;
         if (t.remaining < 240) target = 0;  // 5 ms fade out at the end of a beep
       }
+      if (t.total > 0 && t.remaining > 0) target *= (float)t.remaining / (float)t.total;   // pulse: linear decay
       t.vol += (target - t.vol) * 0.002f;   // ~10 ms smoothing
-      float s = std::sin(t.phase) * t.vol * master;
+      float w = t.wave == 1 ? (t.phase < kPi ? -1.0f + 2.0f * t.phase / kPi : 3.0f - 2.0f * t.phase / kPi) : std::sin(t.phase);
+      float s = w * t.vol * master;
       t.phase += step; if (t.phase > 2.0f * kPi) t.phase -= 2.0f * kPi;
       o[i * 2] += s * l; o[i * 2 + 1] += s * r;
     }
@@ -195,6 +199,14 @@ void beep(float freq, int ms, float volume, float pan) {
   std::lock_guard lk(g_mu);
   Tone t{-1, freq};
   t.target = volume; t.pan = pan; t.remaining = ms * kRate / 1000;
+  g_tones.push_back(t);
+}
+// A triangle-wave pulse: 10 ms rise (the tone smoothing), linear decay to silence over `ms`. The hazard exit
+// pointer (src/hazard.cpp): pitch and pan change per pulse, so it is synthesized, not a sample.
+void pulse(float freq, int ms, float volume, float pan) {
+  std::lock_guard lk(g_mu);
+  Tone t{-1, freq};
+  t.target = volume; t.pan = pan; t.remaining = ms * kRate / 1000; t.total = t.remaining; t.wave = 1;
   g_tones.push_back(t);
 }
 

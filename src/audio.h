@@ -16,6 +16,7 @@ void set_tone(int id, float freq, float volume, float pan);
 void stop_tone(int id);
 // A one-shot beep (volume/pan as above), with a short fade in and out.
 void beep(float freq, int ms, float volume, float pan = 0.0f);
+void pulse(float freq, int ms, float volume, float pan = 0.0f);   // triangle wave, linear decay over ms (the hazard exit pointer)
 // Looping sample channels (the wotr wall tones): a WAV decoded to mono at the mixer rate, looped
 // seamlessly at a fixed pan, volume driven per frame (clamped 0..1, applied directly like wotr).
 bool load_loop(int id, const std::string& wav_path, float pan);

@@ -13,6 +13,7 @@
 #include "casts.h"
 #include "telegraph.h"
 #include "combat.h"
+#include "hazard.h"
 #include "rooms.h"
 #include "sonar.h"
 #include "voice.h"
@@ -268,6 +269,19 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     if (code < 0) { status = 400; return "unknown key\n"; }
     hooks::push_key_event({code, path == "/keyup", false, false, false, 0});
     return std::format("queued {} {:#x}\n", path == "/keyup" ? "up" : "down", code);
+  }
+  if (path == "/hazard") {   // painted damage ground (src/hazard.cpp): status + knobs; ?time=N times the probes
+    if (q.count("time")) return hazard::probe_timing(parse_int(q.at("time"), 10));
+    if (q.count("at")) {   // ?at=x,z -> the sector lookup + mesh containment at a world point
+      float x = 0, z = 0;
+      if (sscanf_s(q.at("at").c_str(), "%f,%f", &x, &z) != 2) return std::string("at=x,z\n");
+      world::Vec3 p; world::player_position(p); p.x = x; p.z = z;
+      float rate = 0; int type = 0; bool painted = world::hazard_at(p, &rate, &type);
+      return std::format("({:.1f}, {:.1f}): painted={} rate={:.2f} type={} on_mesh={}\n", x, z, painted, rate, type, world::mesh_contains(p));
+    }
+    std::string bad;
+    for (const auto& [k, v] : q) if (!hazard::set_param(k, v)) bad += k + " ";
+    return (bad.empty() ? std::string() : "unknown: " + bad + "\n") + hazard::status();
   }
   if (path == "/walltones") {
     if (q.count("on")) screens::walltones::set_enabled(truthy(q.at("on")));

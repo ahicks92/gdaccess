@@ -44,6 +44,11 @@ float free_distance_lane(float dir_x, float dir_z, float lateral, float max_dist
 // a point `lateral` units beside the player (positive = left of dir), max `max_dist`; a lane start that is not
 // itself on the mesh reads 0. The wall tones' probe (the point walk above reads holes as walkable; see world.cpp).
 float free_distance_ray(float dir_x, float dir_z, float lateral, float max_dist, Vec3* hit_world);
+// Painted damage sector at a world point (docs/hazards.md): true when the engine's damage layer is painted there;
+// rate = fraction of max life per second (0.02..0.30), type = the CombatAttributeType code (11 = Aether). Any
+// point, any loaded chunk; the exact lookup TickManager::Tick applies once a second, resistances not consulted.
+bool hazard_at(const Vec3& world_point, float* rate, int* type);
+bool mesh_contains(const Vec3& world_point);   // the floored point is inside the path mesh (closest-point gate, not the box test)
 std::string nav_vwindow(float span, float step);              // dev: PutOnFloor's accepted vertical window at the feet
 std::string wall_compare(int dirs, float max_dist, float step);  // dev: A/B flat vs terrain-following rays around the compass
 

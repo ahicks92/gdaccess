@@ -1642,6 +1642,15 @@ inline constexpr const char* GameEngine_IsTransferOpen = "?IsTransferOpen@GameEn
 // class GAME::Engine * __ptr64 __ptr64 GAME::gEngine
 inline constexpr const char* gEngine_DLL = "Engine.dll";
 inline constexpr const char* gEngine = "?gEngine@GAME@@3PEAVEngine@1@EA";
+// public: class GAME::SectorLayers * __ptr64 __cdecl GAME::Level::GetSectorLayers(void) __ptr64
+inline constexpr const char* Level_GetSectorLayers_DLL = "Engine.dll";
+inline constexpr const char* Level_GetSectorLayers = "?GetSectorLayers@Level@GAME@@QEAAPEAVSectorLayers@2@XZ";
+// public: class GAME::UniqueId __cdecl GAME::SectorLayers::GetTargetId(int,int,int) __ptr64
+inline constexpr const char* SectorLayers_GetTargetId_DLL = "Engine.dll";
+inline constexpr const char* SectorLayers_GetTargetId = "?GetTargetId@SectorLayers@GAME@@QEAA?AVUniqueId@2@HHH@Z";
+// public: class GAME::SectorData * __ptr64 __cdecl GAME::SectorDataManager::GetSectorData(unsigned int,class GAME::UniqueId const & __ptr64)const __ptr64
+inline constexpr const char* SectorDataManager_GetSectorData_DLL = "Engine.dll";
+inline constexpr const char* SectorDataManager_GetSectorData = "?GetSectorData@SectorDataManager@GAME@@QEBAPEAVSectorData@2@IAEBVUniqueId@2@@Z";
 // public: bool __cdecl GAME::LuaManager::RunCode(char const * __ptr64) __ptr64
 inline constexpr const char* LuaManager_RunCode_DLL = "Engine.dll";
 inline constexpr const char* LuaManager_RunCode = "?RunCode@LuaManager@GAME@@QEAA_NPEBD@Z";

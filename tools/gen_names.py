@@ -610,6 +610,10 @@ ENTRIES = [
     ("GameEngine_IsTransferOpen", "Game", r"GAME::GameEngine::IsTransferOpen\("),
     # Lua (dev probe): the engine's LuaManager sits at gEngine+0x68 (GameEngine::PostLuaInitialize)
     ("gEngine", "Engine", r"^class GAME::Engine \* __ptr64 __ptr64 GAME::gEngine$"),
+    # Painted damage sectors (docs/hazards.md): the tick's own lookup chain, Level -> layers -> UniqueId -> SectorData
+    ("Level_GetSectorLayers", "Engine", r"GAME::Level::GetSectorLayers\(void\)"),
+    ("SectorLayers_GetTargetId", "Engine", r"GAME::SectorLayers::GetTargetId\(int,int,int\)"),
+    ("SectorDataManager_GetSectorData", "Engine", r"GAME::SectorDataManager::GetSectorData\(unsigned int,class GAME::UniqueId const"),
     ("LuaManager_RunCode", "Engine", r"GAME::LuaManager::RunCode\(char const"),
     ("LuaManager_Load", "Engine", r"GAME::LuaManager::Load\("),
     # Pets (docs/re_pets_gamedll.md, 2026-08-26): the local pet list, the pen (pet -> summoning skill), stance

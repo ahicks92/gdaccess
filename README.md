@@ -2,7 +2,7 @@
 
 A screen-reader accessibility mod for Grim Dawn. It is a DLL injected into the game that hooks the engine's
 own exported functions, models each game screen as a keyboard-navigable list, speaks through your screen
-reader, and adds an audio picture of the world (wall tones, a sonar field for enemies and loot, positional
+reader, and adds an audio picture of the world (wall tones, harmful-ground sizzle with a way-out pointer, a sonar field for enemies and loot, positional
 combat speech, named rooms).
 
 Status: pre-release. It is playable through character creation, the first quests and the in-world windows,

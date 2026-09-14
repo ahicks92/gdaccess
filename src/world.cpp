@@ -274,6 +274,11 @@ struct Api {
   void* (*Region_GetFogOfWar)(void*, bool) = nullptr;
   void (*FogOfWar_AddVisibility)(void*, const Vec3*, int) = nullptr;
   bool (*FogOfWar_IsInFog)(const void*, const Vec3*) = nullptr;
+  // Painted damage sectors (docs/hazards.md): the exact chain TickManager::Tick uses once a second.
+  void* (*Level_GetSectorLayers)(void*) = nullptr;
+  void* (*SectorLayers_GetTargetId)(void*, void*, int, int, int) = nullptr;   // UniqueId by hidden pointer; (layer, x, z) region-relative ints
+  void* (*SectorDataManager_GetSectorData)(const void*, unsigned, const void*) = nullptr;   // (layer, UniqueId const&) -> SectorData*
+  void** gEngine = nullptr;   // GAME::gEngine (Engine.dll data): the SectorDataManager is embedded at Engine+8
   bool loaded = false;
 } g_api;
 
@@ -391,6 +396,10 @@ void load_api() {
   LOAD(Region_GetFogOfWar, Region_GetFogOfWar);
   LOAD(FogOfWar_AddVisibility, FogOfWar_AddVisibility);
   LOAD(FogOfWar_IsInFog, FogOfWar_IsInFog);
+  LOAD(Level_GetSectorLayers, Level_GetSectorLayers);
+  LOAD(SectorLayers_GetTargetId, SectorLayers_GetTargetId);
+  LOAD(SectorDataManager_GetSectorData, SectorDataManager_GetSectorData);
+  LOAD(gEngine, gEngine);
 #undef LOAD
 }
 
@@ -598,6 +607,62 @@ bool navmesh_probe(const Vec3& world_point, Vec3* floored) {
   return ok;
 }
 bool on_navmesh(const Vec3& world_point) { return navmesh_probe(world_point, nullptr); }
+
+static void* region_containing_xz(void* from, float wx, float wz);   // defined with the teleport helpers below
+// ---- painted damage sectors (docs/hazards.md) ----
+// The engine's per-cell "sector" layers carry a damage layer (index 7, DamageSectorData): TickManager::Tick reads
+// it once a second at each character's region-relative position (truncated ints) and applies
+// rate * max life straight through CombatManager::ApplyDamage -- no resistance (Aether Act3 Boss 0.12, Aether01
+// 0.15, Aether02 0.30, poisons 0.02..0.20). This is that lookup, for any world point: region containing the
+// point -> its Level -> SectorLayers -> UniqueId at (x, z) -> SectorData (+0x58 rate, +0x5c type). Cheap (pointer
+// hops), no caching. Region+0x68 = Level (CLAUDE.md). SEH-guarded: an unloaded chunk has no layers.
+namespace {
+constexpr int kDamageLayer = 7;
+constexpr size_t kRegionLevelOffset = 0x68;
+constexpr size_t kSectorDataRate = 0x58, kSectorDataType = 0x5c;
+struct HazardHit { bool painted = false; float rate = 0; int type = 0; };
+HazardHit seh_hazard(void* region, int rx, int rz) {
+  HazardHit h;
+  __try {
+    void* level = *(void**)((char*)region + kRegionLevelOffset);
+    if (!level) return h;
+    void* layers = g_api.Level_GetSectorLayers(level);
+    if (!layers) return h;
+    alignas(16) unsigned char uid[16] = {};
+    g_api.SectorLayers_GetTargetId(layers, uid, kDamageLayer, rx, rz);
+    bool any = false; for (unsigned char c : uid) any |= c != 0;
+    if (!any) return h;
+    void* engine = g_api.gEngine ? *g_api.gEngine : nullptr;
+    if (!engine) return h;
+    const void* mgr = (const char*)engine + 8;
+    const char* sd = (const char*)g_api.SectorDataManager_GetSectorData(mgr, kDamageLayer, uid);
+    if (!sd) return h;
+    h.painted = true; h.rate = *(const float*)(sd + kSectorDataRate); h.type = *(const int*)(sd + kSectorDataType);
+  } __except (EXCEPTION_EXECUTE_HANDLER) { h = HazardHit{}; }
+  return h;
+}
+}  // namespace
+bool hazard_at(const Vec3& world_point, float* rate, int* type) {
+  if (!g_api.Level_GetSectorLayers || !g_api.SectorLayers_GetTargetId || !g_api.SectorDataManager_GetSectorData || !g_api.Region_GetOffsetFromWorld) return false;
+  void* p = player();
+  void* region = p && g_api.Entity_GetRegion ? g_api.Entity_GetRegion(p) : nullptr;
+  if (!region) return false;
+  // The player's chunk covers [offset, offset + 128) in x and z; a point outside it belongs to a neighbour.
+  const int* off = g_api.Region_GetOffsetFromWorld(region);
+  if (!off) return false;
+  float rx = world_point.x - (float)off[0], rz = world_point.z - (float)off[2];
+  if (rx < 0 || rx >= 128.0f || rz < 0 || rz >= 128.0f) {
+    void* other = region_containing_xz(region, world_point.x, world_point.z);
+    if (!other) return false;
+    const int* o2 = g_api.Region_GetOffsetFromWorld(other);
+    if (!o2) return false;
+    region = other; rx = world_point.x - (float)o2[0]; rz = world_point.z - (float)o2[2];
+  }
+  HazardHit h = seh_hazard(region, (int)rx, (int)rz);   // truncation toward zero, like the tick's cvttss2si
+  if (rate) *rate = h.rate;
+  if (type) *type = h.type;
+  return h.painted;
+}
 
 // dev only: run the game's own pathfinder (Player::FindPath) from the player to a world point. Returns the raw
 // PathResult enum (calibrate live) and, in out_world, the reachable endpoint the pathfinder resolved. Used to
@@ -973,6 +1038,20 @@ void world_vec_at(const Vec3& world_point, const Buf& base, void* region, Buf& o
   g_api.WorldVec3_ctor(&out, region, &rel);
 }
 constexpr float kLaneStartTol = 0.2f;   // a lane start farther than this from its closest mesh point is in a wall
+}
+// Containment on the path mesh: the point, floored, must be within kLaneStartTol of its closest mesh point (the
+// lane gate of free_distance_ray; IsPointOnPathMesh is a bounding-box test and reads holes as walkable).
+bool mesh_contains(const Vec3& world_point) {
+  void* nav = g_api.NavManager_Get ? g_api.NavManager_Get() : nullptr;
+  Buf base; void* region = nullptr;
+  if (!nav || !g_api.FindClosestPointOnPathMesh || !g_api.WorldVec3_ctor || !player_world_vec(base, &region)) return false;
+  Buf from; world_vec_at(world_point, base, region, from);
+  if (g_api.WorldVec3_PutOnFloor) g_api.WorldVec3_PutOnFloor(&from);
+  Buf closest = from;
+  if (seh_closest_point(nav, &from, &closest, 1.0f) != 1) return false;
+  Vec3 c = world_pos_of(closest), s = world_pos_of(from);
+  float dx = c.x - s.x, dz = c.z - s.z;
+  return dx * dx + dz * dz <= kLaneStartTol * kLaneStartTol;
 }
 float free_distance_ray(float dir_x, float dir_z, float lateral, float max_dist, Vec3* hit_world) {
   void* nav = g_api.NavManager_Get ? g_api.NavManager_Get() : nullptr;
