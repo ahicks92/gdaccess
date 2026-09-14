@@ -47,7 +47,7 @@ screenshots. Rows in the game's order; "-" = unassigned.
 | Stationary Attack (Hold Key and Click) | Shift | Gamepad LTrigger |
 | Pause Game (Single Player Only) | P | - |
 | Toggle Pet Display | Backspace (taken by the mod: the pet overlay) | - |
-| Toggle Party Display | \ (Ctrl+\ is taken by the mod: sound cue settings; the plain key is the sonar toggle) | - |
+| Toggle Party Display | \ | - |
 | Quickbar Switch | Y | Gamepad RThumb |
 | Select Pet 1..5 | F2..F6 (taken by the mod: its own selection, see Pets) | - |
 | Select All Pets | F7 (taken by the mod) | - |
@@ -55,8 +55,8 @@ screenshots. Rows in the game's order; "-" = unassigned.
 | Toggle UI | ] | - |
 
 Not on this page: Escape = game menu (pause), left mouse = move/attack at cursor (in Keyboard movement mode:
-attack/interact at cursor), right mouse = secondary skill slot, F1 = not bound by the game (F9-F12 are the
-mod's dev hotkeys; F2-F7 are pets).
+attack/interact at cursor), right mouse = secondary skill slot, F1 = not bound by the game (F8 is the
+mod's sound cue settings; F2-F7 are pets).
 
 ## How the mod uses this (2026-08-21)
 In the world the mod owns the keyboard. Direct pass-through (the frequent keys): WASD, 1-0, Space, E, R, U,
@@ -81,7 +81,7 @@ stationary attack, Ctrl pet targeting) and typing into the game's chat field.
 | (blacksmith) | The crafting window (`InGameUI+0x3aa80`, docs/crafting.md): tabs = the game's five category buttons pressed through its radio registry; rows = the window's own list box (game order, grouping, "[N]"); the value line from the formula exports (`GetMaximumCraftable`, `GetCreationCost`, `GetReagentN*`); Enter = `ListBox::SelectByData` + the window's Combine button (never `SendCreateArtifactCmd`, which validates nothing) when N >= 1, else the shortfall; Space = the template result's tooltip |
 | (inventor) | The Inventor's "enchanter" window (`InGameUI+0x30dd8`, docs/inventor.md, docs/re_inventor_exe.md): tabs = the game's tab buttons through its radio registry (Convert / Reroll only when the game enables them -- expansions). Item-first: Salvage rows = bag items with `ItemEquipment::HasRelic` / `HasEnchantment`, value = `trunc(0.05 x GetItemCost)`; Enter = picker of the applicable panel buttons; picking = the exe's chamber drop (box SetItem + `PlayerInventoryCtrl::RemoveItem`) + the button through the panel's registry -> the game's confirm dialog (message_box) -> on Yes the kept item is taken out of the chamber (`ControllerPlayer::GiveItemToPlayer`), on No the item is returned the same way. Dismantle rows = bag equipment with `GetItemClassification(true) > 0`, value = `itemLevel*10+150` (+ the component's salvage cost); Enter = the same put + Dismantle button; the two result boxes are emptied into the bag and listed in the reward notice overlay (`screens/reward_list.h`, shared with the quest reward window's rows; layer 30, Close row / Escape). Never `SendEnchanter*Cmd` directly |
 | Alt + . N B M V | The NEAREST of that group, whatever is reviewed now (the enemy that just ran up to you) |
-| \ (backslash) | Sonar on / off: each nearby enemy, loot drop, breakable, devotion shrine (a ruined one has its own cue, a restored one the loot cue) and dungeon entrance repeats its own ping, faster as it nears you and panned to its direction (Ctrl+\ is the sound cue settings below; the game's party display is not lifted) |
+| \ (backslash) | Sonar on / off: each nearby enemy, loot drop, breakable, devotion shrine (a ruined one has its own cue, a restored one the loot cue) and dungeon entrance repeats its own ping, faster as it nears you and panned to its direction (Ctrl+\ is the game's party display) |
 | J (or Enter) | Left mouse button at the reviewed thing (or the real cursor when nothing is reviewed): attack / talk / open / move, exactly as a click. HOLD to hold (sustained attack, skill, move). A reviewed thing the camera does not show: "too far away", nothing happens. Exception: a reviewed ITEM on the ground -- sighted players click its floating label, which only exists while the loot filter shows it -- gets the game's own "walk there and pick it up" command (`ControllerPlayer::ItemAction`, docs/re_pickup.md) on the press instead of a click; a reviewed door / ladder / chest / lever / shrine (a FixedActor the Interact key would use) likewise gets the game's "walk there and use it" (`ControllerPlayer::InteractAction`) -- the click at the parked point does not always hit such an object's body (a ladder's is up the wall above its floor point) |
 | I | Right mouse button, same rules (the right-slot skill; hold to hold) |
 | U | The game's own Interact: uses the nearest usable object (door, chest, shrine ...) or NPC within 10 units of the character, no aiming, walks there if needed |
@@ -112,7 +112,7 @@ stationary attack, Ctrl pet targeting) and typing into the game's chat field.
 | X | The current room: title, then the authored description ("no description yet" until then), through the screen reader |
 | F1 | G D Access menu (anywhere): sound glossary (every mod sound as a tree; landing on a row plays it) and, in the world, the combat announcement settings |
 | T | Announcement toggles overlay. Stop 1: outgoing announcements off / brief / full (brief = hit, crit, miss, blocked; Dodge reads as miss), incoming announcements on/off, incoming hit announcements on/off ("hit" per attack reaching you, from the victim-side resolver, so it works while invincible), telegraph cues off / your target / highest tier / all (Enter cycles, Left/Right step). Stop 2: swing / stomp / wave / shot / ring cues on/off. Enter flips a row and speaks the new state, Escape closes. Persisted in `%LOCALAPPDATA%\\gdaccess\\settings.txt`. (The authoring note that used to live on T is the dev route `/note`.) |
-| Ctrl+\ | Sound cue settings overlay (`screens/cue_settings.cpp`, state in `src/cues.h`, same shape as T). Stop 1 "cues": on/off per positioned cue -- wall tones, harmful ground nearby (the sizzle lanes), standing in harmful ground (the bed), way out of harmful ground (the pointer), enemy / loot / entrance / breakable / shrine / interactable pings (a sonar group that is off is not collected at all). Stop 2 "volumes": wall tones, harmful ground, enemy pings, other pings, the Mark voice, the Zira voice, 0..100 percent (Left/Right 10, Enter +10 wrapping to 0), multiplied onto the dev knobs (`/walltones?vol=`, `/hazard?vol=`, `/sonar?vol=`, `/voice?vol=`; the voice factor is applied on the voice worker at play time), so 100 = the tuned defaults. Persisted as `cue.*` / `volume.*` keys in settings.txt. Escape closes; a game window covers and closes it |
+| F8 | Sound cue settings overlay (`screens/cue_settings.cpp`, state in `src/cues.h`, same shape as T). Stop 1 "cues": on/off per positioned cue -- wall tones, harmful ground nearby (the sizzle lanes), standing in harmful ground (the bed), way out of harmful ground (the pointer), enemy / loot / entrance / breakable / shrine / interactable pings (a sonar group that is off is not collected at all). Stop 2 "volumes": wall tones, harmful ground, enemy pings, other pings, the Mark voice, the Zira voice, 0..100 percent (Left/Right 10, Enter +10 wrapping to 0), multiplied onto the dev knobs (`/walltones?vol=`, `/hazard?vol=`, `/sonar?vol=`, `/voice?vol=`; the voice factor is applied on the voice worker at play time), so 100 = the tuned defaults. Persisted as `cue.*` / `volume.*` keys in settings.txt. Escape closes; a game window covers and closes it |
 | V / Shift+V | Next / previous exit of the current room: one more review group like . N B M -- destination title (or "room N"), "blocked" if the live mesh refuses the opening, distance, clock bearing, "i of n"; the landing pings the route, ; re-pings, the cursor parks on the opening |
 
 ## The main menu (2026-08-22)
@@ -148,9 +148,8 @@ step rebuilds the nearest-first list live and continues from that ID, or enters 
 ## Which plain keys are whose in the world
 Passed straight to the game (src/screens/in_game.cpp `passes_key`): WASD, 1-0, Y, Space, E, R, U, Escape,
 Alt/Right Alt (held: show items), F2-F7. Every other game function is reachable only as Ctrl + its default
-key (the `game.*` lifts in src/app.cpp: C/I N Q M O K G H J V L B X Z P, Backspace, ], Enter, Tab, `,` `.`; the
-party display's \ is not lifted).
+key (the `game.*` lifts in src/app.cpp: C/I N Q M O K G H J V L B X Z P, Backspace, \, ], Enter, Tab, `,` `.`).
 The mod's plain keys: `.` `,` N B M V (review groups; Shift = back, Alt = nearest), `;` `'` `/` `\`, J I G F,
-K H Q X T, and Ctrl+1..0, Ctrl+- Ctrl+=, Ctrl+`, Ctrl+\, Ctrl+Shift+P. Still free: F8, the bracket keys,
+K H Q X T, F8, and Ctrl+1..0, Ctrl+- Ctrl+=, Ctrl+`, Ctrl+Shift+P. Still free: F9, the bracket keys,
 Insert/Delete/Home/End/PgUp/PgDn, the arrow keys, numpad. Ctrl+letter chords arrive with flags and are unused
 by the game.

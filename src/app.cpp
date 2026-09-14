@@ -173,8 +173,7 @@ static void register_actions() {
   m.register_action("ingame.petsAttack", "Pets attack locked target", InputCategory::InGame, [] { screens::pets_attack_locked(); }).bind(0x0e, false, true, false);
   for (int i = 0; i < 5; ++i) m.register_action(std::format("ingame.selectPet{}", i + 1), std::format("Select pet {}", i + 1), InputCategory::InGame, [i] { screens::toggle_pet_selected(i); }).bind(0x3c + i);
   m.register_action("ingame.selectAllPets", "Select all pets", InputCategory::InGame, [] { screens::select_all_pets(); }).bind(0x41);
-  // Backslash: the sonar sweep on / off. Ctrl+Backslash: the sound cue settings overlay (2026-09-13; it displaced the
-  // lift of the game's Toggle Party Display, a multiplayer HUD element with no use to a solo player).
+  // Backslash: the sonar sweep on / off (the game's Toggle Party Display is lifted to Ctrl+Backslash).
   m.register_action("sonar.toggle", "Sonar on or off", InputCategory::InGame, [] {
     sonar::set_enabled(!sonar::enabled());
     speech::speak(sonar::enabled() ? strings::kSonarOn : strings::kSonarOff, true);
@@ -201,7 +200,7 @@ static void register_actions() {
   m.register_action("rooms.describe", "Describe the room", InputCategory::InGame, [] { rooms::speak_description(); }).bind(0x2d);   // X
   m.register_action("rooms.note", "Note this place for authoring", InputCategory::InGame, [] { rooms::note_place(); });   // unbound since 2026-09-01 (dev route /note); T = announcements
   m.register_action("ingame.announcements", "Announcement toggles", InputCategory::InGame, [] { screens::open_announcements(); }).bind(0x14);   // T
-  m.register_action("ingame.cueSettings", "Sound cue settings", InputCategory::InGame, [] { screens::open_cue_settings(); }).bind(keys::Backslash, true, false, false);   // Ctrl+Backslash
+  m.register_action("ingame.cueSettings", "Sound cue settings", InputCategory::InGame, [] { screens::open_cue_settings(); }).bind(0x42);   // F8 (Ctrl+Backslash was the first pick; 1Password owns that chord system-wide)
   // The mouse buttons (J left, I right, Enter = left; hold to hold) are polled per frame by the in-game screen,
   // not dispatched as actions: a hold needs the key's held state, not a press.
   // The camera is locked (far zoom, yaw 0 = grid up; the game's dialogue north is 50 deg clockwise of it, docs/compass.md) by the in-game screen; no zoom/rotate keys.
@@ -216,7 +215,7 @@ static void register_actions() {
     {"game.gameMenu", "Game menu", 0x22, u'g'}, {"game.help", "Help window", 0x23, u'h'}, {"game.factions", "Factions window", 0x24, u'j'},
     {"game.achievements", "Achievements window", 0x2f, u'v'}, {"game.riftgate", "Personal riftgate", 0x26, u'l'}, {"game.drop", "Drop item", 0x30, u'b'},
     {"game.tooltips", "Show item tooltips", 0x2d, u'x'}, {"game.showItems", "Show items (filter common)", 0x2c, u'z'},
-    {"game.pause", "Pause game", 0x19, u'p'},   // Toggle Party Display (backslash) is not lifted: Ctrl+Backslash is the cue settings overlay
+    {"game.pause", "Pause game", 0x19, u'p'}, {"game.partyDisplay", "Toggle party display", 0x2b, u'\\'},
     {"game.toggleUi", "Toggle UI", 0x1b, u']'}, {"game.cameraLeft", "Camera rotate left", 0x33, u','}, {"game.cameraRight", "Camera rotate right", 0x34, u'.'},
     {"game.chat", "Chat window", 0x1c, 0}, {"game.pushToTalk", "Push to talk", 0x0f, 0},
   };

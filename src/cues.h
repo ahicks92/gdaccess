@@ -1,5 +1,5 @@
 #pragma once
-// Player-facing sound cue settings (the Ctrl+Backslash overlay, screens/cue_settings.cpp): every positioned cue can
+// Player-facing sound cue settings (the F8 overlay, screens/cue_settings.cpp): every positioned cue can
 // be switched off on its own, and four channel volumes scale what stays on -- wall tones, harmful ground, the sonar's
 // enemy ping, the sonar's other pings, and the two positional voices. Persisted through settings (key=value, %LOCALAPPDATA%\gdaccess\settings.txt)
 // like the T overlay. The dev knobs (/walltones?vol=, /sonar?vol=, /hazard?vol=) stay separate: these multiply them.

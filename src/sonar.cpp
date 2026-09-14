@@ -58,7 +58,7 @@ void tick() {
   double now = app::now();
   std::vector<core::SonarField::Item> items;
   g_live.clear();
-  // The player's per-cue switches (Ctrl+Backslash, src/cues.h): a group that is off is not even collected.
+  // The player's per-cue switches (F8, src/cues.h): a group that is off is not even collected.
   if (cues::enabled(cues::Enemies)) collect(world::ScanGroup::Enemies, kEnemy, items);
   if (cues::enabled(cues::Loot)) collect(world::ScanGroup::Loot, kLoot, items);
   if (cues::enabled(cues::Entrances)) collect(world::ScanGroup::Transitions, kTransition, items);

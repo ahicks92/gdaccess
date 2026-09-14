@@ -220,7 +220,7 @@ void tick() {
   HWND fg = GetForegroundWindow();
   bool audible = fg && fg == FindWindowA("Grim Dawn", nullptr);
   double now = app::now();
-  // The player's switches and channel volume (Ctrl+Backslash, src/cues.h) sit on top of the dev knobs.
+  // The player's switches and channel volume (F8, src/cues.h) sit on top of the dev knobs.
   float user = cues::gain(cues::Hazards);
   // lanes
   bool lanes_on = cues::enabled(cues::HazardLanes);

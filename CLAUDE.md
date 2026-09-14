@@ -834,10 +834,10 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   east/west, order hysteresis). Sounds from `tools/gen_hazard_cues.py`, chosen by ear; sound glossary has the section.
   Skill hazards (traps, the boss's geysers) are the normal, resistable pipeline. "Purity" (`IsPurityActive`) is an unset
   Titan Quest leftover. Heard and tuned by the user in play (bed 0.45, pulse 0.7 at 0.2 s, lanes half-width 0.5).
-- **Ctrl+Backslash = sound cue settings** (2026-09-13, `src/cues.{h,cpp}` + `screens/cue_settings.cpp`, modelled on T; built, NOT
+- **F8 = sound cue settings** (2026-09-13, `src/cues.{h,cpp}` + `screens/cue_settings.cpp`, modelled on T; built, NOT
   yet verified live): per-cue on/off (wall tones, the three hazard layers, each sonar group -- an off group is not collected)
   and six percent volumes (walls, hazards, enemy pings, other pings, the Mark voice, the Zira voice) multiplied onto the dev knobs; persisted as `cue.*` /
-  `volume.*` in settings.txt like T's keys. The game's Toggle Party Display lift was dropped for the key (multiplayer HUD only).
+  `volume.*` in settings.txt like T's keys. (Ctrl+Backslash was the first key: 1Password's global autofill chord took it before the game.)
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.
@@ -850,8 +850,7 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
 - `powershell -File tools/inject.ps1` — hot reload into the running game: ejects the old DLL (so the linker
   can overwrite it), builds, re-injects. `-Eject` unloads. `-NoBuild` skips the build.
 - Log: `%LOCALAPPDATA%\gdaccess\gdaccess.log` (truncated on each load). Speech lines are logged as `[speak]`.
-- Dev hotkeys (polled with GetAsyncKeyState, only while the game is really foreground): F10 alive line,
-  F11 toggle announcing newly appearing text, F12 read all on-screen text.
+- The F10-F12 GetAsyncKeyState dev hotkeys were removed 2026-09-13 (the dev routes replaced them long before).
 - Speech: prism (prebuilt SDK in `third_party/prism-bin`, delay-loaded from next to gdaccess.dll).
 - Hooking: Microsoft Detours, vendored source in `third_party/Detours`, built as a static lib.
 

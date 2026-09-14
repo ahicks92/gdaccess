@@ -646,7 +646,6 @@ static uint64_t g_c_display_update = 0, g_c_engine_update = 0;
 static std::vector<Hook> g_late;  // hooks into DLLs the game loads after startup (DirectInput.dll)
 static void install_late();
 static void frame_tick();
-static bool edge(int vk, bool& was) { bool down = (GetAsyncKeyState(vk) & 0x8000) != 0; bool e = down && !was; was = down; return e; }
 static void DisplayUpdate(void* self) { DisplayUpdate_orig(self); ++g_c_display_update; }
 static void EngineUpdate(void* self, const void* sphere, const void* frustum, bool b, const void* frustum2) {
   EngineUpdate_orig(self, sphere, frustum, b, frustum2);
@@ -662,21 +661,7 @@ static void frame_tick() {
   gd::app::tick();
   g_keys.end_frame();
   { static HWND last_fg = nullptr; HWND now_fg = GetForegroundWindow(); if (now_fg != last_fg) { last_fg = now_fg; g_keys.reset(); } }
-  static bool f10, f11, f12;
-  HWND fg = GetForegroundWindow();
-  if (!fg || fg != game_window()) return;  // dev hotkeys only while the game is really focused (GetAsyncKeyState is global)
-  if (edge(VK_F12, f12)) {
-    gd::core::MessageBuilder m;
-    for (auto& it : textcap::snapshot()) m.list_item().fragment(textcap::speakable(it.text));
-    if (m.empty()) m.fragment(gd::strings::kNoTextOnScreen);
-    speech::speak(m.build(), true);
-  }
-  if (edge(VK_F11, f11)) {
-    textcap::set_announce_changes(!textcap::announce_changes());
-    speech::speak(textcap::announce_changes() ? "announce on" : "announce off");
-  }
-  if (edge(VK_F10, f10))
-    speech::speak(std::format("gdaccess alive, frame {}, {} texts, backend {}", g_frame, textcap::snapshot().size(), speech::backend_name()));
+  // (The F10-F12 GetAsyncKeyState dev hotkeys lived here until 2026-09-13; /health, /text and /textcap do their jobs.)
 }
 
 // ======================= dev mode: never let the game take the foreground =======================
