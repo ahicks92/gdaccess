@@ -1,5 +1,6 @@
 #include "cues.h"
 #include <algorithm>
+#include <atomic>
 #include <string>
 #include "settings.h"
 
@@ -7,9 +8,9 @@ namespace gd::cues {
 namespace {
 constexpr const char* kCueKey[kCues] = {"cue.walls", "cue.hazard.lanes", "cue.hazard.inside", "cue.hazard.exit", "cue.enemies",
                                         "cue.loot", "cue.entrances", "cue.breakables", "cue.shrines", "cue.interactables"};
-constexpr const char* kChannelKey[kChannels] = {"volume.walls", "volume.hazards", "volume.enemies", "volume.other"};
+constexpr const char* kChannelKey[kChannels] = {"volume.walls", "volume.hazards", "volume.enemies", "volume.other", "volume.voice.mark", "volume.voice.zira"};
 bool g_on[kCues];
-int g_volume[kChannels];
+std::atomic<int> g_volume[kChannels];   // atomic: the voice worker reads while the game thread writes
 }  // namespace
 
 void init() {
@@ -22,7 +23,7 @@ void set_enabled(Cue c, bool on) {
   g_on[c] = on;
   settings::set_bool(kCueKey[c], on);
 }
-int volume(Channel ch) { return ch >= 0 && ch < kChannels ? g_volume[ch] : 100; }
+int volume(Channel ch) { return ch >= 0 && ch < kChannels ? g_volume[ch].load() : 100; }
 void set_volume(Channel ch, int percent) {
   if (ch < 0 || ch >= kChannels) return;
   g_volume[ch] = std::clamp(percent, 0, 100);

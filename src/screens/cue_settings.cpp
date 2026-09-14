@@ -30,6 +30,8 @@ const VolumeRow kVolumeRows[] = {
   {"hazards", cues::Hazards, strings::kVolumeHazards},
   {"enemies", cues::EnemyChannel, strings::kVolumeEnemies},
   {"other", cues::Other, strings::kVolumeOther},
+  {"voice.mark", cues::VoiceMark, strings::kVolumeMark},
+  {"voice.zira", cues::VoiceZira, strings::kVolumeZira},
 };
 
 void step_volume(cues::Channel ch, int sign) {   // Left/Right: 10 % steps, clamped; the navigator speaks the new value

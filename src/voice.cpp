@@ -10,6 +10,7 @@
 #include <thread>
 #include <unordered_map>
 #include "audio.h"
+#include "cues.h"
 #include "core/strings.h"
 #include "log.h"
 #include "speech.h"
@@ -103,7 +104,8 @@ void worker() {
     audio::Pcm pcm = render(s);
     if (!pcm) continue;
     if (s.policy == Policy::Overlap && s.group && audio::group_count(s.group) >= g_max[slot(s.voice)].load()) { ++g_dropped_cap; continue; }
-    audio::play_pcm(pcm, s.gain * g_gain.load(), s.pan, s.group, s.policy == Policy::Replace, false, 0.0f, s.predelay_ms);
+    float user = cues::gain(s.voice == Which::Mark ? cues::VoiceMark : cues::VoiceZira);   // the player's per-voice volume (Ctrl+Backslash)
+    audio::play_pcm(pcm, s.gain * g_gain.load() * user, s.pan, s.group, s.policy == Policy::Replace, false, 0.0f, s.predelay_ms);
   }
   g_cache.clear();
   g_cache_samples = 0;
