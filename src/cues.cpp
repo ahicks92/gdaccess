@@ -1,6 +1,7 @@
 #include "cues.h"
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <string>
 #include "settings.h"
 
@@ -28,5 +29,11 @@ void set_volume(Channel ch, int percent) {
   g_volume[ch] = std::clamp(percent, 0, 100);
   settings::set_int(kChannelKey[ch], g_volume[ch]);
 }
-float gain(Channel ch) { return volume(ch) / 100.0f; }
+// Percent -> gain on a decibel scale: 100 = 0 dB, each 5 % step = 3 dB, 0 = silence (-60 dB would still be faintly
+// audible on a loud cue). Equal steps sound equal, which a linear factor does not (50 % linear is only -6 dB).
+float gain(Channel ch) {
+  int v = volume(ch);
+  if (v <= 0) return 0.0f;
+  return std::pow(10.0f, kRangeDb * (v - 100) / 100.0f / 20.0f);
+}
 }  // namespace gd::cues

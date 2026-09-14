@@ -836,7 +836,7 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   Titan Quest leftover. Heard and tuned by the user in play (bed 0.45, pulse 0.7 at 0.2 s, lanes half-width 0.5).
 - **Ctrl+T = sound cue settings** (2026-09-13, `src/cues.{h,cpp}` + `screens/cue_settings.cpp`, modelled on T; built, NOT
   yet verified live): per-cue on/off (wall tones, harmful ground as one, each sonar group -- an off group is not collected)
-  and six percent volumes (walls, hazards, enemy pings, other pings, the Mark voice, the Zira voice) multiplied onto the dev knobs, 5 % steps with a preview of the channel's sound at the new level; persisted as `cue.*` /
+  and six percent volumes (walls, hazards, enemy pings, other pings, the Mark voice, the Zira voice) multiplied onto the dev knobs, 5 % steps on a -60..0 dB scale (3 dB each, 0 = silence) with a preview of the channel's sound at the new level; persisted as `cue.*` /
   `volume.*` in settings.txt like T's keys. (Ctrl+Backslash was the first key: 1Password's global autofill chord took it before the game.)
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
