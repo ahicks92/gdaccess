@@ -1,9 +1,14 @@
 #include "screens/cue_settings.h"
+#include <cmath>
 #include <string>
+#include "audio.h"
 #include "core/graph_builder.h"
+#include "core/message_builder.h"
 #include "core/strings.h"
 #include "cues.h"
+#include "screens/in_game.h"
 #include "screens/window_base.h"
+#include "voice.h"
 #include "world.h"
 
 namespace gd::screens {
@@ -14,9 +19,7 @@ bool g_open = false;
 struct CueRow { const char* id; cues::Cue cue; std::string_view label; };
 const CueRow kCueRows[] = {
   {"walls", cues::WallTones, strings::kCueWallTones},
-  {"hazard.lanes", cues::HazardLanes, strings::kCueHazardLanes},
-  {"hazard.inside", cues::HazardInside, strings::kCueHazardInside},
-  {"hazard.exit", cues::HazardExit, strings::kCueHazardExit},
+  {"hazards", cues::HarmfulGround, strings::kCueHarmfulGround},
   {"enemies", cues::Enemies, strings::kCueEnemies},
   {"loot", cues::Loot, strings::kCueLoot},
   {"entrances", cues::Entrances, strings::kCueEntrances},
@@ -34,8 +37,27 @@ const VolumeRow kVolumeRows[] = {
   {"voice.zira", cues::VoiceZira, strings::kVolumeZira},
 };
 
-void step_volume(cues::Channel ch, int sign) {   // Left/Right: 10 % steps, clamped; the navigator speaks the new value
+constexpr int kPreviewGroup = 78;   // one group with replace: the next step cuts the previous preview
+inline float db_to_gain(float db) { return std::pow(10.0f, db / 20.0f); }
+// A representative sound of the channel at its new level, so the slider is set by ear: the same file, trim and
+// master rule the live cue uses (wall tone ahead, harmful ground ahead, the enemy ping, the loot ping), or a
+// short line in the voice (the voice worker applies the channel volume itself).
+void preview(cues::Channel ch) {
+  std::string base = audio::module_dir() + "assets\\audio\\";
+  float user = cues::gain(ch);
+  switch (ch) {
+    case cues::Walls: audio::play_sample(base + "walltones\\2\\north.wav", walltones::trim_gain(0) * user, 0.0f, 0.0f, true, kPreviewGroup, true); break;
+    case cues::Hazards: audio::play_sample(base + "hazards\\sizzle\\north.wav", user, 0.0f, 0.0f, true, kPreviewGroup, true); break;
+    case cues::EnemyChannel: audio::play_sample(base + "interactables\\units-enemy.wav", user, 0.0f, 0.0f, true, kPreviewGroup, true); break;
+    case cues::Other: audio::play_sample(base + "interactables\\unknown.wav", db_to_gain(4.3f) * user, 0.0f, 0.0f, true, kPreviewGroup, true); break;   // the loot ping at the sonar's trim
+    case cues::VoiceMark: { voice::Say s; s.voice = voice::Which::Mark; s.text = std::string(strings::kVoicePreviewMark); s.policy = voice::Policy::Replace; s.group = voice::kGroupEnemy; voice::say(std::move(s)); break; }
+    case cues::VoiceZira: { voice::Say s; s.voice = voice::Which::Zira; MessageBuilder m; strings::push_health_percent(m, 70); s.text = m.build(); s.policy = voice::Policy::Replace; s.group = voice::kGroupSelf; voice::say(std::move(s)); break; }
+    default: break;
+  }
+}
+void step_volume(cues::Channel ch, int sign) {   // Left/Right: 5 % steps, clamped; the navigator speaks the new value
   cues::set_volume(ch, cues::volume(ch) + sign * cues::kVolumeStep);
+  preview(ch);
 }
 
 class CueSettingsScreen : public Screen {
@@ -46,7 +68,7 @@ class CueSettingsScreen : public Screen {
   int layer() const override { return 1; }   // like the T overlay: a game window covers and closes it
   std::vector<InputCategory> input_categories() const override { return {InputCategory::UI}; }
   std::vector<ScreenAction> actions() override { return {{std::string(action_ids::Back), [] { g_open = false; }}}; }
-  void on_pop() override { g_open = false; }
+  void on_pop() override { g_open = false; audio::stop_group(kPreviewGroup); }
   void on_unfocus() override { g_open = false; }
 
   void build(GraphBuilder& b) override {
@@ -68,6 +90,7 @@ class CueSettingsScreen : public Screen {
                           [ch] {   // Enter: the next step up, wrapping to 0 after 100 (Left/Right are the usual way)
                             int v = cues::volume(ch) + cues::kVolumeStep;
                             cues::set_volume(ch, v > 100 ? 0 : v);
+                            preview(ch);
                           });
       row->on_adjust = [ch](int sign, bool) { step_volume(ch, sign); };
       b.add_item(ControlId::structural(std::string("volume.") + r.id), row);

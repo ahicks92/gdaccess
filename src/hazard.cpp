@@ -213,19 +213,18 @@ void silence() {
 }
 
 void tick() {
-  if (!g_enabled || !world::in_world()) { silence(); return; }
+  if (!g_enabled || !world::in_world() || !cues::enabled(cues::HarmfulGround)) { silence(); return; }   // the player's one switch (Ctrl+T)
   world::Vec3 p;
   if (!world::player_position(p)) { silence(); return; }
   ensure_loaded();
   HWND fg = GetForegroundWindow();
   bool audible = fg && fg == FindWindowA("Grim Dawn", nullptr);
   double now = app::now();
-  // The player's switches and channel volume (Ctrl+T, src/cues.h) sit on top of the dev knobs.
+  // The player's channel volume (Ctrl+T, src/cues.h) sits on top of the dev knobs.
   float user = cues::gain(cues::Hazards);
   // lanes
-  bool lanes_on = cues::enabled(cues::HazardLanes);
   for (int i = 0; i < 4; ++i) {
-    float d = lanes_on ? lane_distance(i, p) : g_range;
+    float d = lane_distance(i, p);
     g_dist[i] = d;
     float v = d >= g_range ? 0.0f : 1.0f - d / g_range;
     audio::set_loop_volume(kLaneLoopId + i, audible ? v * v * g_gain * user : 0.0f);
@@ -233,9 +232,9 @@ void tick() {
   // bed
   bool inside = world::hazard_at(p, &g_rate, &g_type);
   if (inside != g_inside) { g_inside = inside; g_islands.clear(); g_cycle = 0; g_last_search = 0; g_next_pulse = now + 0.2; }
-  float bed = inside && audible && cues::enabled(cues::HazardInside) ? g_bed_gain * user : 0.0f;
+  float bed = inside && audible ? g_bed_gain * user : 0.0f;
   audio::set_loop_volume(kBedLoopId, bed); audio::set_loop_volume(kBedLoopId + 1, bed);
-  if (!inside || !cues::enabled(cues::HazardExit)) return;
+  if (!inside) return;
   // pointer
   if (now - g_last_search >= g_search_s) { g_last_search = now; merge_islands(find_islands(p, now), now); }
   if (!g_islands.empty() && now >= g_next_pulse) {

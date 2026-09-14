@@ -6,8 +6,7 @@
 
 namespace gd::cues {
 namespace {
-constexpr const char* kCueKey[kCues] = {"cue.walls", "cue.hazard.lanes", "cue.hazard.inside", "cue.hazard.exit", "cue.enemies",
-                                        "cue.loot", "cue.entrances", "cue.breakables", "cue.shrines", "cue.interactables"};
+constexpr const char* kCueKey[kCues] = {"cue.walls", "cue.hazards", "cue.enemies", "cue.loot", "cue.entrances", "cue.breakables", "cue.shrines", "cue.interactables"};
 constexpr const char* kChannelKey[kChannels] = {"volume.walls", "volume.hazards", "volume.enemies", "volume.other", "volume.voice.mark", "volume.voice.zira"};
 bool g_on[kCues];
 std::atomic<int> g_volume[kChannels];   // atomic: the voice worker reads while the game thread writes

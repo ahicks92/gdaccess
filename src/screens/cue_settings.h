@@ -1,6 +1,7 @@
 #pragma once
 // The Ctrl+T overlay: which positioned sound cues play and how loud each channel is (src/cues.h). Modelled on
-// the T overlay: two Tab stops (cues on/off; channel volumes in percent, Left/Right 10, Enter steps up and wraps),
+// the T overlay: two Tab stops (cues on/off; channel volumes in percent, Left/Right 5, Enter steps up and wraps, each step
+// previews the channel at the new level),
 // a game window covers and closes it, every change is saved at once.
 #include <memory>
 #include "core/screen.h"
