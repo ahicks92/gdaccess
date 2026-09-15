@@ -850,6 +850,16 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   capped at 200, heap corruption / fast-fail / execute faults always logged. `tools/vsdev.cmd` finds any VS 2022
   edition through vswhere (Build Tools included). Note for anyone reading a tester's log: a new character's intro
   cutscene runs minutes with the mod silent (Escape skips it), and the VM's load is slow.
+- Movement skills MAPPED, not built (2026-09-14, `docs/re_movement_skills.md`, static RE only, deferred by decision):
+  **no movement skill checks line of sight; the navmesh is the only gate.** Enemy-targeted (Shadow Strike = an INVISIBLE
+  CHARGE run, `Skill_AttackWeaponBlink` derives from `Skill_AttackWeaponCharge`; Blitz; the strike/charge runes) need a
+  full `Player::CanMoveTo` path or the press is dropped silently (no state, no cooldown, no message). Point-targeted
+  (Vire's Might + 44 Forgotten Gods medal runes: teleport / leap / rush / disengage, `targetingMode = Point`,
+  `waveDistance` 12-18 u) get their landing from the exported `Character::GetMoveToPoint` (clamp to range along the
+  line -> `FindPath` -> `FindStraightMovePoint` re-path -> else your OWN position: fires in place, never refuses). Rush
+  is an ordinary pathfound move (goes round obstacles). All gates are exports callable before the press
+  (`ValidateEnemy`, `GetMoveToPoint`, `CanMoveTo`). **The four point classes report `GetTargetType()` = 4**, unknown to
+  `world::skill_aim`. The mod has no way to aim at open ground yet; the exits lock is the nearest existing point.
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.
