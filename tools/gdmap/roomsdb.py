@@ -131,7 +131,8 @@ class RoomsDb:
             old = existing.pop(k, None)
             if old:
                 kept += 1
-                status = old[4] if old[4] not in (None, "orphan", "stale") else "unseen"
+                # an orphan whose anchor reproduces again keeps its text: authored -> described (re-verify), else unseen
+                status = old[4] if old[4] not in (None, "orphan", "stale") else ("described" if old[1] else "unseen")
                 c.execute("""UPDATE rooms SET cls=?, area=?, walk=?, bbox=?, island=?, anchor_x=?, anchor_z=?, status=? WHERE key=?""",
                           (r.cls, r.area, r.walk, json.dumps(r.bbox), int(r.island), r.anchor[0], r.anchor[1], status, k))
             else:

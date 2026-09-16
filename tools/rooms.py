@@ -188,7 +188,14 @@ def build_area(wm, regs, want_roads):
         if not tiles:
             print(f"  {name}: no nav tiles, skipped")
             continue
-        grids.append((r, body, walk_grid(tiles)))
+        g = walk_grid(tiles)
+        # A chunk's tiles must lie inside its own footprint [offset, offset+128): 0I023 (Lone Watch) carries a stale bake
+        # 480 u south of where the chunk sits and the game has no navmesh there (28 unreachable rooms, 2026-09-15).
+        ox, oz = r.world_offset[0], r.world_offset[2]
+        if g.x0 < ox - 0.01 or g.z0 < oz - 0.01 or g.x0 + g.shape[1] * 0.25 > ox + 128.01 or g.z0 + g.shape[0] * 0.25 > oz + 128.01:
+            print(f"  {name}: nav tiles outside the chunk footprint (tiles at ({g.x0:.0f}, {g.z0:.0f}), chunk at ({ox}, {oz})): stale bake, skipped")
+            continue
+        grids.append((r, body, g))
     # tile coordinates are world coordinates (verified live 2026-08-22): no placement offsets
     parts = [(g, (0.0, 0.0)) for r, _, g in grids]
     grid = stitch(parts) if len(parts) > 1 else parts[0][0]
@@ -382,25 +389,9 @@ def prettify_stem(stem):
 
 
 def text_en_tags():
-    """{tag -> localized text} for every line of Text_EN.arc."""
-    import lz4.block
-    P = r"C:\Program Files (x86)\Steam\steamapps\common\Grim Dawn\resources\Text_EN.arc"
-    dd = open(P, "rb").read()
-    _, _, numE, numP, recSize, strSize, recOff = struct.unpack_from("<IIIIIII", dd, 0)
-    parts = [struct.unpack_from("<III", dd, recOff + 12 * i) for i in range(numP)]
-    ent = recOff + recSize + strSize
-    tag = {}
-    for i in range(numE):
-        f = struct.unpack_from("<11I", dd, ent + 44 * i)
-        np_, pi = f[7], f[8]
-        blob = b""
-        for j in range(pi, pi + np_):
-            o, c, u = parts[j]; ch = dd[o:o + c]
-            blob += ch if c == u else lz4.block.decompress(ch, uncompressed_size=u)
-        for line in blob.decode("utf-8-sig", errors="replace").splitlines():
-            if "=" in line:
-                k, _, v = line.partition("="); tag[k.strip()] = v.strip()
-    return tag
+    """{tag -> localized text} for every line of the installed Text_EN arcs (base < gdx1 < gdx2)."""
+    from gdmap import gamefiles
+    return gamefiles.text_tags()
 
 
 # The four regions whose location record has no zone tag; their names come from the painted area layer
@@ -506,22 +497,7 @@ def zone_names():
                 t = rec.get("ZoneNameTag") or rec.get("TeleportNameTag")
                 if t:
                     loc_tag[path.rsplit("/", 1)[-1][:-4]] = t[0]
-        P = r"C:\Program Files (x86)\Steam\steamapps\common\Grim Dawn\resources\Text_EN.arc"
-        dd = open(P, "rb").read()
-        _, _, numE, numP, recSize, strSize, recOff = struct.unpack_from("<IIIIIII", dd, 0)
-        parts = [struct.unpack_from("<III", dd, recOff + 12 * i) for i in range(numP)]
-        strs = dd[recOff + recSize:recOff + recSize + strSize]; ent = recOff + recSize + strSize
-        tag = {}
-        for i in range(numE):
-            f = struct.unpack_from("<11I", dd, ent + 44 * i)
-            np_, pi = f[7], f[8]
-            blob = b""
-            for j in range(pi, pi + np_):
-                o, c, u = parts[j]; ch = dd[o:o + c]
-                blob += ch if c == u else lz4.block.decompress(ch, uncompressed_size=u)
-            for line in blob.decode("utf-8-sig", errors="replace").splitlines():
-                if "=" in line:
-                    k, _, v = line.partition("="); tag[k.strip()] = v.strip()
+        tag = text_en_tags()
         for base, t in loc_tag.items():
             name = tag.get(t, "")
             if name:
@@ -595,6 +571,189 @@ def cmd_build(wm, args):
     print(f"\n{'WROTE' if args.write else 'PREVIEW'}: {wrote} clusters, {total_rooms} rooms; {skipped} authored skipped; {failed} failed")
     if args.write:
         print("Now run: uv run tools/rooms.py seams --write")
+
+
+def _norm(p: str) -> str:
+    return p.replace("\\", "/")
+
+
+def cmd_shift(wm, args):
+    """Translate a stored region's rooms by (dx, dz) in world units BEFORE a rebuild, for a dungeon the game moved
+    intact (Forgotten Gods relocates Warden's Laboratory, Underground Transit and the crypt under Burrwitch by
+    (+224, +160); their walk grids are the same cells at new coordinates, 2026-09-14). Room keys are anchors, so the
+    keys move with the anchors and `rebuild` re-attaches the authored text; the grid origin moves too so the db is
+    consistent on its own. Preview by default; --write commits."""
+    from gdmap.roomsdb import room_key
+    db = RoomsDb(DB)
+    rows = db.c.execute("SELECT key, anchor_x, anchor_z, bbox FROM rooms WHERE region_key=?", (args.region,)).fetchall()
+    if not rows:
+        print("no rooms for region", args.region); return
+    plan = []
+    for key, ax, az, bbox in rows:
+        suffix = key[key.index("#"):] if "#" in key else ""
+        nk = room_key(args.region, (ax + args.dx, az + args.dz)) + suffix
+        b = json.loads(bbox) if bbox else None
+        if b:
+            b = [b[0] + args.dx, b[1] + args.dz, b[2] + args.dx, b[3] + args.dz]
+        plan.append((key, nk, ax + args.dx, az + args.dz, json.dumps(b) if b else bbox))
+    clash = [nk for _, nk, _, _, _ in plan if db.c.execute("SELECT 1 FROM rooms WHERE key=?", (nk,)).fetchone() and nk not in {k for k, *_ in plan}]
+    print(f"{args.region}: {len(plan)} rooms shifted by ({args.dx}, {args.dz}); e.g. {plan[0][0]} -> {plan[0][1]}" + (f"; {len(clash)} key clashes" if clash else ""))
+    if clash:
+        print("  refusing: new keys already exist:", clash[:5]); return
+    if not args.write:
+        print("  (preview; --write to commit)"); return
+    c = db.c
+    # two passes through temporary keys so a chain of renames cannot collide with itself
+    for key, nk, *_ in plan:
+        c.execute("UPDATE rooms SET key=? WHERE key=?", ("~" + nk, key))
+        c.execute("UPDATE shots SET room_key=? WHERE room_key=?", ("~" + nk, key))
+    for key, nk, ax, az, bbox in plan:
+        c.execute("UPDATE rooms SET key=?, anchor_x=?, anchor_z=?, bbox=? WHERE key=?", (nk, ax, az, bbox, "~" + nk))
+        c.execute("UPDATE shots SET room_key=? WHERE room_key=?", (nk, "~" + nk))
+    c.execute("UPDATE grids SET x0=x0+?, z0=z0+? WHERE region_key=?", (args.dx, args.dz, args.region))
+    c.execute("DELETE FROM exits WHERE region_key=? OR room_a LIKE ? OR room_b LIKE ?", (args.region, args.region + ":%", args.region + ":%"))
+    c.commit()
+    print("  written")
+
+
+def cmd_rehome(wm, args):
+    """Give orphaned authored rooms to the new room that CONTAINS their anchor (2026-09-14). `write_segmentation`
+    re-attaches by exact key, i.e. the anchor cell must reproduce; a re-segmentation over changed ground moves
+    the clearance maxima a cell or two and orphans rooms that plainly still exist (Warden's Laboratory kept 17
+    of 141 after the Forgotten Gods move, its ground unchanged). Rule: an orphan whose anchor falls on a label
+    whose room is still unauthored (no title) hands it its title, body, sub-region, status and shots, then goes;
+    an orphan landing on an authored room or off any label stays orphan. Preview by default; --write commits."""
+    from gdmap.roomsdb import rle_decode
+    db = RoomsDb(DB)
+    c = db.c
+    regions = [r[0] for r in c.execute("SELECT DISTINCT region_key FROM rooms WHERE status='orphan'")]
+    if args.region:
+        regions = [r for r in regions if r == args.region]
+    moved = stayed = 0
+    for rk in sorted(regions):
+        g = db.grid(rk)
+        if not g:
+            continue
+        x0, z0, cell, labels, label_keys = g
+        h, w = labels.shape
+        titled = {row[0] for row in c.execute("SELECT key FROM rooms WHERE region_key=? AND title IS NOT NULL AND title!='' AND status!='orphan'", (rk,))}
+        orphans = c.execute("SELECT key, anchor_x, anchor_z, title, body, subregion_key, status, area FROM rooms WHERE region_key=? AND status='orphan' ORDER BY area DESC", (rk,)).fetchall()
+        n_moved = 0
+        for key, ax, az, title, body, sub, status, area in orphans:
+            col, row = int((ax - x0) / cell), int((az - z0) / cell)
+            lab = int(labels[row, col]) if 0 <= row < h and 0 <= col < w else -1
+            target = label_keys[lab] if 0 <= lab < len(label_keys) else ""
+            if not target or target == key or target in titled or not title:
+                stayed += 1
+                if args.verbose:
+                    print(f"  stay  {key:44s} -> {target or 'off-grid'}")
+                continue
+            titled.add(target)
+            n_moved += 1
+            if args.verbose:
+                print(f"  home  {key:44s} -> {target}  '{title}'")
+            if args.write:
+                c.execute("UPDATE rooms SET title=?, body=?, subregion_key=?, status='described' WHERE key=?", (title, body, sub, target))
+                c.execute("UPDATE shots SET room_key=? WHERE room_key=?", (target, key))
+                c.execute("DELETE FROM rooms WHERE key=?", (key,))
+        moved += n_moved
+        if n_moved or args.verbose:
+            print(f"{rk:44s} {len(orphans):4d} orphans: {n_moved} re-homed")
+    # an orphan with no title carries nothing (a rebuild's own unseen rows that a later rebuild did not reproduce)
+    junk = c.execute("SELECT COUNT(*) FROM rooms WHERE status='orphan' AND (title IS NULL OR title='')").fetchone()[0]
+    if args.write:
+        c.execute("DELETE FROM shots WHERE room_key IN (SELECT key FROM rooms WHERE status='orphan' AND (title IS NULL OR title=''))")
+        c.execute("DELETE FROM rooms WHERE status='orphan' AND (title IS NULL OR title='')")
+        c.commit()
+    print(f"{'WROTE' if args.write else 'PREVIEW'}: {moved} orphans re-homed, {stayed - junk} authored stay orphan, {junk} untitled orphans dropped")
+
+
+def cmd_rebuild(wm, args):
+    """Re-segment EVERY cluster of every location record of the CURRENT map into the db, keeping the existing region
+    keys (2026-09-14, for the expansion maps): each cluster is written under the stored region whose chunk set it
+    overlaps most (so `write_segmentation` re-attaches authored rooms by anchor and orphans the rest), an unmatched
+    cluster gets a fresh key like `build`, and stored regions no cluster claims (every chunk gone from the map) are
+    listed -- deleted with --prune. Region params stored in the db are reused. Preview (matching only, no
+    segmentation) by default; --write commits. Run `areas --write` and `seams --write` afterwards."""
+    db = RoomsDb(DB)
+    stored, names = {}, {}
+    for rk, name, chunks in db.c.execute("SELECT key, name, chunks FROM regions"):
+        stored[rk] = frozenset(_norm(x) for x in json.loads(chunks)) if chunks else frozenset()
+        names[rk] = name
+    zn = zone_names()
+    base_of = lambda loc: loc.split("_", 1)[-1] if "_" in loc else loc
+    seen, locs = set(), []
+    for r in wm.regions:
+        if r.location and r.location not in seen:
+            seen.add(r.location); locs.append(r.location)
+    if args.location:
+        locs = [l for l in locs if l == args.location or base_of(l) == args.location]
+    claimed, used_keys = {}, set(stored)
+    plan = []   # (key, name, loc, cluster, matched_key)
+    for loc in locs:
+        regs = wm.by_location(loc)
+        clusters = cluster_chunks(regs, args.step)
+        primary = next((c for c in clusters if not all(r.underground for r in c)), clusters[0] if clusters else None)
+        for cl in clusters:
+            paths = {_norm(r.lvl_path) for r in cl}
+            best, best_n = None, 0
+            for rk, chs in stored.items():
+                n = len(chs & paths)
+                if n > best_n or (n == best_n and n and best and len(chs) < len(stored[best])):
+                    best, best_n = rk, n
+            base = base_of(loc)
+            if best_n and best not in claimed:
+                key = best; claimed[best] = paths
+                name = (zn.get(loc) if cl is primary else None) or names.get(best) or key
+            else:
+                if cl is primary:
+                    key = base; name = zn.get(loc) or base.replace("_", " ").title()
+                else:
+                    stem = chunk_stem(cl[0]) or base
+                    key = f"{base}_{re.sub(r'[^a-z0-9]', '', stem.lower())}"; name = prettify_stem(stem)
+                k, n = key, 2
+                while k in used_keys:
+                    k = f"{key}_{n}"; n += 1
+                key = k
+            used_keys.add(key)
+            plan.append((key, name, loc, cl, best if best_n and claimed.get(best) is paths else None))
+    unclaimed = [rk for rk in stored if rk not in claimed]
+    print(f"{len(plan)} clusters over {len(locs)} locations: {sum(1 for p in plan if p[4])} keep a stored key, "
+          f"{sum(1 for p in plan if not p[4])} new; {len(unclaimed)} stored regions unclaimed (all chunks gone): {unclaimed}")
+    for key, name, loc, cl, matched in plan:
+        if not matched or args.verbose:
+            print(f"  {'KEEP' if matched else 'NEW '} {key:40s} {name:28s} {loc:36s} {len(cl):3d} chunks")
+    if not args.write:
+        print("  (preview; --write segments and commits)"); return
+    from gdmap.rooms import resolve_overlays
+    wrote = failed = total_rooms = kept = orphaned = 0
+    t0 = time.time()
+    for key, name, loc, cl, matched in plan:
+        try:
+            grid, roads, chunks, signature = build_area(wm, cl, False)
+            params = params_from(args, db.params(key))
+            seg = segment(grid, params)
+            overlays = resolve_overlays(grid, seg.labels)
+            counts = db.write_segmentation(key, name, loc, chunks, params, signature, ALGO_VERSION, grid, seg, overlays)
+            total_rooms += counts["rooms"]; kept += counts["kept"]; orphaned += counts["orphaned"]; wrote += 1
+            print(f"  {key:40s} {len(cl):3d} chunks -> {counts['rooms']} rooms, kept {counts['kept']}, orphaned {counts['orphaned']}  [{time.time() - t0:.0f}s]", flush=True)
+        except Exception as e:                                # noqa: BLE001 -- one bad cluster must not abort the run
+            failed += 1
+            print(f"  {key:40s} FAILED: {type(e).__name__}: {e}", flush=True)
+    if args.prune and unclaimed:
+        c = db.c
+        for rk in unclaimed:
+            for t in ("regions", "grids", "subregions", "exits", "coverage"):
+                col = "key" if t == "regions" else "region_key"
+                c.execute(f"DELETE FROM {t} WHERE {col}=?", (rk,))
+            c.execute("DELETE FROM shots WHERE room_key IN (SELECT key FROM rooms WHERE region_key=?)", (rk,))
+            c.execute("DELETE FROM rooms WHERE region_key=?", (rk,))
+        c.commit()
+        print(f"  pruned {len(unclaimed)} regions")
+    db.c.execute("INSERT OR REPLACE INTO meta(key, value) VALUES('map', ?)", (wm.map_id,))
+    db.c.commit()
+    print(f"\nWROTE {wrote} clusters, {total_rooms} rooms (kept {kept} authored keys, orphaned {orphaned}); {failed} failed; map={wm.map_id}")
+    print("Now run: uv run tools/rooms.py areas --write && uv run tools/rooms.py seams --write")
 
 
 def cmd_clusters(wm, args):
@@ -711,6 +870,15 @@ def main():
     s.add_argument("location", nargs="?", default=None); s.add_argument("--all", action="store_true")
     s.add_argument("--step", type=int, default=200); s.add_argument("--write", action="store_true")
     add_params(s); s.set_defaults(fn=cmd_build)
+    s = sub.add_parser("rebuild", help="re-segment every cluster of the CURRENT map keeping stored region keys (expansion map regen); --write commits, --prune drops regions whose chunks are all gone")
+    s.add_argument("location", nargs="?", default=None); s.add_argument("--step", type=int, default=200)
+    s.add_argument("--write", action="store_true"); s.add_argument("--prune", action="store_true"); s.add_argument("--verbose", action="store_true")
+    add_params(s); s.set_defaults(fn=cmd_rebuild)
+    s = sub.add_parser("rehome", help="hand orphaned authored rooms to the new room containing their anchor; run after rebuild")
+    s.add_argument("region", nargs="?", default=None); s.add_argument("--write", action="store_true"); s.add_argument("--verbose", action="store_true"); s.set_defaults(fn=cmd_rehome)
+    s = sub.add_parser("shift", help="translate a stored region's rooms + grid by (dx, dz) world units (a dungeon the game moved intact); run before rebuild")
+    s.add_argument("region"); s.add_argument("--dx", type=float, required=True); s.add_argument("--dz", type=float, required=True)
+    s.add_argument("--write", action="store_true"); s.set_defaults(fn=cmd_shift)
     s = sub.add_parser("areas", help="per-room HUD area names from the painted sector layer; --write stores rooms.area_name + placeholder region names")
     s.add_argument("--write", action="store_true"); s.set_defaults(fn=cmd_areas)
     s = sub.add_parser("status"); s.set_defaults(fn=cmd_status)

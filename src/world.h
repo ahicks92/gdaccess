@@ -72,6 +72,7 @@ std::string classinfo_dump();    // dev: the game's RTTI_ClassInfo layout (paren
 enum class BlockKind { Wall, Obstacle };
 BlockKind classify_block(const Vec3& stop_world, float dir_x, float dir_z);
 std::string blocks_dump();       // the four probe stops with their blockers (dev)
+std::string settle_status(float radius);   // /settle: loader idle, chunks still loading near the player, app state, ticks (dev)
 std::string regions_dump(int max);  // engine Regions (chunks) 0..max-1: index, name, offset from world, loaded, portals (dev)
 std::string portals_dump();      // the player's chunk's portals: connected chunk, choke point, open (dev)
 std::string markers_dump();      // dev: Player::GetMarkerUIDs (the accumulating quest-marker UID list)

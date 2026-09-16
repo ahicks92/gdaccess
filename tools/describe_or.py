@@ -32,7 +32,7 @@ DB = os.path.join(ROOT, "assets", "rooms.db")
 RULES = open(os.path.join(ROOT, "docs", "rooms-description-rules.md"), encoding="utf-8").read()
 ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 MODEL_PRICES = {   # $ per 1M tokens (prompt, completion)
-    "google/gemini-3.7-flash": (0.375, 1.875),
+    "google/gemini-3.7-flash": (0.77, 3.83),   # calibrated 2026-09-15: the account charged 2.04x the old (0.375, 1.875) line over 6,900 rooms
     "google/gemini-2.5-flash-lite": (0.10, 0.40),
     "qwen/qwen3-vl-32b-instruct": (0.104, 0.416),
     "amazon/nova-lite-v1": (0.06, 0.24),
@@ -270,24 +270,39 @@ def cmd_subregions(a):
     db = RoomsDb(DB)
     rooms = db.rooms(a.region)
     name = (db.c.execute("SELECT name FROM regions WHERE key=?", (a.region,)).fetchone() or [a.region])[0]
-    slim = [{"x": round(r["anchor_x"]), "z": round(r["anchor_z"]), "cls": r["cls"], "area": round(r["area"])}
-            for r in rooms]
+    # Each room carries the game's own painted HUD area name (rooms.area_name, validated live): the sub-regions are
+    # grouped by and named from those, never invented (2026-09-15 -- the anchors-only prompt produced "The Sunken
+    # Forum" for a bog hollow; the old Opus agent read the same names off the shots' minimap corner).
+    slim = [{"x": round(r["anchor_x"]), "z": round(r["anchor_z"]), "cls": r["cls"], "area": round(r["area"]),
+             "place": r.get("area_name") or ""} for r in rooms]
     n = len(rooms)
     target = "2-4" if n < 60 else ("4-8" if n < 200 else "8-15")
-    prompt = (f"Region \"{name}\" has {n} rooms at these (x,z) anchors (z grows south). Divide it into {target} "
-              f"named SUB-REGIONS -- the level of place a player without a map plans a route by ('the upper "
-              f"galleries', 'the north road', 'the graveyard') -- grouped by geography. For each, give a lowercase "
-              f"slug key, a short noun-phrase name (unique, consistent in voice, no ids/coordinates), a one-sentence "
-              f"summary, and cx,cz = a representative CENTRE point of that sub-region (rooms are assigned to the "
-              f"nearest centre). Cover the whole region so every room is near some centre.\n"
-              f"Room anchors (x,z,cls,area):\n{json.dumps(slim)}")
-    try:
-        out, _ = or_chat(a.model, [{"role": "user", "content": prompt}], schema=SUB_SCHEMA, max_tokens=4000)
-    except CreditsExhausted as e:
-        print(f"STOP: OpenRouter credit exhausted ({e})."); sys.exit(42)
-    except SafetyBlocked as e:
-        print(f"sub-regions safety-blocked ({e}); leaving unassigned (describe still works)."); return
-    subs = parse_json(out)["subregions"]
+    places = sorted({r.get("area_name") for r in rooms if r.get("area_name")})
+    prompt = (f"Region \"{name}\" has {n} rooms at these (x,z) anchors (z grows south). Each room's `place` is the "
+              f"game's own on-screen area name for that ground (the names in play here: {json.dumps(places)}). Divide "
+              f"the region into {target} named SUB-REGIONS -- the level of place a player without a map plans a route "
+              f"by ('the upper galleries', 'the north road', 'the graveyard') -- grouped by geography AND by place: a "
+              f"sub-region never straddles two places. NAME each sub-region from its place: the place name itself when "
+              f"one sub-region covers the whole place, else the place name plus a plain geographic qualifier ('Korvan "
+              f"Sands, west ridge'). Never invent a lore name; call nothing what the game does not call it. For each, "
+              f"give a lowercase slug key, that name (unique), a one-sentence summary, and cx,cz = a representative "
+              f"CENTRE point of that sub-region (rooms are assigned to the nearest centre). Cover the whole region so "
+              f"every room is near some centre.\n"
+              f"Room anchors (x,z,cls,area,place):\n{json.dumps(slim)}")
+    subs = None
+    for attempt in range(3):   # the model occasionally returns malformed JSON despite the schema (3 of 11, 2026-09-15)
+        try:
+            out, _ = or_chat(a.model, [{"role": "user", "content": prompt}], schema=SUB_SCHEMA, max_tokens=4000)
+        except CreditsExhausted as e:
+            print(f"STOP: OpenRouter credit exhausted ({e})."); sys.exit(42)
+        except SafetyBlocked as e:
+            print(f"sub-regions safety-blocked ({e}); leaving unassigned (describe still works)."); return
+        try:
+            subs = parse_json(out)["subregions"]; break
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            print(f"  sub-regions: malformed JSON from the model ({e}); retry {attempt + 1}/3; raw: {str(out)[:300]!r}")
+    if subs is None:
+        print(f"{a.region}: sub-regions failed three times; leaving as is"); return
     if not subs:
         print(f"{a.region}: model returned no sub-regions"); return
     for s in subs:

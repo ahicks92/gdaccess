@@ -860,6 +860,20 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   is an ordinary pathfound move (goes round obstacles). All gates are exports callable before the press
   (`ValidateEnemy`, `GetMoveToPoint`, `CanMoveTo`). **The four point classes report `GetTargetType()` = 4**, unknown to
   `world::skill_aim`. The mod has no way to aim at open ground yet; the exits lock is the nearest existing point.
+- **Both expansions installed + rooms db regenerated for the Forgotten Gods map** (2026-09-14, `docs/rooms.md`
+  "Expansion maps"): each DLC ships a complete replacement `world001.map` (base 633 chunks, gdx1 876, gdx2 1582; the
+  game mounts the highest, verified live), base chunks are recompiled with DLC props/side areas (164 walkable grids
+  differ, mostly < 1 %), three dungeons move by (+224, +160), Gloomwald replaces the cut Prospect Hill corner off
+  Burrwitch Village's west edge, Malmouth hangs north of Ugdenbog, Forgotten Gods is an island reached by the
+  Emissary's portal. Tools read the overlay through `tools/gdmap/gamefiles.py` (map, arz `Layered`, Text arcs;
+  `GDACCESS_GAME_LAYERS=base` forces the base world); the level-body cache is per map (a same-size rewrite fooled the
+  shared one). **Two dbs**: `assets/rooms.db` = gdx2 world (meta.map), `assets/rooms_base.db` = the frozen base one;
+  `rooms.cpp` picks by `gdx2/resources/Levels.arc` under the install root. Regen = `rooms.py shift` (moved dungeons)
+  -> `rebuild --write --prune` -> `rehome --write` -> `areas --write` -> `seams --write`. Riftgate zones now carry
+  acts 5-7 (`gen_riftgate_zones.py` letters h/i/j), 57 shrines. 0I023's nav tiles sit 480 u off its footprint = a stale bake (no live navmesh); `build_area` skips such chunks.
+- `/settle` + the all-regions shots tour (2026-09-15, docs/rooms.md "Shots pacing"): `ResourceLoader::IsIdle` +
+  `Region::IsLoadingFinished` replace the flat 1.6 s per-sample sleep (3.06 -> 1.27 s a room, shots equivalent);
+  `shots.py all --status unseen` tours every region nearest-first with crash relaunch. Built + measured live.
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.

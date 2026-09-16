@@ -35,8 +35,10 @@ get; hopefully you have fun, but it might also explode on you in ways no one can
 
 ## Setup
 
-I do not know whether this works with the DLC. The DLC may well break everything, it is expensive, and there
-is a lot of game before you would benefit from it. We will find out eventually.
+The mod supports the base game and the full install with both expansions (Ashes of Malmouth and Forgotten
+Gods). Each expansion replaces the whole world map, so the mod ships a rooms database for each world and picks the
+right one from what is installed. An install with Ashes of Malmouth alone uses the base game's rooms and will be
+wrong in a few places. The expansions' own areas are segmented but not yet described.
 
 Do not launch the game directly (from Steam or the exe). If you do, you will need to restart your screen
 reader: the game uses very old APIs in very odd ways, the net effect of which is to break the JAWS / NVDA key.

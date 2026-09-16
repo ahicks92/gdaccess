@@ -193,6 +193,15 @@ inline constexpr const char* Region_IsLevelLoaded = "?IsLevelLoaded@Region@GAME@
 // public: void __cdecl GAME::Region::BackgroundLoadLevel(bool) __ptr64
 inline constexpr const char* Region_BackgroundLoadLevel_DLL = "Engine.dll";
 inline constexpr const char* Region_BackgroundLoadLevel = "?BackgroundLoadLevel@Region@GAME@@QEAAX_N@Z";
+// public: bool __cdecl GAME::Region::IsLoadingFinished(void)const __ptr64
+inline constexpr const char* Region_IsLoadingFinished_DLL = "Engine.dll";
+inline constexpr const char* Region_IsLoadingFinished = "?IsLoadingFinished@Region@GAME@@QEBA_NXZ";
+// public: class GAME::ResourceLoader * __ptr64 __cdecl GAME::Engine::GetResourceLoader(void) __ptr64
+inline constexpr const char* Engine_GetResourceLoader_DLL = "Engine.dll";
+inline constexpr const char* Engine_GetResourceLoader = "?GetResourceLoader@Engine@GAME@@QEAAPEAVResourceLoader@2@XZ";
+// public: bool __cdecl GAME::ResourceLoader::IsIdle(void)const __ptr64
+inline constexpr const char* ResourceLoader_IsIdle_DLL = "Engine.dll";
+inline constexpr const char* ResourceLoader_IsIdle = "?IsIdle@ResourceLoader@GAME@@QEBA_NXZ";
 // bool __cdecl GAME::IsGameTimePaused(void)
 inline constexpr const char* IsGameTimePaused_DLL = "Engine.dll";
 inline constexpr const char* IsGameTimePaused = "?IsGameTimePaused@GAME@@YA_NXZ";

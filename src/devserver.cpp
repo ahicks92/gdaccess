@@ -359,6 +359,7 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     if (q.count("say")) rooms::announce_now();
     return rooms::status();
   }
+  if (path == "/settle") return world::settle_status(q.count("radius") ? (float)atof(q.at("radius").c_str()) : 160.f);   // loader idle / chunks loading near the player; ?radius=
   if (path == "/regions") return world::regions_dump(parse_int(q.count("max") ? q.at("max") : "40", 40));   // engine Regions (chunks): name, offset, loaded, portals; ?max=
   if (path == "/portals") return world::portals_dump();   // the player's chunk's portals
   if (path == "/markers") return world::markers_dump();   // Player::GetMarkerUIDs (quest-marker UID list)

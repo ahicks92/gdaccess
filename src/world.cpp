@@ -257,6 +257,9 @@ struct Api {
   bool (*Region_IsUnderground)(const void*) = nullptr;
   bool (*Region_IsLevelLoaded)(const void*) = nullptr;
   void (*Region_BackgroundLoadLevel)(void*, bool) = nullptr;   // request the level stream (guarded/idempotent); off-map dungeons never load by proximity
+  bool (*Region_IsLoadingFinished)(const void*) = nullptr;     // level attached and the loading byte (+0x90) clear
+  void* (*Engine_GetResourceLoader)(void*) = nullptr;          // the engine's async asset loader (textures, meshes, effects)
+  bool (*ResourceLoader_IsIdle)(void*) = nullptr;              // zero-timeout wait on its work event: nothing queued
   bool (*IsGameTimePaused)() = nullptr;
   void (*PauseGameTime)() = nullptr;
   void (*UnpauseGameTime)() = nullptr;
@@ -380,6 +383,9 @@ void load_api() {
   LOAD(Region_IsUnderground, Region_IsUnderground);
   LOAD(Region_IsLevelLoaded, Region_IsLevelLoaded);
   LOAD(Region_BackgroundLoadLevel, Region_BackgroundLoadLevel);
+  LOAD(Region_IsLoadingFinished, Region_IsLoadingFinished);
+  LOAD(Engine_GetResourceLoader, Engine_GetResourceLoader);
+  LOAD(ResourceLoader_IsIdle, ResourceLoader_IsIdle);
   LOAD(IsGameTimePaused, IsGameTimePaused);
   LOAD(PauseGameTime, PauseGameTime);
   LOAD(UnpauseGameTime, UnpauseGameTime);
@@ -802,6 +808,51 @@ static bool read_portal_info(void* region, int i, PortalInfo* out) {
     return true;
   } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
 }
+// /settle: is the world quiet enough to photograph? (2026-09-15, for tools/shots.py -- replaces a flat 1.6 s sleep
+// per sample). idle = the engine's ResourceLoader has nothing queued (ResourceLoader::IsIdle, a zero-timeout wait
+// on its work event -- the engine's own WaitForIdle spins on the same test); loading = chunks within `radius` of the
+// player whose level is attached but whose loading byte is still set (Region::IsLoadingFinished false);
+// unloaded_near = chunks in that radius with no level at all (reported, not waited on: a far dungeon nearby in XZ
+// never streams); state = the exe's app state (10 = loading screen); ticks = GameEngine::Update count.
+// SEH-guarded raw scan (no C++ objects with destructors): counts chunks near (px, pz) by load state.
+static void settle_scan_raw(void* world, float px, float pz, float radius, int* loading, int* unloaded, int* nearby) {
+  int n = g_api.World_GetNumRegions(world);
+  for (int i = 0; i < n; ++i) {
+    __try {
+      void* r = g_api.World_GetRegion(world, i);
+      if (!r) continue;
+      const int* off = g_api.Region_GetOffsetFromWorld(r);
+      if (!off) continue;
+      // chunk footprint [off, off+128) vs the player, in XZ
+      float dx = (float)off[0] - px; if (dx < px - ((float)off[0] + 128.f)) dx = px - ((float)off[0] + 128.f); if (dx < 0.f) dx = 0.f;
+      float dz = (float)off[2] - pz; if (dz < pz - ((float)off[2] + 128.f)) dz = pz - ((float)off[2] + 128.f); if (dz < 0.f) dz = 0.f;
+      if (dx * dx + dz * dz > radius * radius) continue;
+      ++*nearby;
+      bool loaded = g_api.Region_IsLevelLoaded ? g_api.Region_IsLevelLoaded(r) : false;
+      if (!loaded) { ++*unloaded; continue; }
+      if (!g_api.Region_IsLoadingFinished(r)) ++*loading;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+      ++*loading;   // an unreadable region counts as not settled
+    }
+  }
+}
+
+std::string settle_status(float radius) {
+  load_api();
+  int idle = -1;
+  if (g_api.gEngine && *g_api.gEngine && g_api.Engine_GetResourceLoader && g_api.ResourceLoader_IsIdle) {
+    void* rl = g_api.Engine_GetResourceLoader(*g_api.gEngine);
+    if (rl) idle = g_api.ResourceLoader_IsIdle(rl) ? 1 : 0;
+  }
+  int loading = 0, unloaded = 0, nearby = 0;
+  Vec3 p{};
+  bool have = player_position(p);
+  if (have && g_world && g_api.World_GetNumRegions && g_api.World_GetRegion && g_api.Region_GetOffsetFromWorld && g_api.Region_IsLoadingFinished)
+    settle_scan_raw(g_world, p.x, p.z, radius, &loading, &unloaded, &nearby);
+  return std::format("idle={} loading={} unloaded_near={} nearby={} state={} ticks={} paused={}\n", idle, loading, unloaded, nearby,
+                     exe_ui::app_state(), g_engine_ticks, g_api.IsGameTimePaused ? (int)g_api.IsGameTimePaused() : -1);
+}
+
 std::string regions_dump(int max) {
   load_api();
   if (!g_world || !g_api.World_GetNumRegions || !g_api.World_GetRegion) return "no world\n";

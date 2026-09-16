@@ -18,6 +18,7 @@ import subprocess
 import sys
 import time
 import urllib.parse
+import urllib.error
 import urllib.request
 
 import numpy as np
@@ -29,6 +30,7 @@ from gdmap.roomsdb import RoomsDb  # noqa: E402
 PORT = 8791
 DB = "assets/rooms.db"
 OUT = "build/shots"
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CELL = 0.25
 
 print = functools.partial(print, flush=True)   # the run is watched through a redirected log
@@ -37,6 +39,35 @@ print = functools.partial(print, flush=True)   # the run is watched through a re
 def get(path, **q):
     url = f"http://127.0.0.1:{PORT}{path}" + ("?" + urllib.parse.urlencode(q) if q else "")
     return urllib.request.urlopen(url, timeout=30).read().decode("utf-8", "replace")
+
+
+def settle(grace: float = 0.3, timeout: float = 15.0) -> float:
+    """Wait until the world is quiet enough to photograph (2026-09-15; replaces a flat 1.6 s sleep per sample):
+    the mod's /settle says the engine's ResourceLoader is idle, no chunk near the player is still loading and the
+    exe is not on its loading screen; then two more frames render and `grace` passes (measured: a shot 0.25 s
+    after a 2000-unit hop already showed every prop; the loader flickers busy for ~3 s after on mip streaming
+    that does not show at shot size). Returns the seconds waited."""
+    t0 = time.time()
+    ticks0 = None
+    while True:
+        d = dict(kv.split("=") for kv in get("/settle").split())
+        ok = d.get("idle") == "1" and d.get("loading") == "0" and d.get("state") != "10"
+        if ok and ticks0 is None:
+            ticks0 = int(d["ticks"])
+        if ok and ticks0 is not None and int(d["ticks"]) >= ticks0 + 2:
+            break
+        if not ok:
+            ticks0 = None
+        if time.time() - t0 > timeout:
+            print(f"  settle: timeout ({d})")
+            break
+        time.sleep(0.05)
+    if grace:
+        time.sleep(grace)
+    return time.time() - t0
+
+
+LEGACY_WAIT = False   # --legacy-wait: the old flat sleeps, for A/B timing
 
 
 def close_game_windows():
@@ -130,7 +161,7 @@ def teleport(x: float, z: float, hop: float = 60.0, wait_s: float = 25.0) -> str
             if r.startswith("teleported"):
                 moved = True
                 break
-            time.sleep(0.5)
+            time.sleep(0.2)
         if not moved:
             # the straight line is off the mesh (water, cliffs): walk the stepping-stone lattice instead
             path = stone_path((px, pz), (x, z), hop)
@@ -139,23 +170,23 @@ def teleport(x: float, z: float, hop: float = 60.0, wait_s: float = 25.0) -> str
                 while "loaded=true" not in (chk := get("/teleport", x=f"{wx:.2f}", z=f"{wz:.2f}", check=1)):
                     if time.time() - t0 > wait_s:
                         return f"waypoint chunk for ({wx:.1f}, {wz:.1f}) never loaded (last check: {chk.strip()})"
-                    time.sleep(1.0)
+                    time.sleep(0.25)
                 r = get("/teleport", x=f"{wx:.2f}", z=f"{wz:.2f}")
                 if not r.startswith("teleported"):
                     continue   # a bake-only anchor the live mesh refuses: try the next waypoint
                 moved = True
-                time.sleep(1.0)
+                time.sleep(1.0) if LEGACY_WAIT else settle(0.0, 5.0)
         if not moved:
             # no route on the ground (a void between dungeon levels): the check below force-loads the
             # target chunk (Region::BackgroundLoadLevel in the route), after which a direct jump is safe
             break
-        time.sleep(1.0)
+        time.sleep(1.0) if LEGACY_WAIT else settle(0.0, 5.0)
         px, pz = player_xz()
     t0 = time.time()
     while "loaded=true" not in (chk := get("/teleport", x=f"{x:.2f}", z=f"{z:.2f}", check=1)):
         if time.time() - t0 > wait_s:
             return f"chunk for ({x:.1f}, {z:.1f}) never loaded (last check: {chk.strip()})"
-        time.sleep(1.0)
+        time.sleep(1.0 if LEGACY_WAIT else 0.25)
     return get("/teleport", x=f"{x:.2f}", z=f"{z:.2f}").strip()
 
 
@@ -297,6 +328,10 @@ def shoot_room(db: RoomsDb, region_key: str, room: dict, grid, samples: int, fog
     for i, (sx, sz) in enumerate(pts):
         t0 = time.time()
         tele = teleport(sx, sz)
+        if not tele.startswith("teleported") and "no navmesh floor" in tele and not LEGACY_WAIT:
+            # at the faster pace a just-streamed chunk's navmesh can lag its level by a moment: one retry after a settle
+            settle(0.5, 5.0)
+            tele = teleport(sx, sz)
         if not tele.startswith("teleported") and "no navmesh floor" in tele and i == 0:
             # the sample sits on the bake but the live mesh refuses it (bake wider than runtime, an obstacle):
             # the anchor is the room's clearance maximum, the safest point in it
@@ -308,7 +343,10 @@ def shoot_room(db: RoomsDb, region_key: str, room: dict, grid, samples: int, fog
             continue
         if fog:
             get("/fog", x=f"{sx:.2f}", z=f"{sz:.2f}", radius=40)
-        time.sleep(1.6)     # let the chunk stream and the camera settle
+        if LEGACY_WAIT:
+            time.sleep(1.6)     # the old flat wait: let the chunk stream and the camera settle
+        else:
+            settle(0.3)
         raw = os.path.join(folder, f"{i:02d}.png")
         shot(raw)
         # a black frame is the loading fade after a big hop (found sampling the first runs, 2026-08-23)
@@ -351,48 +389,126 @@ def shoot_room(db: RoomsDb, region_key: str, room: dict, grid, samples: int, fog
     return meta
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    sub = ap.add_subparsers(dest="cmd", required=True)
-    s = sub.add_parser("room"); s.add_argument("key"); s.add_argument("--samples", type=int, default=2); s.add_argument("--no-fog", action="store_true")
-    s = sub.add_parser("region"); s.add_argument("region"); s.add_argument("--status", default="unseen"); s.add_argument("--limit", type=int, default=0)
-    s.add_argument("--samples", type=int, default=2); s.add_argument("--no-fog", action="store_true")
-    args = ap.parse_args()
-    db = RoomsDb(DB)
-    if args.cmd == "room":
-        region_key = args.key.split(":", 1)[0]
-        rooms = [r for r in db.rooms(region_key) if r["key"] == args.key]
-    else:
-        region_key = args.region
-        rooms = [r for r in db.rooms(region_key) if r["status"] == args.status]
-    global STONES
-    g0 = db.grid(region_key)
-    if g0:
-        STONES = build_stones(g0)
-        print(f"{len(STONES)} teleport stones")
+def prepare_character():
+    """Once per region and after any relaunch: no open window over the shot, the dev character invincible
+    (the bool lands in SetInvincibleConfigCmd+0x10: a setter despite the name, idempotent), the game unpaused."""
     close_game_windows()
-    # The dev character poses among live monsters; a death mid-tour ruins shots (respawn screenshots).
-    # Despite the name this is a setter (the bool lands in SetInvincibleConfigCmd+0x10), so it is idempotent.
     m = re.search(r" id=(\d+)", get("/player"))
     if m:
         print("invincible:", get("/lua", code=f"local p = Player.Get({m.group(1)}); p:ToggleInvincible(true)").strip())
-    if args.cmd == "region":
-        print("game", get("/pause", set=0).strip(), "(a hot reload in the world leaves the game paused; unpause before the tour)")
-        # a nearest-neighbour tour from the character's position keeps every hop short (chunk streaming)
+    print("game", get("/pause", set=0).strip())
+
+
+def ensure_game(timeout_s: float = 240.0) -> bool:
+    """The overnight guard (2026-09-15): if the dev server is gone or the game sits in its crash dialog, kill it,
+    relaunch unfocused on the selected (test) character, press the main menu's Start and wait for the world.
+    Returns True when the game had to be relaunched."""
+    try:
+        if get("/health").startswith("ok") and "name='" in get("/player") and "name=''" not in get("/player"):
+            return False
+    except Exception:
+        pass
+    gd = [sys.executable, os.path.join(ROOT, "tools", "gd.py")]
+    print("game not answering: relaunching", flush=True)
+    subprocess.run(gd + ["kill"], capture_output=True)
+    subprocess.run(gd + ["launch", "--nobuild"], capture_output=True, text=True)
+    t0 = time.time()
+    ptr = None
+    while time.time() - t0 < timeout_s and not ptr:
+        try:
+            ui = get("/ui")
+            m = re.search(r"btn Start .*?= (0x[0-9a-f]+)", ui)
+            ptr = m.group(1) if m else None
+        except Exception:
+            time.sleep(2.0)
+    if not ptr:
+        raise SystemExit("relaunch: no Start button after the launch")
+    print("pressing Start:", get("/ui/activate", ptr=ptr).strip())
+    while time.time() - t0 < timeout_s:
+        try:
+            if "name='" in get("/player") and "name=''" not in get("/player") and dict(kv.split("=") for kv in get("/settle").split()).get("state") != "10":
+                break
+        except Exception:
+            pass
+        time.sleep(2.0)
+    else:
+        raise SystemExit("relaunch: the world never came up")
+    time.sleep(3.0)
+    prepare_character()
+    return True
+
+
+def run_region(db, region_key: str, rooms: list, args) -> None:
+    global STONES
+    g0 = db.grid(region_key)
+    if not g0 or not rooms:
+        print(f"{region_key}: nothing to do"); return
+    STONES = build_stones(g0)
+    print(f"### {region_key}: {len(rooms)} rooms, {len(STONES)} teleport stones")
+    # a nearest-neighbour tour from the character's position keeps every hop short (chunk streaming)
+    px, pz = player_xz()
+    tour = []
+    while rooms:
+        i = min(range(len(rooms)), key=lambda k: (rooms[k]["anchor_x"] - px) ** 2 + (rooms[k]["anchor_z"] - pz) ** 2)
+        r = rooms.pop(i); tour.append(r); px, pz = r["anchor_x"], r["anchor_z"]
+    rooms = tour
+    if getattr(args, "limit", 0):
+        rooms = rooms[:args.limit]
+    t0 = time.time()
+    for n, r in enumerate(rooms, 1):
+        for attempt in range(2):
+            try:
+                shoot_room(db, region_key, r, g0, args.samples, not args.no_fog)
+                break
+            except (urllib.error.URLError, ConnectionError, TimeoutError, OSError) as e:
+                print(f"  {r['key']}: game call failed ({type(e).__name__}: {e})")
+                ensure_game()
+        if n % 25 == 0:
+            print(f"  [{region_key}: {n}/{len(rooms)} rooms, {(time.time() - t0) / n:.1f} s/room]")
+    print(f"### {region_key} done: {len(rooms)} rooms in {(time.time() - t0) / 60:.1f} min")
+
+
+def main():
+    global LEGACY_WAIT
+    ap = argparse.ArgumentParser()
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    s = sub.add_parser("room"); s.add_argument("key"); s.add_argument("--samples", type=int, default=2); s.add_argument("--no-fog", action="store_true")
+    s.add_argument("--legacy-wait", action="store_true")
+    s = sub.add_parser("region"); s.add_argument("region"); s.add_argument("--status", default="unseen"); s.add_argument("--limit", type=int, default=0)
+    s.add_argument("--samples", type=int, default=2); s.add_argument("--no-fog", action="store_true"); s.add_argument("--legacy-wait", action="store_true")
+    s = sub.add_parser("all", help="every region with rooms of --status, nearest region first from the character; relaunches the game on a crash")
+    s.add_argument("--status", default="unseen"); s.add_argument("--samples", type=int, default=2); s.add_argument("--no-fog", action="store_true")
+    s.add_argument("--legacy-wait", action="store_true"); s.add_argument("--limit", type=int, default=0, help="rooms per region (testing)")
+    args = ap.parse_args()
+    LEGACY_WAIT = bool(getattr(args, "legacy_wait", False))
+    db = RoomsDb(DB)
+    ensure_game()
+    prepare_character()
+    if args.cmd == "room":
+        region_key = args.key.split(":", 1)[0]
+        rooms = [r for r in db.rooms(region_key) if r["key"] == args.key]
+        run_region(db, region_key, rooms, args)
+    elif args.cmd == "region":
+        run_region(db, args.region, [r for r in db.rooms(args.region) if r["status"] == args.status], args)
+    else:
+        pending = {}
+        for key, ax, az in db.c.execute("SELECT region_key, AVG(anchor_x), AVG(anchor_z) FROM rooms WHERE status=? GROUP BY region_key", (args.status,)):
+            pending[key] = (ax, az)
+        print(f"{len(pending)} regions with {args.status} rooms")
         px, pz = player_xz()
-        tour = []
-        while rooms:
-            i = min(range(len(rooms)), key=lambda k: (rooms[k]["anchor_x"] - px) ** 2 + (rooms[k]["anchor_z"] - pz) ** 2)
-            r = rooms.pop(i); tour.append(r); px, pz = r["anchor_x"], r["anchor_z"]
-        rooms = tour
-        if args.limit:
-            rooms = rooms[:args.limit]
-    grid = db.grid(region_key)
-    if not grid or not rooms:
-        print("nothing to do"); return
-    print(f"{len(rooms)} rooms")
-    for r in rooms:
-        shoot_room(db, region_key, r, grid, args.samples, not args.no_fog)
+        while pending:
+            key = min(pending, key=lambda k: (pending[k][0] - px) ** 2 + (pending[k][1] - pz) ** 2)
+            px, pz = pending.pop(key)
+            rooms = [r for r in db.rooms(key) if r["status"] == args.status]
+            try:
+                run_region(db, key, rooms, args)
+            except SystemExit as e:
+                print(f"### {key}: aborted ({e}); continuing with the next region")
+                ensure_game()
+            try:
+                px, pz = player_xz()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":

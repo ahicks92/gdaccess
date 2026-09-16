@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <filesystem>
 #include <format>
 #include <map>
 #include <memory>
@@ -66,10 +67,30 @@ std::vector<std::string> json_strings(const std::string& s) {
   return out;
 }
 
+// The db must match the world the game mounts (docs/rooms.md "Expansion maps", 2026-09-14): each expansion ships a
+// complete replacement world001.map, so assets/rooms.db is built from the Forgotten Gods map and rooms_base.db
+// from the base game's. Which one the game runs is decided by what is installed under the install root (the exe
+// is <root>\x64\Grim Dawn.exe; Steam removes a disabled DLC's folder). An Ashes-only install has no db of its own.
+std::string db_file_for_install() {
+  wchar_t exe[MAX_PATH] = {};
+  GetModuleFileNameW(nullptr, exe, MAX_PATH);
+  std::filesystem::path root = std::filesystem::path(exe).parent_path().parent_path();
+  std::error_code ec;
+  bool gdx2 = std::filesystem::exists(root / "gdx2" / "resources" / "Levels.arc", ec);
+  bool gdx1 = std::filesystem::exists(root / "gdx1" / "resources" / "Levels.arc", ec);
+  if (gdx2) return "rooms.db";
+  if (gdx1) log::writef("rooms: Ashes of Malmouth without Forgotten Gods -- no rooms db for that map, using the base game's");
+  return "rooms_base.db";
+}
+
 bool open_db() {
   g_db = std::make_unique<db::Db>();
-  std::string path = audio::module_dir() + "assets\\rooms.db";
+  std::string path = audio::module_dir() + "assets\\" + db_file_for_install();
   if (!g_db->open_readonly(path)) { g_db.reset(); log::writef("rooms: no database at {}", path); return false; }
+  {
+    db::Stmt st(*g_db, "SELECT value FROM meta WHERE key='map'");
+    log::writef("rooms: db map={}", st.ok() && st.step() ? st.text(0) : std::string("base"));
+  }
   db::Stmt st(*g_db, "SELECT key, chunks FROM regions");
   while (st.step()) {
     std::string key = st.text(0);

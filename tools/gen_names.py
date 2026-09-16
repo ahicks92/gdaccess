@@ -79,6 +79,9 @@ ENTRIES = [
     ("Region_IsUnderground", "Engine", r"GAME::Region::IsUnderground\(void\)"),
     ("Region_IsLevelLoaded", "Engine", r"GAME::Region::IsLevelLoaded\(void\)"),
     ("Region_BackgroundLoadLevel", "Engine", r"GAME::Region::BackgroundLoadLevel\(bool\)"),
+    ("Region_IsLoadingFinished", "Engine", r"GAME::Region::IsLoadingFinished\(void\)"),   # level attached and the loading byte clear (/settle)
+    ("Engine_GetResourceLoader", "Engine", r"GAME::Engine::GetResourceLoader\(void\)"),
+    ("ResourceLoader_IsIdle", "Engine", r"GAME::ResourceLoader::IsIdle\(void\)"),   # zero-timeout wait on the loader's work event
     ("IsGameTimePaused", "Engine", r"GAME::IsGameTimePaused\(void\)"),
     ("PauseGameTime", "Engine", r"GAME::PauseGameTime\(void\)"),
     ("UnpauseGameTime", "Engine", r"GAME::UnpauseGameTime\(void\)"),

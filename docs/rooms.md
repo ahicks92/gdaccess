@@ -158,6 +158,18 @@ room (`rooms: [keys]`, self-checked with `author.py check`, every 10th room revi
 (`consistency: true, subregion_keys: [...]`, optional `notes`) that reads each sub-region as a whole. Rules:
 `docs/rooms-description-rules.md`. Copy `assets/rooms.db` next to the DLL (a build does it) and `/room?reload=1`.
 
+## Shots pacing: `/settle` (2026-09-15)
+The tour used to sleep a flat 1.6 s per sample "to let the chunk stream" (~3 s a room, 8 h for the campaign). The
+engine exports the real condition: `ResourceLoader::IsIdle()` (on `Engine::GetResourceLoader()`: a zero-timeout wait
+on the loader's work event, nothing queued) and `Region::IsLoadingFinished()` (level attached, loading byte clear).
+Dev route `/settle[?radius=160]` reports `idle`, `loading` (chunks near the player still loading), `unloaded_near`,
+the exe app state (10 = loading screen) and the engine tick; `shots.settle()` polls it every 50 ms until idle, no
+loading chunk, not on the loading screen, then two more frames + 0.3 s grace. Measured: a shot 0.25 s after a
+2000-unit hop already showed every prop (the loader flickers busy for ~3 s after on mip streaming that does not
+show at shot size); same 15 Gloomwald rooms 3.06 -> 1.27 s a room, shots equivalent by eye. `--legacy-wait` keeps
+the old sleeps for A/B. `shots.py all --status unseen` tours every region nearest-first and relaunches the game on
+a crash (`ensure_game`: kill, `gd.py launch`, press Start on the selected character, wait for the world).
+
 ## Painted area names (2026-08-31, `tools/gdmap/sectors.py`, `rooms.py areas --write`)
 The game's HUD area name ("Lower Crossing", "Burrwitch Slums", "Anguish") is **painted per cell**, not a
 volume: each chunk body carries a "sector" section -- `[u32 1][u32 ntab]`, `ntab` GUID tables (`[u32 n]` + n
@@ -179,6 +191,42 @@ painted name. Regenerate with `uv run tools/rooms.py areas --write` (also names 
 c01a = Old Grove [cut content SE of Devil's Crossing], a03a/a04a = the cut Prospect Hill corner NW of
 Burrwitch whose tag text was deleted, map01_gatex01a = Obsidian Throne). Region `name` stays the riftgate
 zone name -- the travel label, still used by dev output and as the fallback.
+
+## Expansion maps (2026-09-14, `tools/gdmap/gamefiles.py`)
+Each expansion ships a COMPLETE replacement `world001.map` in its own `Levels.arc` (`gdx1/`, `gdx2/`), not a patch:
+base 633 chunks, Ashes of Malmouth 876, Forgotten Gods 1582 (+ 7 `Sandbox/` dev levels the live table also holds).
+The game mounts base < gdx1 < gdx2, last wins per file and per database record (verified: `/regions` counts the
+gdx2 table exactly, offsets identical). The base chunks are recompiled with the expansion layers on -- new NPCs and
+props in the old towns (Devil's Crossing gains the Emissary, the illusionist, six Black Legion soldiers), new side
+areas (Broken Hills' Lost Ruins, Pine Barrens, Twin Falls), new shrines and totems, a 14th painted sector table --
+so 417 of 633 bodies differ but only 164 walkable grids do, 99 of them by < 1 %. Three dungeons MOVE intact by
+(+224, +160) (Warden's Laboratory, Underground Transit, the Burrwitch necropolis crypt), the cut Prospect Hill
+corner and four Burrwitch Village chunks are deleted and Gloomwald (0H) sits on their footprints, Malmouth (0I)
+hangs off Ugdenbog's north, Forgotten Gods (0J) is an island far south-west reached only by the Emissary's portal.
+Details of the survey: the 2026-09-14 session (mapdiff / bodydiff / anchor tests).
+
+Consequences for the tools and the db:
+- **Every offline tool reads through `gamefiles.py`**: the highest installed layer's `Levels.arc`, the databases
+  overlaid (`arz.load()` returns a `Layered` view, later records override), the Text arcs merged (the DLC zone names
+  `tagGDX1Rift*` / `tagGDX2Rift*` live only there). `GDACCESS_GAME_LAYERS=base` forces the base world.
+- The gdx2 region record has a third string slot (a skybox record) the base map left empty; `mapfile.py` parses it.
+- **The level-body cache is per map** (`build/rooms/cache/<map_id>/`): gdx2 rewrote moved chunks at the SAME byte
+  size and the shared name+size cache served the base bodies (Warden's Laboratory came out at its old place).
+- **One db per world**: `assets/rooms.db` is built from the gdx2 map (`meta.map = gdx2`), `assets/rooms_base.db` is
+  the frozen base-game db. `src/rooms.cpp` picks by whether `gdx2/resources/Levels.arc` exists under the install
+  root (an Ashes-only install gets the base db and a log line). Tools still target `assets/rooms.db`.
+- **Regen recipe** (what was run): `rooms.py shift <region> --dx 224 --dz 160 --write` for the three moved
+  dungeons -> `rooms.py rebuild --write --prune` (re-segments every cluster of the current map under the stored
+  region whose chunk set it overlaps most, so `write_segmentation` re-attaches authored rooms by anchor key; new
+  keys for new clusters; prunes regions whose chunks are all gone) -> `rooms.py rehome --write` (the key rule needs
+  the anchor CELL to reproduce; an orphan whose anchor now lies inside a still-unauthored room hands it its text --
+  the containment rule the docs always claimed) -> `areas --write` -> `seams --write`. `coastroad_2` = 0W015, a
+  water chunk with no nav tiles, fails harmlessly.
+- Untagged in the DLC: the Shattered Realm pieces (`Levels/EndlessDungeon`, 306 "DF" pieces have no baked nav
+  tiles at all) and staging levels -- location-less, like the Void.
+- 0I023 (Lone Watch) is the one content chunk whose nav tiles lie outside its footprint (480 u south): a stale bake, the
+  game has no navmesh there (every teleport into its 28 rooms timed out on the tour). `build_area` now skips any chunk
+  whose tiles fall outside its own footprint.
 
 ## Open
 - One room of Devil's Crossing (`-70:-183`) is unseen: its anchor is bake-only ground the live mesh refuses.

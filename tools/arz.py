@@ -2,12 +2,47 @@
 records whose path matches a regex, optionally only the fields whose name matches another regex.
 Usage: uv run --with lz4 tools/arz.py <record-path-regex> [field-regex] [--max N]
   e.g. uv run --with lz4 tools/arz.py "records/skills/playerclass01/.*\\.dbr$" "range|radius|distance"
-Format per reference/GDCommunityLauncher/extractor (ARZExtractor.cpp)."""
-import re, struct, sys, lz4.block
-P = r"C:\Program Files (x86)\Steam\steamapps\common\Grim Dawn\database\database.arz"
+Format per reference/GDCommunityLauncher/extractor (ARZExtractor.cpp).
 
-def load():
-    d = open(P, "rb").read()
+Expansion overlay (2026-09-14): `load()` reads every installed database (database.arz, then GDX1.arz, GDX2.arz --
+tools/gdmap/gamefiles.py) and a later record overrides an earlier one by path, like the game. The returned
+`d`/`strings` are a `Layered` view so `decode(d, strings, off, csz, dsz)` keeps working unchanged; set `P` to
+one file's path to read that file alone."""
+import os, re, struct, sys, lz4.block
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+DEFAULT = r"C:\Program Files (x86)\Steam\steamapps\common\Grim Dawn\database\database.arz"
+P = DEFAULT
+
+
+class Layered:
+    """Several arz files as one address space: record offsets are shifted by the file's base, slicing and the
+    string table resolve through the file the offset falls in."""
+    def __init__(self):
+        self.parts = []   # (base, d, strings)
+        self.total = 0
+
+    def add(self, d, strings):
+        base = self.total
+        self.parts.append((base, d, strings))
+        self.total += len(d)
+        return base
+
+    def _part(self, off):
+        for base, d, strings in reversed(self.parts):
+            if off >= base:
+                return base, d, strings
+        raise IndexError(off)
+
+    def __getitem__(self, key):
+        base, d, _ = self._part(key.start)
+        return d[key.start - base:key.stop - base]
+
+    def strings_at(self, off):
+        return self._part(off)[2]
+
+
+def _load_one(path):
+    d = open(path, "rb").read()
     fmt, ver, rec_start, rec_size, rec_count, str_start, str_size = struct.unpack_from("<HHIIIII", d, 0)
     assert (fmt, ver) == (2, 3), (fmt, ver)
     strings = []
@@ -27,7 +62,28 @@ def load():
         recs.append((strings[fid], rname, off, csz, dsz))
     return d, strings, recs
 
+
+def load():
+    """(d, strings, recs) over the installed overlay (base < gdx1 < gdx2), or over `P` alone if it was changed."""
+    if P != DEFAULT:
+        return _load_one(P)
+    from gdmap import gamefiles
+    paths = gamefiles.arz_paths()
+    if len(paths) == 1:
+        return _load_one(paths[0])
+    L = Layered()
+    by_path = {}
+    for p in paths:
+        d, strings, recs = _load_one(p)
+        base = L.add(d, strings)
+        for path, rname, off, csz, dsz in recs:
+            by_path[path.lower()] = (path, rname, off + base, csz, dsz)
+    return L, L, list(by_path.values())
+
+
 def decode(d, strings, off, csz, dsz):
+    if isinstance(strings, Layered):
+        strings = strings.strings_at(off)
     raw = lz4.block.decompress(d[off + 24:off + 24 + csz], uncompressed_size=dsz)
     i, out = 0, {}
     while i < len(raw):
