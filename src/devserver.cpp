@@ -22,6 +22,7 @@
 #include "screens/quickbar.h"
 #include "shrine_table.h"
 #include "gameapi.h"
+#include "core/strings.h"
 #include <cmath>
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -407,7 +408,17 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     return s;
   }
   if (path == "/conv") return world::conversation_dump();
-  if (path == "/ui") return exe_ui::ui_dump();            // the exe's menu widget tree (framework A)
+  if (path == "/ui") {                                    // the exe's menu widget tree (framework A); ?char=<index> selects a main-menu character
+    if (q.count("char")) { exe_ui::MainMenu mm = exe_ui::main_menu(); return mm && mm.select_character(parse_int(q.at("char"), -1)) ? "ok\n" : "failed\n"; }
+    if (q.count("chars")) {   // the picker's characters: index, name, level, class tag, hardcore, and which one is selected
+      exe_ui::MainMenu mm = exe_ui::main_menu();
+      if (!mm) return "no main menu\n";
+      std::string out; int sel = mm.selected_character(); size_t i = 0;
+      for (const exe_ui::MainMenu::Character& c : mm.characters()) { out += std::format("{} {}'{}' level {} class={} hardcore={}\n", i, (int)i == sel ? "* " : "", c.name, c.level, c.class_tag, (int)c.hardcore); ++i; }
+      return out.empty() ? "no characters\n" : out;
+    }
+    return exe_ui::ui_dump();
+  }
   if (path == "/ui/activate") {                           // /ui/activate?ptr=0x... presses a framework A button through its listeners
     uintptr_t p = q.count("ptr") ? (uintptr_t)strtoull(q.at("ptr").c_str(), nullptr, 0) : 0;
     return exe_ui::activate_ptr(p) ? "activated\n" : "not a button in the current tree (see /ui)\n";
@@ -476,6 +487,19 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     return gameapi::dump_skills();
   }
   if (path == "/sheet") return gameapi::dump_sheet();
+  if (path == "/masteries") {   // every mastery's tree, tooltips at level 0 and max + aim (tools/gen_masteries_doc.py)
+    return gameapi::dump_masteries([](const void* s) -> std::string {
+      std::string_view word;
+      switch (world::skill_aim(s)) {
+        case world::SkillAim::SelfCast: word = strings::kAimSelf; break;
+        case world::SkillAim::AroundYou: word = strings::kAimAround; break;
+        case world::SkillAim::AtPoint: word = strings::kAimPoint; break;
+        case world::SkillAim::AtTarget: word = strings::kAimTarget; break;
+        default: break;
+      }
+      return std::format("{}|{}|{}", word, world::skill_target_type(s), world::object_class_name(s));
+    });
+  }
   if (path == "/devotion") {   // ?take=<star skill id> | ?tip=<star skill id> | ?hosts=<power id> | ?bind=<power id>&host=<skill id|0>
     if (q.count("take")) { bool done = false; bool ok = gameapi::take_star((unsigned)parse_int(q.at("take"), 0), done); return std::format("{} completed={}\n", ok ? "ok" : "failed", done); }
     if (q.count("why")) { unsigned id = (unsigned)parse_int(q.at("why"), 0); std::vector<gameapi::DevotionConstellation> all = gameapi::constellations(); for (const auto& c : all) for (const auto& s : c.stars) if (s.skill_id == id) return std::format("take: '{}'  reclaim: '{}'\n", gameapi::can_take_star(c, s), gameapi::can_reclaim_star(c, s, all)); return "no such star\n"; }

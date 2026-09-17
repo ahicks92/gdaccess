@@ -82,8 +82,17 @@ class SkillsScreen : public WindowScreen, public AssignSource {
   void build_select(GraphBuilder& b, int t) {
     const std::vector<gameapi::MasteryChoice>& cs = choices_.get([] { return gameapi::mastery_choices(); }, 600);
     if (cs.empty()) { b.add_item(ControlId::structural("skills.nochoice"), line_item(std::string(strings::kEmpty))); return; }
+    // A mastery already taken (committed on another tab, or chosen there but not yet committed) is not offered again:
+    // the game refuses the same class twice.
+    std::vector<unsigned> have = gameapi::mastery_ids();
+    auto taken = [&](int e) {
+      for (unsigned h : have) if ((int)h == e) return true;
+      for (int o = 0; o < 2; ++o) if (o != t && chosen_[o] == e) return true;
+      return false;
+    };
     for (const gameapi::MasteryChoice& c : cs) {
       int e = c.enumeration; std::string desc = c.description;
+      if (taken(e)) continue;
       auto choose = [this, t, e] {
         if (!exe_ui::skills_set_pane(t, e)) { speech::speak(strings::kCannot, true); return; }
         chosen_[t] = e;

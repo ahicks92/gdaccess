@@ -258,8 +258,12 @@ Model: `Character::GetSkillManager()` (= Character `+0x850`); `GetSkillList()` -
 Engine Objects: `GetObjectName` = record path) `GetSkillLevel/GetMaxLevel/GetUltimateLevel/GetMasteryLevelRequirement/
 IsLocked/GetModifiers/GetSecondarySkills/GetCooldownRemaining/GetManaCost`, names `Skill::CreateUISkillName(bool)`
 (u16 by value), `GetDisplayNameTag()`. Full tooltip: static `GameEngine::GenerateUISkillText(skill, out,
-SkillReasons const* (zeroed 16 bytes, never null), false, bool, int levelDelta, GameTextClass 0x31, true)`
-(call sites exe+0x2425c4, exe+0x242b92). Act (the exe's click handler exe+0x2483d5..): learn =
+SkillReasons const* (zeroed 16 bytes, never null), false, bool, int reclaimCost, GameTextClass 0x31, true)`
+(call sites exe+0x2425c4, exe+0x242b92). The `int` is NOT a level override (corrected 2026-09-15): the exe passes
+`SkillManager::GetCurrentSkillReclamationCost()` and the builder only prints it (Game.dll+0x2d0575, the reclaim line);
+the text is always for the skill's CURRENT level (+ the next), so a tooltip "at level N" needs the skill put there --
+`gameapi::skill_tooltip_at` wraps the call in the game's own `IncrementSkillLevel(n)` / `DecrementSkillLevel(n)` pair
+(dev route `/masteries`, `tools/gen_masteries_doc.py` -> `docs/masteries.md`). Act (the exe's click handler exe+0x2483d5..): learn =
 `Skill::IncrementSkillLevel(1)` (vtable `+0x48`) + `Character::SubtractSkillPoint()`; refund =
 `DecrementSkillLevel(1)` (`+0x58`) + `SkillManager::UseReclamationPoints(1)`; or `SkillManager::IncrementSkill(id,
 levels)` + `RecalculateSkills()`. Tree ORDER is data: `records/ui/skills/skills_mastertable.dbr` ->

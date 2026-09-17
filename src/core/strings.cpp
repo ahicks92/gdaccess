@@ -33,6 +33,11 @@ MessageBuilder& push_scan_item(MessageBuilder& m, std::string_view label, float 
   push_position(m, index1, count);
   return m;
 }
+MessageBuilder& push_scan_self(MessageBuilder& m, std::string_view label, int index1, int count) {
+  m.list_item().fragment(label).list_item().fragment(kYou).list_item();
+  push_position(m, index1, count);
+  return m;
+}
 MessageBuilder& push_pet_event(MessageBuilder& m, std::string_view label, std::string_view event) {
   m.fragment(label).fragment(event);
   return m;

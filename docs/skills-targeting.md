@@ -42,6 +42,25 @@ The player-facing buckets (`world::SkillAim`, spoken by `screens::speak_slot` / 
 - **at a spot** — value 3 (cursor-placed; unconfirmed on Soldier).
 - (nothing spoken) — value 0 or not a `SkillActivated`.
 
+**Value 2 does NOT require an enemy** (static RE 2026-09-15, `docs/masteries.md` run over all 289 class skills: no
+class skill reads 3; Nullification and Vire's Might read **4** = a pure cursor point, unknown to `skill_aim`). The
+request takes the entity under the cursor (`[controller+0x468]`, `re_movement_skills.md` s.2) and then
+`SkillActivatedWeapon::GetValidTarget` (Game.dll 0x505e20) -> `Skill::GetValidMeleeTarget` (0x4829a0) /
+`GetValidRangedTarget`: with target id 0 and the require-enemy flag clear it searches
+`GameEngine::GetTargetsInRadius` around the CURSOR'S GROUND POINT and takes the first hit, else keeps id 0 and returns
+true -- the skill fires at the point (Blade Arc swings toward it, Forcewave travels toward it). A cursor entity that
+fails `ValidateEnemy` (an ally, a non-targetable prop) is likewise cleared to a point, not refused. Only the charge
+classes (Blitz `Skill_AttackWeaponCharge`, Shadow Strike `..Blink`) come with the flag set / their own validator and
+are refused without an enemy. Mod-side consequence: the virtual cursor only ever sits on a reviewed entity or an exit
+point (`world::lock_point`), so a ground aim for these skills is possible in the game but has no key yet.
+**Cursor-placed summons are type 2 too** (2026-09-16): the 16 `Skill_TargetedSpawnPet` class skills (Inquisitor Seal,
+Wendigo/Storm Totem, Wind Devil, Blade Spirit, Mortar Trap, Thermite Mine, the Runes, Raise Skeletons, the Familiar /
+Hellhound / Briarthorn / Primal Spirit / Blight Fiend / Guardian summons) have DBR `targetingMode = Point` and an
+`ActivateNow(..., WorldVec3 const&)` that spawns at the point, but their runtime `GetTargetType()` is 2 and they take the
+base `SkillActivatedSpell::GetValidTarget` -> `Skill::GetValidRangedTarget` (0x482b00): id 0 -> `GetTargetsInRadius`
+near the cursor point, else the point itself -- so "at a target" is a misnomer for them (`docs/masteries.md` labels them
+"placed at the cursor"); the spoken word is still `kAimTarget`, a wording decision pending.
+
 The game does the actual targeting natively (the number keys pass straight through); the mod only *says* which
 bucket a slot is, so the player knows before firing. Verify with `/hotbar` (each slot prints `aim=`).
 

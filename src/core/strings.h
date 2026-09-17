@@ -157,6 +157,10 @@ inline constexpr std::string_view kPetsAttack = "attack locked target";   // ove
 inline constexpr std::string_view kPetsRecall = "recall";
 inline constexpr std::string_view kSelectedPets = "selected pets";
 inline constexpr std::string_view kNeutrals = "people and objects";
+inline constexpr std::string_view kCharacters = "characters";       // the C review group: player characters (you, party members)
+inline constexpr std::string_view kYou = "you";                     // its note on your own character
+// "claude, you, 1 of 1" -- the landing on your own character (no distance or bearing to yourself).
+gd::core::MessageBuilder& push_scan_self(gd::core::MessageBuilder& m, std::string_view label, int index1, int count);
 inline constexpr std::string_view kBystanders = "bystanders";
 inline constexpr std::string_view kLoot = "loot";
 inline constexpr std::string_view kLootFilter = "loot filter";

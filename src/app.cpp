@@ -151,6 +151,7 @@ static void register_actions() {
     {"scan.bystanderNext", "Next bystander", 0x30, world::ScanGroup::Bystanders, 1, false}, {"scan.bystanderPrev", "Previous bystander", 0x30, world::ScanGroup::Bystanders, -1, true},
     {"scan.objectNext", "Next loot", 0x32, world::ScanGroup::Objects, 1, false}, {"scan.objectPrev", "Previous loot", 0x32, world::ScanGroup::Objects, -1, true},
     {"scan.exitNext", "Next exit", 0x2f, world::ScanGroup::Exits, 1, false}, {"scan.exitPrev", "Previous exit", 0x2f, world::ScanGroup::Exits, -1, true},   // V: the current room's exits (docs/rooms.md)
+    {"scan.playerNext", "Next character", 0x2e, world::ScanGroup::Players, 1, false}, {"scan.playerPrev", "Previous character", 0x2e, world::ScanGroup::Players, -1, true},   // C: player characters (you; party members one day) -- locking yourself aims cursor-placed skills at your feet
   };
   for (const Cycle& c : cycles) {
     world::ScanGroup g = c.group; int dir = c.dir;

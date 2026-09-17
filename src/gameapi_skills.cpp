@@ -47,6 +47,7 @@ struct Api {
   unsigned (*Profile_GetSkillTier)(const void*) = nullptr;
   void (*Skill_IncrementSkillLevel)(void*, unsigned) = nullptr;              // virtual
   bool (*Skill_DecrementSkillLevel)(void*, unsigned) = nullptr;              // virtual
+  void (*Skill_SetSkillLevel)(void*, unsigned) = nullptr;                    // virtual
   void** Skill_vftable = nullptr;
   unsigned (*GetSkillPoints)(const void*) = nullptr;
   void (*SubtractSkillPoint)(void*) = nullptr;
@@ -87,7 +88,7 @@ struct Api {
   void (*DisplaySkillReallocationWindow)(void*) = nullptr;   // the spirit guide's own open-in-reclaim-mode path
   bool loaded = false;
 } g;
-int g_s_enabled = -1, g_s_name = -1, g_s_profile = -1, g_s_inc = -1, g_s_dec = -1;
+int g_s_enabled = -1, g_s_name = -1, g_s_profile = -1, g_s_inc = -1, g_s_dec = -1, g_s_set = -1;
 constexpr int kSlotReleasePets = 0x80 / 8;   // Skill vtable +0x80 (the exe calls it right before IncrementSkillLevel)
 
 void load_skills() {
@@ -127,6 +128,7 @@ void load_skills() {
   GAPI_LOAD(g, Profile_GetSkillTier, SkillProfile_GetSkillTier);
   GAPI_LOAD(g, Skill_IncrementSkillLevel, Skill_IncrementSkillLevel);
   GAPI_LOAD(g, Skill_DecrementSkillLevel, Skill_DecrementSkillLevel);
+  GAPI_LOAD(g, Skill_SetSkillLevel, Skill_SetSkillLevel);
   GAPI_LOAD(g, Skill_vftable, Skill_vftable);
   GAPI_LOAD(g, GetSkillPoints, Character_GetSkillPoints);
   GAPI_LOAD(g, SubtractSkillPoint, Character_SubtractSkillPoint);
@@ -167,6 +169,7 @@ void load_skills() {
   g_s_profile = vslot(g.Skill_vftable, (const void*)g.Skill_GetSkillProfile);
   g_s_inc = vslot(g.Skill_vftable, (const void*)g.Skill_IncrementSkillLevel);
   g_s_dec = vslot(g.Skill_vftable, (const void*)g.Skill_DecrementSkillLevel);
+  g_s_set = vslot(g.Skill_vftable, (const void*)g.Skill_SetSkillLevel);
   log::writef("gameapi: Skill slots enabled={} name={} profile={} inc={} dec={}", g_s_enabled, g_s_name, g_s_profile, g_s_inc, g_s_dec);
 }
 const void* skill_manager() { load_skills(); void* p = player(); return p && g.GetSkillManager ? g.GetSkillManager(p) : nullptr; }
@@ -200,6 +203,21 @@ SkillInfo read_skill(void* s) {
   });
   return i;
 }
+// Fallback for a sub-skill whose GetBaseSkills read empty: reverse the base skills' own lists. A base skill keeps
+// its Skill_Modifier ids in GetModifiers and its SkillSecondary ids (pet modifiers) in GetSecondarySkills.
+void link_bases(std::vector<SkillInfo>& out) {
+  if (!g.Skill_GetModifiers && !g.Skill_GetSecondarySkills) return;
+  std::unordered_map<unsigned, unsigned> base_of;   // sub-skill id -> base skill id
+  for (const SkillInfo& s : out) {
+    std::vector<unsigned> subs;
+    guarded("GetModifiers", [&] {
+      if (g.Skill_GetModifiers) if (const MemVec* v = g.Skill_GetModifiers(s.p)) subs = vec_items<unsigned>(v, 64);
+      if (g.Skill_GetSecondarySkills) if (const MemVec* v = g.Skill_GetSecondarySkills(s.p)) for (unsigned m : vec_items<unsigned>(v, 64)) subs.push_back(m);
+    });
+    for (unsigned m : subs) base_of[m] = s.id;
+  }
+  for (SkillInfo& s : out) { if (s.modified_skill_id) continue; auto it = base_of.find(s.id); if (it != base_of.end()) s.modified_skill_id = it->second; }
+}
 }  // namespace
 
 std::vector<SkillInfo> skills() {
@@ -214,20 +232,7 @@ std::vector<SkillInfo> skills() {
     guarded("GetSkillList", [&] { ptrs = vec_items<void*>(g.SM_GetSkillList(sm), 1024); });
     for (void* s : ptrs) if (s) out.push_back(read_skill(s));
   }
-  // Fallback for a sub-skill whose GetBaseSkills read empty: reverse the base skills' own lists. A base skill keeps
-  // its Skill_Modifier ids in GetModifiers and its SkillSecondary ids (pet modifiers) in GetSecondarySkills.
-  if (g.Skill_GetModifiers || g.Skill_GetSecondarySkills) {
-    std::unordered_map<unsigned, unsigned> base_of;   // sub-skill id -> base skill id
-    for (const SkillInfo& s : out) {
-      std::vector<unsigned> subs;
-      guarded("GetModifiers", [&] {
-        if (g.Skill_GetModifiers) if (const MemVec* v = g.Skill_GetModifiers(s.p)) subs = vec_items<unsigned>(v, 64);
-        if (g.Skill_GetSecondarySkills) if (const MemVec* v = g.Skill_GetSecondarySkills(s.p)) for (unsigned m : vec_items<unsigned>(v, 64)) subs.push_back(m);
-      });
-      for (unsigned m : subs) base_of[m] = s.id;
-    }
-    for (SkillInfo& s : out) { if (s.modified_skill_id) continue; auto it = base_of.find(s.id); if (it != base_of.end()) s.modified_skill_id = it->second; }
-  }
+  link_bases(out);
   return out;
 }
 // A buff/debuff entry names itself by its skill id (SkillBuffTransfer+0x48): resolve the live Skill object and
@@ -321,13 +326,16 @@ std::vector<unsigned> mastery_ids() {
   guarded("GetSkillMasteries", [&] { g.GetSkillMasteries(p, buf.vec()); });
   return buf.take("GetSkillMasteries");
 }
-// The six base-game masteries (records/ui/skills/classselection/skills_classselectiontable.dbr lists them; the
-// tags are tagSkillClassName01..06 / tagSkillClassDescription01..06 and enumeration N = class{N+1:02}).
+// The nine masteries (records/ui/skills/classselection/skills_classselectiontable.dbr lists nine buttons; the tags
+// are tagSkillClassName01..09 / tagSkillClassDescription01..09 and enumeration N = class{N+1:02}). 07-09 are the
+// expansions' (Inquisitor, Necromancer = Ashes of Malmouth; Oathkeeper = Forgotten Gods): the base game ships their
+// mastery record and the placeholder text "?", the DLC databases supply the trees and the names -- so a "?" name is
+// the base-only install and the mastery is skipped (2026-09-15, docs/masteries.md).
 std::vector<MasteryChoice> mastery_choices() {
   std::vector<MasteryChoice> out;
-  for (int i = 0; i < 6; ++i) {
+  for (int i = 0; i < 9; ++i) {
     MasteryChoice c{i, localize(std::format("tagSkillClassName{:02}", i + 1)), localize(std::format("tagSkillClassDescription{:02}", i + 1))};
-    if (c.name.empty()) break;
+    if (c.name.empty() || c.name == "?") continue;
     out.push_back(std::move(c));
   }
   return out;
@@ -350,6 +358,61 @@ std::vector<std::string> skill_tooltip(const void* skill) {
   alignas(16) unsigned char reasons[64] = {};   // SkillReasons: ~14 bools, never null-checked by the builder
   guarded("GenerateUISkillText", [&] { g.GenerateUISkillText(skill, buf.vec(), reasons, false, false, 0, 0x31, true); });
   for (TextLine& l : buf.take("skill text")) out.push_back(std::move(l.text));
+  return out;
+}
+// Raising: IncrementSkillLevel(n) (= AddSkillLevel: level += n clamped to the profile's cap, recalc, the owner's
+// level-changed notify) then DecrementSkillLevel(n) (= max(level - n, 0), the same notify; at 0 the owner's "skill
+// removed" vt+0xc8). Lowering a learned skill to 0 therefore restores through SetSkillLevel(cur), whose > 0 path is
+// the owner's "skill added" vt+0xc0 -- the pair the game itself uses around a level reaching / leaving 0; lowering to
+// a level above 0 is the symmetric dec / inc. (Game.dll 0x46d480 SetSkillLevel, 0x46d520 Decrement, 0x47eed0 Add.)
+std::vector<std::string> skill_tooltip_at(const void* skill, unsigned level) {
+  load_skills();
+  if (!skill) return {};
+  unsigned cur = g.Skill_GetSkillLevel ? g.Skill_GetSkillLevel(skill) : 0;
+  auto inc = (void (*)(void*, unsigned))vfn(skill, g_s_inc);
+  auto dec = (void (*)(void*, unsigned))vfn(skill, g_s_dec);
+  auto set = (void (*)(void*, unsigned))vfn(skill, g_s_set);
+  if (level != cur && (!inc || !dec || !set)) return {};
+  // Separate guards: a fault inside the text builder must not skip the restore.
+  if (level > cur) guarded("skill_tooltip_at inc", [&] { inc((void*)skill, level - cur); });
+  else if (level < cur) guarded("skill_tooltip_at dec", [&] { dec((void*)skill, cur - level); });
+  std::vector<std::string> out = skill_tooltip(skill);
+  if (level > cur) guarded("skill_tooltip_at dec", [&] { dec((void*)skill, level - cur); });
+  else if (level < cur) guarded("skill_tooltip_at restore", [&] { if (level == 0) set((void*)skill, cur); else inc((void*)skill, cur - level); });
+  if (g.Skill_GetSkillLevel && g.Skill_GetSkillLevel(skill) != cur) log::writef("gameapi: skill_tooltip_at left {} at level {} (was {})", object_record(skill), g.Skill_GetSkillLevel(skill), cur);
+  return out;
+}
+// Dev: the whole skill list (SkillManager::GetSkillList, every mastery's tree whether chosen or not) grouped by the
+// mastery enumeration parsed off the record path (records/skills/playerclassNN/...), each skill with the game's text at
+// level 0 and at GetMaxLevel. Text lines are tab-indented so the parser (tools/gen_masteries_doc.py) never confuses them
+// with the field lines.
+std::string dump_masteries(std::string (*aim)(const void* skill)) {
+  load_skills();
+  const void* sm = skill_manager();
+  std::string out;
+  if (!sm || !g.SM_GetSkillList) return "no skill manager\n";
+  std::vector<void*> ptrs;
+  guarded("GetSkillList", [&] { ptrs = vec_items<void*>(g.SM_GetSkillList(sm), 2048); });
+  std::vector<SkillInfo> list;
+  for (void* s : ptrs) if (s) list.push_back(read_skill(s));
+  link_bases(list);
+  for (const MasteryChoice& c : mastery_choices()) out += std::format("mastery {} name={}\n", c.enumeration, c.name);
+  for (const SkillInfo& s : list) {
+    size_t at = s.record.find("playerclass");
+    if (at == std::string::npos || at + 13 > s.record.size()) continue;
+    int nn = atoi(s.record.substr(at + 11, 2).c_str());
+    if (nn < 1) continue;
+    std::string base;
+    if (s.modified_skill_id) { void* b = object_by_id(s.modified_skill_id); if (b) base = object_record(b); }
+    out += std::format("skill record={}\nname={}\nenum={} max={} ult={} req={} tier={} modifier={} base={} mastery_skill={} level={}\n",
+                       s.record, s.name, nn - 1, s.max_level, s.ultimate_level, s.mastery_req, s.tier, (int)s.modifier, base, (int)s.is_mastery, s.level);
+    if (aim) out += std::format("aim={}\n", aim(s.p));
+    for (unsigned lvl : {0u, s.max_level}) {
+      out += std::format("@level {}\n", lvl);
+      for (const std::string& l : skill_tooltip_at(s.p, lvl)) out += "\t" + l + "\n";
+    }
+    out += "end\n";
+  }
   return out;
 }
 // Whether the character can put a point into this skill right now, and if not, a spoken reason. Replicates the

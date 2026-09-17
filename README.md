@@ -176,7 +176,8 @@ itself hovers and targets it, and plays a route ping. Shift reverses; Alt jumps 
 | M / Shift+M | Next / previous loot: items on the ground, containers |
 | V / Shift+V | Next / previous exit of the current room ("blocked" if the way is shut) |
 | ] / [ | Next / previous of your own pets ("Hellhound, aggressive, 2 away, 1 o'clock, 1 of 2") |
-| Alt + . , N B M V ] | The nearest of that group, whatever is reviewed now |
+| C / Shift+C | Next / previous player character: yourself ("claude, you, 1 of 1"), and party members in multiplayer. Reviewing yourself parks the cursor on you, so a skill that drops at the cursor (Inquisitor Seal, a totem, a trap) lands at your own feet |
+| Alt + . , N B M V ] C | The nearest of that group, whatever is reviewed now |
 | ; | Ping the reviewed thing again: one of three sounds (straight walk / path around / unreachable), panned, fading with distance. Also replayed automatically when the route kind changes |
 | / | Inspect the target: health percent and status effects |
 | \ | Sonar on / off: every nearby enemy, loot drop, breakable, devotion shrine (ruined shrines have their own sound; restored ones share the loot ping), dungeon entrance and other person or thing you can use (quest NPCs, merchants, doors, levers, riftgates, notes, graves) repeats its own ping, faster as it nears and panned to its side |

@@ -97,13 +97,14 @@ bool entity_position(unsigned id, Vec3& out);
 // SkillTargetType plus the skill's class. None = not an activated skill (a passive or a modifier).
 enum class SkillAim { None, SelfCast, AroundYou, AtPoint, AtTarget };
 SkillAim skill_aim(const void* skill_obj);   // skill_obj from gameapi::object_by_id(skill_id)
+int skill_target_type(const void* skill_obj);   // the raw SkillActivated::GetTargetType (-1 = not a SkillActivated); dev / docs
 
 // ---- the review cursor (wotr's scanner, adapted) ----
 // Groups cycle nearest-first from the player; the landing is remembered by OBJECT ID (session-unique,
 // from ObjectManager::CreateObjectID) and re-found in a fresh query on every step -- never by pointer --
 // so a despawned target simply drops out and the next step enters at the nearest. The landing also
 // parks the virtual cursor on the thing, so the game hovers / targets it natively.
-enum class ScanGroup { Enemies, Neutrals, Bystanders, Objects, Exits, Loot, Transitions, Pets, Destructibles, Shrines, Interactables };   // Interactables: sonar only -- the N group (people + objects of interest) minus the kinds with a cue of their own   // Pets: the player's own summons ([ / ]), note = stance; Destructibles / Shrines: sonar only   // Loot/Transitions: the sonar sweep only
+enum class ScanGroup { Enemies, Neutrals, Bystanders, Objects, Exits, Loot, Transitions, Pets, Destructibles, Shrines, Interactables, Players };   // Players (C): every player character incl. yourself (note "you") -- one today, party members in multiplayer   // Interactables: sonar only -- the N group (people + objects of interest) minus the kinds with a cue of their own   // Pets: the player's own summons ([ / ]), note = stance; Destructibles / Shrines: sonar only   // Loot/Transitions: the sonar sweep only
 // note: an extra spoken list item ("blocked" for an exit whose opening the live mesh refuses), normally empty.
 // level/classification are filled for enemies only (classification -1 = not read: not an enemy, or unknown);
 // classification is the MonsterClassification enum (0 Common, 1 Champion, 2 Hero, 3 Boss, 4 Quest, 5 SuperBoss).

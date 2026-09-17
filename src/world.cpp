@@ -1990,6 +1990,8 @@ bool in_group(const void* e, const void* ci, const std::string& cls, ScanGroup g
     case ScanGroup::Interactables:
       return in_group(e, ci, cls, ScanGroup::Neutrals) && !is_named_kind(ci, "DungeonEntrance") &&
              !(g_api.StaticShrine_StaticClassInfo && is_kind_of(ci, g_api.StaticShrine_StaticClassInfo()));
+    // C = player characters: yourself today, party members in multiplayer (the sphere query returns the main player too).
+    case ScanGroup::Players: return is_a(ci, g_api.Player_StaticClassInfo);
     default: break;
   }
   return false;
@@ -2015,6 +2017,13 @@ SkillAim skill_aim(const void* skill_obj) {
     case 3: return SkillAim::AtPoint;                                                             // a ground location: movement, placed AoE
     default: return SkillAim::None;                                                               // 0 = passive / not applicable
   }
+}
+
+int skill_target_type(const void* skill_obj) {
+  if (!skill_obj || !g_api.SkillActivated_StaticClassInfo || !g_api.SkillActivated_GetTargetType) return -1;
+  if (!is_kind_of(rtti_of(skill_obj), g_api.SkillActivated_StaticClassInfo())) return -1;
+  int tt = 0;
+  return call_int_fn(skill_obj, g_api.SkillActivated_GetTargetType, &tt) ? tt : -1;
 }
 
 int clock_hour(const Vec3& p) {
@@ -2149,6 +2158,7 @@ std::vector<ScanItem> scan(ScanGroup group, float radius) {
       if (label.empty()) label = std::string(gd::strings::kEntrance);
       if (!is_of_interest(e, r.ci)) note = std::string(gd::strings::kLocked);
     }
+    if (group == ScanGroup::Players && r.id == player_id()) note = std::string(gd::strings::kYou);
     out.push_back({r.id, cls, label, record, r.pos, d, note, lvl, cls_i});
   }
   std::sort(out.begin(), out.end(), [](const ScanItem& a, const ScanItem& b) { return a.dist < b.dist; });
@@ -2164,6 +2174,7 @@ static std::string_view group_label(ScanGroup g) {
     case ScanGroup::Loot: return gd::strings::kLoot;
     case ScanGroup::Transitions: return gd::strings::kTransitions;
     case ScanGroup::Pets: return gd::strings::kPets;
+    case ScanGroup::Players: return gd::strings::kCharacters;
     default: return gd::strings::kLoot;
   }
 }
@@ -2187,7 +2198,10 @@ static std::string land_on(std::vector<ScanItem>& items, ScanGroup group, int di
   if (group == ScanGroup::Enemies && it.classification >= 0) {   // "walking undead level 5 hero"
     gd::core::MessageBuilder em; gd::strings::push_enemy_label(em, label, it.level, it.classification); label = em.build();
   }
-  gd::strings::push_scan_item(m, label, it.dist, clock_hour(it.pos), idx + 1, count, !on_screen(it.id), it.note);
+  // Your own character: no distance or bearing to yourself ("claude, you, 1 of 1"); the lock parks the cursor on you,
+  // which is how a cursor-placed skill (Inquisitor Seal, a totem) goes under your own feet.
+  if (group == ScanGroup::Players && it.id == player_id()) gd::strings::push_scan_self(m, label, idx + 1, count);
+  else gd::strings::push_scan_item(m, label, it.dist, clock_hour(it.pos), idx + 1, count, !on_screen(it.id), it.note);
   return m.build();
 }
 

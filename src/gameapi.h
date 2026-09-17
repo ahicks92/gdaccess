@@ -170,6 +170,13 @@ std::string dump_item_skills();                  // dev: GetItemSkillList vs equ
 unsigned masteries_allowed();
 std::vector<unsigned> mastery_ids();             // the masteries the character has
 std::vector<std::string> skill_tooltip(const void* skill);   // GameEngine::GenerateUISkillText
+// The same text with the skill temporarily at `level` (the game's own IncrementSkillLevel(n) / DecrementSkillLevel(n)
+// pair around the call; a level at or below the current one reads as-is). Dev/documentation use only: the increment
+// applies the skill's passive effects to the character for the duration of the call.
+std::vector<std::string> skill_tooltip_at(const void* skill, unsigned level);
+// dev: every mastery's tree with the tooltip at level 0 and at max (tools/gen_masteries_doc.py); `aim` (optional) labels a
+// skill object's targeting (the caller supplies world::skill_aim -- gameapi does not depend on world).
+std::string dump_masteries(std::string (*aim)(const void* skill) = nullptr);
 std::string skill_name_by_id(unsigned skill_id);   // object_by_id -> Skill::CreateUISkillName (buff/debuff labels); "" if none
 // "" = the skill can take a point now; otherwise a human reason (no points / mastery rank / base skill).
 std::string can_learn_skill(const void* skill);
@@ -178,7 +185,8 @@ std::string can_reclaim_skill(const void* skill); // "" = can reclaim now; else 
 bool refund_skill(const void* skill);            // -1 level; only at a spirit guide (exe_ui::skills_reclaim_mode)
 unsigned reclaim_cost();                          // SkillManager::GetCurrentSkillReclamationCost (iron bits for the next reclaim)
 
-// Masteries offered for selection: the six base classes (tagSkillClassName01..06 / tagSkillClassDescription01..06);
+// Masteries offered for selection: the nine classes (tagSkillClassName01..09 / tagSkillClassDescription01..09; 07-09
+// are the expansions', whose base-game tags read "?" and are skipped without the DLC);
 // `enumeration` is the game's mastery index (0 = Soldier), also the pane index for exe_ui::skills_set_pane.
 struct MasteryChoice { int enumeration; std::string name, description; };
 std::vector<MasteryChoice> mastery_choices();
