@@ -1,5 +1,6 @@
 #include "screens/skills.h"
 #include <algorithm>
+#include <cctype>
 #include <format>
 #include "app.h"
 #include "core/navigator.h"
@@ -19,8 +20,9 @@ using namespace gd::core;
 // Refunding is only possible AT A SPIRIT GUIDE (the game opens this window in reclaim mode,
 // exe_ui::skills_reclaim_mode): then a hint row appears at the top of the list, each skill shows its iron-bit
 // reclaim cost, and Backspace reclaims one point. Ctrl+1..0 / Ctrl+J / Ctrl+I assign the focused skill to the quickbar.
-// Constellations: the points and affinity lines, then one tree group per constellation ("Bat, 2 of 5, celestial
-// power Twin Fangs, gives Chaos 3, Eldritch 2"; Space = the constellation's description and requirements) holding
+// Constellations: the points and affinity lines, then three Tab stops -- learned, available, unavailable -- each an
+// alphabetical list of tree groups ("Bat (2/5), celestial power Twin Fangs, gives Chaos 3, Eldritch 2"; Space = the
+// constellation's description and requirements; "empty" when a stop has none) holding
 // its stars breadth-first from the root ("star 3, needs star 2"; Enter spends a devotion point, Space = the game's
 // star tooltip). A learned celestial power's Enter opens the host picker. Celestial Powers: every learned power
 // ("Twin Fangs, level 2 of 20, attached to Cadence, from Bat"), Enter = the host picker, Space = the tooltip.
@@ -192,18 +194,11 @@ class SkillsScreen : public WindowScreen, public AssignSource {
     MessageBuilder a; a.fragment(strings::kAffinities).list_item().fragment(gameapi::affinities_text());
     b.add_item(ControlId::structural("skills.affinities"), line_item(a.build()));
   }
-  // Ordering a blind player can use without the picture: constellations with points in them first, then the
-  // ones open to take, then complete ones, then those still locked behind an affinity; game order within each.
-  static int state_rank(const gameapi::DevotionConstellation& c) {
-    if (c.complete) return 2;
-    if (c.learned) return 0;
-    return c.affinity_met ? 1 : 3;
-  }
   static std::string constellation_value(const gameapi::DevotionConstellation& c) {
     MessageBuilder m;
     m.list_item();
     if (c.complete) m.fragment(strings::kComplete);
-    else if (c.learned) m.fragment(std::format("{} of {}", c.learned, c.stars.size()));
+    else if (c.learned) {}   // the count is in the name: "Bat (2/5)"
     else if (c.affinity_met) m.fragment(strings::kAvailable);
     else {
       MessageBuilder r;
@@ -312,24 +307,35 @@ class SkillsScreen : public WindowScreen, public AssignSource {
       m.list_item().fragment(std::format("{}", cost)).fragment(strings::kIronBits).fragment(strings::kAnd).fragment(std::format("{}", gameapi::devotion_reclaim_aether_cost())).fragment(strings::kAetherCrystals).fragment(strings::kEach);
       b.add_item(ControlId::structural("skills.devreclaim"), line_item(m.build()));
     }
-    if (cons.empty()) { b.add_item(ControlId::structural("skills.nocons"), line_item(std::string(strings::kEmpty))); return; }
-    std::vector<const gameapi::DevotionConstellation*> order;
-    for (const gameapi::DevotionConstellation& c : cons) order.push_back(&c);
-    std::stable_sort(order.begin(), order.end(), [](const gameapi::DevotionConstellation* a, const gameapi::DevotionConstellation* c) { return state_rank(*a) < state_rank(*c); });
-    for (const gameapi::DevotionConstellation* cp : order) {
-      const gameapi::DevotionConstellation& c = *cp;
-      std::string id = std::format("skills.con{:x}", (uintptr_t)c.p);
-      std::string name = c.name, value = constellation_value(c);
-      gameapi::DevotionConstellation copy = c;
-      auto v = std::make_shared<NodeVtable>();
-      v->control_type = &kGroupType;
-      v->announcements = {NodeAnnouncement([name] { return name; }, false, announcement_kinds::kLabel),
-                          NodeAnnouncement([value] { return value; }, true, announcement_kinds::kValue)};
-      v->on_tooltip = [copy] { speak_lines(gameapi::constellation_tooltip(copy)); };
-      b.begin_group(ControlId::structural(id), v);
-      for (unsigned i : gameapi::star_order(c)) for (const gameapi::DevotionStar& s : c.stars) if (s.index == i) add_star(b, id, c, s, reclaim, cost);
-      b.end_group();
+    // Three Tab stops -- learned (a star taken; complete ones included), available (open to take), unavailable (locked
+    // behind an affinity) -- alphabetical within each, "empty" for a stop with nothing in it (as the inventory's bags).
+    // The name carries the progress: "Bat (2/5)". Reclaim mode (a spirit guide) changes only the rows: the hint row
+    // above and each star's cost + Backspace, the same in every stop.
+    struct Stop { const char* key; std::string_view title; std::vector<const gameapi::DevotionConstellation*> items; };
+    Stop stops[3] = {{"learned", strings::kLearned, {}}, {"available", strings::kAvailable, {}}, {"unavailable", strings::kUnavailable, {}}};
+    for (const gameapi::DevotionConstellation& c : cons) stops[c.learned ? 0 : c.affinity_met ? 1 : 2].items.push_back(&c);
+    auto lower = [](std::string t) { for (char& ch : t) ch = (char)tolower((unsigned char)ch); return t; };
+    for (Stop& st : stops) {
+      std::stable_sort(st.items.begin(), st.items.end(), [&](const gameapi::DevotionConstellation* a, const gameapi::DevotionConstellation* c) { return lower(a->name) < lower(c->name); });
+      b.begin_stop(std::string("skills.") + st.key);
+      b.push_context(st.title, strings::kList);
+      if (st.items.empty()) b.add_item(ControlId::structural(std::format("skills.{}.empty", st.key)), line_item(std::string(strings::kEmpty)));
+      for (const gameapi::DevotionConstellation* cp : st.items) add_constellation(b, *cp, reclaim, cost);
+      b.pop_context();
     }
+  }
+  void add_constellation(GraphBuilder& b, const gameapi::DevotionConstellation& c, bool reclaim, unsigned cost) {
+    std::string id = std::format("skills.con{:x}", (uintptr_t)c.p);
+    std::string name = std::format("{} ({}/{})", c.name, c.learned, c.stars.size()), value = constellation_value(c);
+    gameapi::DevotionConstellation copy = c;
+    auto v = std::make_shared<NodeVtable>();
+    v->control_type = &kGroupType;
+    v->announcements = {NodeAnnouncement([name] { return name; }, false, announcement_kinds::kLabel),
+                        NodeAnnouncement([value] { return value; }, true, announcement_kinds::kValue)};
+    v->on_tooltip = [copy] { speak_lines(gameapi::constellation_tooltip(copy)); };
+    b.begin_group(ControlId::structural(id), v);
+    for (unsigned i : gameapi::star_order(c)) for (const gameapi::DevotionStar& s : c.stars) if (s.index == i) add_star(b, id, c, s, reclaim, cost);
+    b.end_group();
   }
   void build_powers(GraphBuilder& b, const std::vector<gameapi::DevotionConstellation>& cons) {
     bool any = false;

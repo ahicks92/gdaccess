@@ -142,8 +142,8 @@ itself is never shown. `src/gameapi_devotion.cpp` (model) + `src/screens/skills.
   +0x90/+0xa8, Star +0x108/+0x10c/+0x118; two byte signatures added to `available()`), everything else exports.
   Eligibility is recomputed from exports (links + `GetSkillLevel`, `GetAffinity` vs the required pairs), not read
   from the Star flags (those are only refreshed while the game's window is shown).
-- Constellations tab: points + affinities lines, then a tree group per constellation sorted in-progress / available /
-  complete / locked; stars breadth-first from the root, "star N" (powers by name), value learned / needs star K /
+- Constellations tab: points + affinities lines, then three Tab stops (learned incl. complete / available / unavailable,
+  2026-09-18), each an alphabetical list of tree groups named "Bat (2/5)", "empty" when it has none; stars breadth-first from the root, "star N" (powers by name), value learned / needs star K /
   needs <affinity> / available. Enter = `take_star` (the window's spend sequence + the completion bonus), Space =
   `GenerateUIDevotionText` with our 14-byte SkillReasons (the icon-only "Complete Constellation Bonus" block is
   replaced by spoken pairs); group Space = name, description, "requires X n, have m", "gives ...".

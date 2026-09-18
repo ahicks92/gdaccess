@@ -406,6 +406,7 @@ inline constexpr std::string_view kCelestialPower = "celestial power";
 inline constexpr std::string_view kAffinities = "affinities";
 inline constexpr std::string_view kNoAffinity = "no affinity";
 inline constexpr std::string_view kAvailable = "available";
+inline constexpr std::string_view kUnavailable = "unavailable";   // the constellations tab's third Tab stop: locked behind an affinity
 inline constexpr std::string_view kStar = "star";                  // "star 3" -- stars have no names of their own
 inline constexpr std::string_view kNeedsStar = "needs star";       // "needs star 2": the linked star is not learned yet
 inline constexpr std::string_view kNeeds = "needs";                // "needs Chaos 4": the constellation's affinity requirement
