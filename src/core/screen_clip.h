@@ -24,4 +24,22 @@ inline bool clip_toward(float fx, float fy, float tx, float ty, float w, float h
   return true;
 }
 
+// The farthest point of the segment from (fx, fy) to (tx, ty) that lies in none of `rects` (items with x, y, w, h;
+// the HUD's screen rectangles), sampled from the target end back toward the start in `steps` even steps and never
+// closer to the start than `min_t` of the way (a point on the player's own body is not an aim). False when every
+// sample is covered. Used to aim a press along the player-to-target line when the target's own point is on the HUD.
+template <class Rects>
+inline bool back_off_rects(float fx, float fy, float tx, float ty, const Rects& rects, int steps, float min_t, float& ox, float& oy) {
+  if (steps < 1) steps = 1;
+  for (int i = 0; i <= steps; ++i) {
+    float t = 1.0f - (float)i / (float)steps;
+    if (t < min_t) return false;
+    float x = fx + (tx - fx) * t, y = fy + (ty - fy) * t;
+    bool covered = false;
+    for (const auto& r : rects) if (x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h) { covered = true; break; }
+    if (!covered) { ox = x; oy = y; return true; }
+  }
+  return false;
+}
+
 }  // namespace gd::core

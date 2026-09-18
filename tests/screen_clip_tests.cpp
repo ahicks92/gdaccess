@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 #include "core/screen_clip.h"
+#include <vector>
 
 using namespace gd::core;
 
@@ -47,4 +48,37 @@ TEST_CASE("clip_toward: a target on the start point stays put") {
   CHECK(clip_toward(800, 450, 800, 450, 1600, 900, 4, x, y));
   CHECK(x == doctest::Approx(800));
   CHECK(y == doctest::Approx(450));
+}
+
+namespace { struct R { float x, y, w, h; }; }
+
+TEST_CASE("back_off_rects: a target clear of every rect is returned as is") {
+  std::vector<R> hud{{398, 781, 805, 119}};
+  float x = 0, y = 0;
+  CHECK(back_off_rects(800, 450, 800, 700, hud, 40, 0.15f, x, y));
+  CHECK(x == doctest::Approx(800));
+  CHECK(y == doctest::Approx(700));
+}
+
+TEST_CASE("back_off_rects: a target on the HUD backs off along the line to just above it") {
+  std::vector<R> hud{{398, 781, 805, 119}};
+  float x = 0, y = 0;
+  CHECK(back_off_rects(800, 450, 800, 860, hud, 40, 0.15f, x, y));
+  CHECK(x == doctest::Approx(800));
+  CHECK(y < 781);
+  CHECK(y > 760);   // the first sample above the HUD, not the player's own point
+}
+
+TEST_CASE("back_off_rects: a diagonal line keeps its bearing") {
+  std::vector<R> hud{{398, 781, 805, 119}};
+  float x = 0, y = 0;
+  CHECK(back_off_rects(800, 450, 1000, 890, hud, 40, 0.15f, x, y));
+  CHECK(y < 781);
+  CHECK(x == doctest::Approx(800 + (y - 450) * 200 / 440).epsilon(0.01));
+}
+
+TEST_CASE("back_off_rects: refuses when only the player's own point is clear") {
+  std::vector<R> hud{{0, 100, 1600, 800}};   // everything below y 100 is covered
+  float x = 0, y = 0;
+  CHECK_FALSE(back_off_rects(800, 450, 800, 700, hud, 40, 0.15f, x, y));
 }

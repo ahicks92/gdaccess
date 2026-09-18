@@ -276,6 +276,9 @@ bool ingame_key_action(int action);
 // choose-a-class path; permanent once the mastery skill has a point. skills_tab() = the window's current tab.
 // The quickbar page the HUD shows (InGameUI+0x72f0, 0..3; the Y key cycles it), -1 outside the world.
 int quickbar_page();
+// The game's Toggle UI state (key action 0x3c, default ], flips InGameUI+0xac990; only the UI render pass reads it,
+// so a hidden interface still takes keys and clicks): 1 = interface shown, 0 = hidden, -1 outside the world.
+int ui_visible();
 // A vendor window's market id (its marketGrid +0x2410 keeps it at +0x54; 0 outside a vendor).
 unsigned vendor_market_id(const WindowB& vendor_window);
 // The vendor window's tab map (window+0x26f8, mem::map<Market_TypeEnum, TabButton*>; read by its refresh at

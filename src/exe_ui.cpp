@@ -1024,6 +1024,9 @@ bool caravan_refresh(bool shared, const void* sack_vector) {
   return ok;
 }
 int quickbar_page() { void* ui = ingame_ui(); int p = ui ? rd_or<int>(ui, 0x72f0, -1) : -1; return p >= 0 && p < 4 ? p : (ui ? 0 : -1); }
+// Toggle UI's byte (InGameUI+0xac990: the ctor exe+0x206dca sets 1, key action 0x3c at exe+0x211f5e flips it, the
+// render pass exe+0x20a860 skips every window but the pause menu / options host / prompt box while it is 0).
+int ui_visible() { void* ui = ingame_ui(); if (!ui) return -1; unsigned char b = rd_or<unsigned char>(ui, 0xac990, 1); return b ? 1 : 0; }
 int skills_tab() { void* ui = ingame_ui(); return ui ? rd_or<int>((char*)ui + ingame::kSkills, kSkillsWindow_Tab, -1) : -1; }
 // The skills window's mastery panes (UISkillPane, ctor exe+0x243510, 0x1ea8 bytes, vtable exe+0x31bd18; RE
 // 2026-08-27): heap objects at window+0x100 (tab 0) / +0x108 (tab 1), replaced by the 0x3d0-byte class-selection

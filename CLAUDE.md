@@ -778,6 +778,16 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   refuses such a point ("behind the interface") and `release_point` moves a release off the HUD (a swallowed release
   is the phantom-hold bug again). Not covered: the floating minimap corner. Dev: `/hud[?x=&y=]`. The world screen's
   byte +0x121 is a per-frame "click handled" latch, not a hover flag; the game exposes no mouse-over-UI predicate.
+- Aim by direction + Toggle UI (2026-09-17, aim built + compiled, NOT verified live; toggle announcement built): the
+  game's Toggle UI (`]`, key action 0x3c) flips InGameUI+0xac990 (ctor 1 = shown), read ONLY by the UI render pass --
+  VERIFIED live: the hidden HUD still sets rollover, still opens the exit window on a click, no world click; so the
+  "behind the interface" refusal cannot be dodged by hiding. `exe_ui::ui_visible`, spoken as "interface shown/hidden"
+  from `quickbar_tick`. Measured at max zoom (player at screen centre, pitch 46, camera to the south): window edge
+  ~21 u north, ~22 u east/west, ~13 u south; the HUD block starts 10.3 u south within ~11 u east-west. A sighted
+  player never clicks a distant enemy's body: every skill but the charges fires at the cursor's ground point (enemy
+  search near it, else the point) and they rotate the camera. So `world::press_point` now aims a locked target whose
+  point is on the HUD or off the window BY DIRECTION (`aim_along_line`: screen ray through a point 6 u out, clipped to
+  the window, backed off the HUD by `core::back_off_rects`); "too far away" no longer fires for a locked target.
 - Row-vanish landing + announcement fixed in the core (2026-09-04, from the stash screen: Enter on the first item bounced
   to the tab strip and every Enter repeated the list title; 2 new doctests): (1) `GraphBuilder::add_item` stamps an
   actionable node's `land_group` with its Tab stop key when the screen set none -- reconcile's tier-3 rule (nearest

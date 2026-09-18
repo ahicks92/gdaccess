@@ -2590,11 +2590,52 @@ bool player_screen_pos(float& x, float& y) {
 // Where a press lands; false when there is nothing on screen to press.
 // over_hud: the point is on the game's HUD (exe_ui::point_over_hud) -- the UI would take the click (a hotslot, a
 // menu button), the world would never see it, so it is not a press point (2026-09-04).
+// A locked target whose own point is not pressable -- on the HUD, or off the window (at max zoom the window's south
+// edge is 13 units out against 21 north: the camera sits south of the player looking down at 46 degrees, the same
+// geometry a sighted player has) -- is aimed at BY DIRECTION, as a sighted player does: the press lands on the
+// player-to-target line where it leaves the aimable area (the window inset by kEdgeMargin, then backed off the HUD).
+// The game fires point-aimed skills that way, searches near the point for an enemy, and walks / attacks a weapon
+// attack toward it (docs/skills-targeting.md); only the charges refuse without an entity, natively. The screen ray is
+// taken through a reference point a few units out (always on screen and in front of the camera; a far target behind
+// the camera would project mirrored), and the target's own projection is used only when it lies that way (2026-09-17).
+constexpr float kAimRefUnits = 6.0f;
+constexpr int kAimSteps = 40;
+constexpr float kAimMinT = 0.15f;
+bool aim_along_line(float w, float h, float& x, float& y) {
+  Vec3 target;
+  if (g_point_locked) target = g_locked_point;
+  else if (!g_locked_id || !entity_position(g_locked_id, target)) return false;
+  Buf base;
+  if (!player_world_vec(base)) return false;
+  Vec3 me = world_pos_of(base);
+  float dx = target.x - me.x, dz = target.z - me.z, d = std::sqrt(dx * dx + dz * dz);
+  if (d < 0.5f) return false;
+  float r = d < kAimRefUnits ? d : kAimRefUnits;
+  Vec3 ref{me.x + dx / d * r, me.y, me.z + dz / d * r};
+  float px, py, rx, ry;
+  if (!player_screen_pos(px, py) || !inside_window(px, py, w, h) || !project_point(ref, rx, ry)) return false;
+  float sx = rx - px, sy = ry - py, len = std::sqrt(sx * sx + sy * sy);
+  if (len < 1.0f) return false;
+  float ex, ey;
+  float tx, ty;
+  bool own = virtual_cursor_pos(tx, ty) && inside_window(tx, ty, w, h) && (tx - px) * sx + (ty - py) * sy > 0;
+  if (own) { ex = tx; ey = ty; }
+  else if (!gd::core::clip_toward(px, py, px + sx / len * 4000.f, py + sy / len * 4000.f, w, h, kEdgeMargin, ex, ey)) return false;
+  return gd::core::back_off_rects(px, py, ex, ey, gd::exe_ui::hud_rects(), kAimSteps, kAimMinT, x, y);
+}
 bool press_point(float& x, float& y, bool* over_hud = nullptr) {
   float w, h;
   if (over_hud) *over_hud = false;
   if (!client_size(w, h)) return false;
-  bool ok = (g_locked_id || g_point_locked) ? (virtual_cursor_pos(x, y) && inside_window(x, y, w, h)) : gd::hooks::real_cursor_in_window(x, y);
+  if (g_locked_id || g_point_locked) {
+    bool shown = virtual_cursor_pos(x, y) && inside_window(x, y, w, h);
+    bool on_hud = shown && gd::exe_ui::point_over_hud(x, y);
+    if (shown && !on_hud) return true;
+    if (aim_along_line(w, h, x, y)) return true;
+    if (over_hud) *over_hud = on_hud;
+    return false;
+  }
+  bool ok = gd::hooks::real_cursor_in_window(x, y);
   if (ok && gd::exe_ui::point_over_hud(x, y)) { if (over_hud) *over_hud = true; return false; }
   return ok;
 }
@@ -2642,9 +2683,9 @@ void mouse_key(int button, bool held) {
   float x, y;
   bool over_hud = false;
   if (!press_point(x, y, &over_hud)) {
-    // The lock is on something the camera does not show, or nothing is locked and the real cursor is off the
-    // window: nothing to press. A hold in progress whose target just left the window ends here, on screen. A point on
-    // the HUD is refused too: the click would land on a hotslot or menu button, not on the target behind it.
+    // Nothing is locked and the real cursor is off the window or on the HUD, or a locked target could not even be
+    // aimed at by direction (projection failed, or the whole line to it is under the HUD): nothing to press. A hold in
+    // progress ends here, on screen.
     if (edge) gd::speech::speak(over_hud ? gd::strings::kBehindInterface : (g_locked_id || g_point_locked) ? gd::strings::kTooFarAway : gd::strings::kNoTarget, true);
     release_hold(button);
     return;

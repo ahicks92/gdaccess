@@ -46,7 +46,14 @@ below has been exercised live yet. RVAs are `exe+`; window offsets are from `InG
 - 6 Group (K): `+0xa430` -> party `+0x4b540` (network only). 7 Game Menu (G): `+0x9a70` via host `+0x72f8` -> exit `+0x4a300`.
 - 8 Help (H): toggles the codex and presses its helpButton `+0x1278` through the window's registry `+0x220`.
 - 0x21 Riftgate (L), 0x22 Switch Weapons, 0x2c..0x31 pets, 0x34 Factions (J): `+0xadf0` -> `+0x6c9b8`,
-  0x35 Achievements (V): `+0xa778` -> `+0x7d150`, 0x36 Interact, 0x37 Pickup, 0x38 Loot Filter (O): `+0x8940` via `+0x72f8` -> `+0xab410`.
+  0x35 Achievements (V): `+0xa778` -> `+0x7d150`, 0x36 Interact, 0x37 Pickup, 0x38 Loot Filter (O): `+0x8940` via `+0x72f8` -> `+0xab410`,
+  0x3c Toggle UI (]): flips the byte `+0xac990` (ctor sets 1 = shown; `exe_ui::ui_visible`, announced by
+  `quickbar_tick`). Read ONLY by the render pass exe+0x20a860: while 0 it skips every window and the HUD except the
+  exit window `+0x4a300`, the options host `+0x4def8`, the prompt box `+0x7378` (and the dev item-spawn window);
+  Update / key / mouse handling never look at it, so hidden windows still take keys and the HUD still eats clicks
+  (VERIFIED live 2026-09-17: with the byte 0 a hover on the game-menu button set its rollover byte, a click opened the
+  exit window and no HandleActionFromMouse fired -- identical to the shown state; the "behind the interface" refusal stays).
+  Not persisted. 0x3d = the Ascendant Altar window (expansion 3 only).
 - `InGameUI::OnWindowVisibilityChanged` exe+0x213110 keeps each HUD button's pressed byte in sync, so
   **"is window X open" = a byte**: inventory `+0x966a`, codex `+0x99b2`, skills `+0xa032`, minimap `+0xa372`,
   chat `+0xad3a`, factions `+0xb072`, party `+0xa6b2`, achievements `+0xa9fa`, loot filter `+0x8bc2`,

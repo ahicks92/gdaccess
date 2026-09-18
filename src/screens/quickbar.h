@@ -10,7 +10,7 @@ namespace gd::screens {
 // Model: src/gameapi.h hot slots.
 void speak_slot(int k);            // read quickbar slot k (1..10) of the displayed bar
 void speak_mouse(bool primary);    // read the left (primary) / right (secondary) mouse skill
-void quickbar_tick();              // per world frame: announce a page change
+void quickbar_tick();              // per world frame: announce a page change, and the game's Toggle UI (]) flipping
 void quickbar_reset();             // forget the last page (on leaving the world), so the next switch announces
 // Assign the current screen's focused skill: target 1..10 = quickbar slot, 0 = left mouse, -1 = right mouse.
 void assign_focused(int target);

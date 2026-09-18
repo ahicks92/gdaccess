@@ -60,17 +60,24 @@ void speak_mouse(bool primary) {
 // Announce the displayed quickbar page when it changes (the game's own Y = Quickbar Switch cycles it; we only
 // add the readout). Called every world frame; the first observation seeds without speaking, and re-entering
 // the world resets so the next switch announces afresh.
-namespace { int g_last_page = -2; }
+// The same for the game's Toggle UI key (]): the interface hidden / shown flag is a draw-only byte the game never
+// announces, and a sighted helper sees every window vanish -- say which way it went.
+namespace { int g_last_page = -2; int g_last_ui_visible = -2; }
 void quickbar_tick() {
   int p = exe_ui::quickbar_page();
-  if (p < 0) { g_last_page = -2; return; }
+  if (p < 0) { g_last_page = -2; g_last_ui_visible = -2; return; }
   if (g_last_page != -2 && p != g_last_page) {
     MessageBuilder m; m.fragment(strings::kQuickbar).fragment(std::format("{}", p + 1));
     speech::speak(m.build(), true);
   }
   g_last_page = p;
+  int v = exe_ui::ui_visible();
+  if (v >= 0) {
+    if (g_last_ui_visible != -2 && v != g_last_ui_visible) speech::speak(std::string(v ? strings::kInterfaceShown : strings::kInterfaceHidden), true);
+    g_last_ui_visible = v;
+  }
 }
-void quickbar_reset() { g_last_page = -2; }
+void quickbar_reset() { g_last_page = -2; g_last_ui_visible = -2; }
 
 void assign_focused(int target) {
   Screen* cur = app::screens().current();
