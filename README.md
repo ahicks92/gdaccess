@@ -26,14 +26,15 @@ get; hopefully you have fun, but it might also explode on you in ways no one can
   `C:\Program Files (x86)\Steam\steamapps\common\Grim Dawn`. The mod reaches into the game's private UI
   objects by code layout; any other build (a GOG build, a Steam patch) gets one spoken line -- "unsupported
   game build, exe timestamp <hex>, supported 1.3.0.8 Steam, the mod is off" -- and the mod installs nothing.
-  Report that timestamp when you ask about a new build.
-  A different install path works if you pass `-GameExe` to `tools/inject.ps1` (below).
+  Report that timestamp when you ask about a new build. Any install path works; the launcher asks Steam where
+  the game is (see Launching).
 - Windows 10/11 x64.
 - A screen reader (NVDA, JAWS, or any that prism supports). Menu and window text goes to the screen reader.
 - The Windows OneCore voices "Mark" and "Zira" (Settings -> Time & Language -> Speech -> Manage voices,
   English (United States)). These carry the in-world speech: Mark speaks at the enemy's position, Zira is the
   player and the room announcer. If they are missing the default OneCore voice is used for both.
-- Visual Studio 2022 to build it (see Building, at the end).
+- Steam running (the launcher starts the game outside Steam's Play button, but the game still talks to Steam).
+- Visual Studio 2022 only if you build it yourself (see Building, at the end); the CI zip needs nothing else.
 
 ## Setup
 
@@ -54,21 +55,21 @@ them) and leave "Display Damage" on (combat speech reads the floating numbers).
 
 ## Launching
 
-Set up to build (see Building, at the end). Then, with the game NOT running:
+Unzip the mod folder anywhere (it is self-contained; `%LOCALAPPDATA%\gdaccess` is a fine place), make sure Steam
+is running and the game is not, and run `gdlaunch.exe` from inside that folder. It finds Grim Dawn through
+Steam's own records (any Steam library), starts the 64-bit game with the mod loaded before the game initializes,
+and keeps its console window open while you play: that window shows every line the mod speaks and, when the game
+closes, how it ended. Anything that stops the launch (Steam not running, the game already running, the game not
+found) comes up as a message box.
 
-```
-powershell -File tools\inject.ps1 -Launch -Speak
-```
-
-This builds the mod if needed, starts the game with the DLL injected before it initializes, and waits for the
-mod to come up (it prints a health line). The window comes up unfocused -- alt-tab to it. `-NoBuild` skips
-the build, `-GameExe <path>` points at a non-default install. Two things it does to your settings: it sets
-`inactiveUpdateRate` to 30 in options.txt if it is 0 (so the engine keeps running while the window is not in
-front), and the injected DLL keeps the game from grabbing the foreground on its own, so the game never steals
-focus from your screen reader. Both are development conveniences and will go away if this ever gets a proper
-release.
+If the game is somewhere the launcher cannot find, put the full path of `x64\Grim Dawn.exe` on the first line of
+a file named `game_path.txt` next to `gdlaunch.exe`. The launcher does not touch options.txt or any other game
+file.
 
 Log: `%LOCALAPPDATA%\gdaccess\gdaccess.log`, truncated on each load; every spoken line appears as `[speak]`.
+
+Building from source and the developer's own launch path (unfocused, muted, driven over HTTP) are under "The dev
+loop" and "Building" at the end.
 
 ## Getting Started
 

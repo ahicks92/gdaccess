@@ -74,3 +74,7 @@ add_custom_command(TARGET gdaccess POST_BUILD
 # --- the injector ---
 add_executable(gdinject src/inject/main.cpp)
 target_link_libraries(gdinject PRIVATE psapi)
+
+# --- the player's launcher (console app; finds the Steam install, fakes Steam's environment, injects at start) ---
+add_executable(gdlaunch src/launch/main.cpp)
+target_link_libraries(gdlaunch PRIVATE shell32 ole32 advapi32)

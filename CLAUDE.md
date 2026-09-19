@@ -119,6 +119,15 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
 - `gd.py health | text | speech [--since N] [--wait S] | log [--since N] | buttons`
 - `gd.py say "…" | mute on|off | gamekeys on|off | key enter | key a --ch a --shift | keys "text"`
 - `gd.py click X Y [--button right] | mouse TYPE X Y | cursor X Y | cursor --clear | kill`
+- **Player launcher = `gdlaunch.exe`** (2026-09-18, `src/launch/main.cpp`, shares `src/inject/inject_common.h` with
+  gdinject; verified live): finds the game via HKCU SteamPath -> `libraryfolders.vdf` -> `appmanifest_219990.acf`
+  installdir (`--game` / `game_path.txt` override), refuses a non-x64 exe, Steam not running or the game already
+  running with a MessageBox (not prism: the mod is not up yet), fakes GDCommunityLauncher's Steam environment block
+  (SteamEnv/SteamClientLaunch/SteamGameId/SteamAppId/SteamOverlayGameId/SteamAppUser/SteamUser/STEAMID/USER_MYDOCS)
+  so the stub does not relaunch, injects at suspended start, then keeps the console open tailing the log's
+  `[speak]`/`version:`/`gdaccess:`/`crash:`/`speech:` lines until the game exits. Honours GDACCESS_NOFOCUS for the
+  initial show state, so `GDACCESS_NOFOCUS=1 GDACCESS_MUTE=1 GDACCESS_PORT=8791 gdlaunch.exe` is a dev-safe run of
+  the real launcher. Deliberately NOT Steam launch options (Factorio Access support-load lesson).
 - Hot reload: `powershell -File tools/inject.ps1` (ejects via the DLL's exported `gdaccess_unload`, rebuilds,
   re-injects). Never tear down from DllMain (joining a thread there deadlocks under the loader lock).
 - How it stays unfocused: `gdinject --launch` uses `STARTF_USESHOWWINDOW` + `SW_SHOWNOACTIVATE`, and with

@@ -5,7 +5,7 @@
 Layout inside the zip (one top-level folder, so unzipping anywhere gives a self-contained mod folder):
 
     gdaccess/
-      gdaccess.dll, prism.dll, gdinject.exe, launch.cmd (stopgap until the launcher exists)
+      gdlaunch.exe (the player runs this), gdaccess.dll, prism.dll, gdinject.exe (dev: inject into a running game)
       assets/          rooms.db, rooms_base.db, audio/...   -- the DLL loads these from next to itself
       README.md, LICENSE, THIRD_PARTY.md
       licenses/prism/  prism's NOTICE + LICENSES (MPL-2.0 attribution for the redistributed prism.dll)
@@ -17,13 +17,6 @@ import argparse, os, shutil, sys, zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PRISM = os.path.join(ROOT, "third_party", "prism-bin", "prism-sdk-v0.18.1")
-
-LAUNCH_CMD = r"""@echo off
-rem Stopgap launcher (a proper one is coming): starts the 64-bit Steam game at its default path with the mod
-rem injected before the game initializes. Steam must be running. Edit the path if the game lives elsewhere.
-set "GAME=C:\Program Files (x86)\Steam\steamapps\common\Grim Dawn\x64\Grim Dawn.exe"
-"%~dp0gdinject.exe" --launch "%GAME%" "%~dp0gdaccess.dll"
-"""
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -43,7 +36,7 @@ def main():
                 src = os.path.join(dp, fn)
                 add(zdir + "/" + os.path.relpath(src, srcdir).replace(os.sep, "/"), src)
 
-    for name in ("gdaccess.dll", "prism.dll", "gdinject.exe"):
+    for name in ("gdlaunch.exe", "gdaccess.dll", "prism.dll", "gdinject.exe"):
         add("gdaccess/" + name, os.path.join(a.build, name))
     add_tree("gdaccess/assets", os.path.join(ROOT, "assets"))   # the repo copy, not the build's mirror of it
     add("gdaccess/README.md", os.path.join(ROOT, "README.md"))
@@ -55,7 +48,6 @@ def main():
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with zipfile.ZipFile(a.out, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as z:
         for zpath, src in files: z.write(src, zpath)
-        z.writestr("gdaccess/launch.cmd", LAUNCH_CMD)
     pdb = os.path.join(a.build, "gdaccess.pdb")
     pdb_out = a.pdb_out or os.path.dirname(os.path.abspath(a.out))
     if os.path.exists(pdb):
@@ -63,7 +55,7 @@ def main():
         shutil.copy2(pdb, os.path.join(pdb_out, "gdaccess.pdb"))
     else:
         print("package: no gdaccess.pdb next to the build (not fatal)")
-    print(f"package: {a.out} ({os.path.getsize(a.out) / 1e6:.1f} MB, {len(files) + 1} files)")
+    print(f"package: {a.out} ({os.path.getsize(a.out) / 1e6:.1f} MB, {len(files)} files)")
 
 if __name__ == "__main__":
     main()
