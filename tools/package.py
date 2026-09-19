@@ -18,12 +18,22 @@ import argparse, os, shutil, sys, zipfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PRISM = os.path.join(ROOT, "third_party", "prism-bin", "prism-sdk-v0.18.1")
 
+def git_describe():
+    import subprocess
+    try:
+        return subprocess.check_output(["git", "describe", "--tags", "--always"], cwd=ROOT, text=True).strip()
+    except Exception:
+        return "unknown"
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--build", default=os.path.join(ROOT, "build", "ninja"))
     ap.add_argument("--out", default=os.path.join(ROOT, "dist", "gdaccess.zip"))
     ap.add_argument("--pdb-out", default=None, help="directory to copy gdaccess.pdb into (default: next to --out)")
+    ap.add_argument("--version", default=None, help="written to gdaccess/version.txt (the installer compares it to release tags); default: git describe")
     a = ap.parse_args()
+    version = a.version or git_describe()
 
     files = []   # (zip path, source path)
     def add(zpath, src):
@@ -48,6 +58,8 @@ def main():
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with zipfile.ZipFile(a.out, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as z:
         for zpath, src in files: z.write(src, zpath)
+        z.writestr("gdaccess/version.txt", version + "\n")
+        files.append(("gdaccess/version.txt", "(generated)"))
     pdb = os.path.join(a.build, "gdaccess.pdb")
     pdb_out = a.pdb_out or os.path.dirname(os.path.abspath(a.out))
     if os.path.exists(pdb):

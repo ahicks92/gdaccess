@@ -1,7 +1,10 @@
-# Build the mod on a clean Windows runner and package the player zip. Nothing here touches the game: the tree
-# builds from the committed export names, room databases and prism SDK parts, and the only tests are the
-# engine-free core's. Every push uploads the zip (+ the PDB, kept separately for symbolizing crash logs); a
-# tag v* also publishes it as a GitHub release.
+# Build the mod on a clean Windows runner and package the player zip; build the installer with cargo. Nothing
+# here touches the game: the tree builds from the committed export names, room databases and prism SDK parts,
+# and the only tests are the engine-free core's and the installer's.
+#
+# Every push to main republishes the rolling `ci-latest` pre-release (the installer's last, deliberately
+# unattractive "latest successful CI build" choice); a semver tag v* publishes a real release with the zip and
+# the installer. Pull requests only build.
 name: build
 on:
   push:
@@ -11,10 +14,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  mod:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # git describe needs the tags
       - name: Build (VS 2022 via tools/vsdev.cmd, Ninja RelWithDebInfo)
         shell: cmd
         run: tools\build.cmd
@@ -22,8 +27,10 @@ jobs:
         shell: cmd
         run: build\ninja\gdcore_tests.exe
       - name: Package
-        shell: cmd
-        run: python tools\package.py --out dist\gdaccess.zip --pdb-out dist\pdb
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then VER="$GITHUB_REF_NAME"; else VER="ci-$(git rev-parse --short HEAD)"; fi
+          python tools/package.py --out dist/gdaccess.zip --pdb-out dist/pdb --version "$VER"
       - uses: actions/upload-artifact@v4
         with:
           name: gdaccess
@@ -33,8 +40,56 @@ jobs:
         with:
           name: gdaccess-pdb
           path: dist/pdb/gdaccess.pdb
-      - name: Release (tags only)
-        if: startsWith(github.ref, 'refs/tags/v')
+
+  installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust toolchain (installer/rust-toolchain.toml)
         shell: bash
+        run: rustup show active-toolchain || rustup toolchain install
+        working-directory: installer
+      - uses: actions/cache@v4
+        with:
+          path: |
+            installer/target
+            ~/.cargo/registry
+          key: installer-${{ runner.os }}-${{ hashFiles('installer/Cargo.lock', 'installer/rust-toolchain.toml') }}
+      - name: Installer tests
+        shell: cmd
+        run: cargo test --release
+        working-directory: installer
+      - name: Build installer
+        shell: cmd
+        run: cargo build --release
+        working-directory: installer
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GDAccessInstaller
+          path: installer/target/release/GDAccessInstaller.exe
+
+  publish:
+    needs: [mod, installer]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Release (semver tag)
+        if: startsWith(github.ref, 'refs/tags/v')
         env: { GH_TOKEN: "${{ github.token }}" }
-        run: gh release create "${GITHUB_REF_NAME}" dist/gdaccess.zip dist/pdb/gdaccess.pdb --title "${GITHUB_REF_NAME}" --generate-notes
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/gdaccess/gdaccess.zip dist/GDAccessInstaller/GDAccessInstaller.exe dist/gdaccess-pdb/gdaccess.pdb \
+            --title "$GITHUB_REF_NAME" --generate-notes
+      - name: Rolling CI pre-release (main)
+        if: github.ref == 'refs/heads/main'
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release delete ci-latest --yes --cleanup-tag || true
+          gh release create ci-latest dist/gdaccess/gdaccess.zip dist/GDAccessInstaller/GDAccessInstaller.exe dist/gdaccess-pdb/gdaccess.pdb \
+            --prerelease --target "$GITHUB_SHA" --title "Latest CI build" \
+            --notes "Automatic build of main at ${GITHUB_SHA::7}. Untested; the installer lists it last. Tagged releases are the ones to use."

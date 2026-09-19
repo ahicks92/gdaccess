@@ -937,9 +937,18 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
 - `tools/rooms.py` + `tools/gdmap/` (arc, map header, level bodies: navmesh tile layers + terrain layers,
   segmentation, renderer, `roomsdb.py`) -- the rooms pipeline, `docs/rooms.md`. `rooms.py area
   devilscrossing --write` regenerates `assets/rooms.db`; floor plans in `build/rooms/`.
-- `tools/package.py [--out dist/gdaccess.zip]` — the player zip in its final layout (`gdaccess/` folder: DLL, prism,
-  injector, `launch.cmd` stopgap, assets, README, licenses) + the PDB beside it. `.github/workflows/build.yml` runs
-  build -> `gdcore_tests` -> package on windows-latest per push (green since 2026-09-19); a `v*` tag = a release.
+- `tools/package.py [--out dist/gdaccess.zip] [--version v]` — the player zip in its final layout (`gdaccess/` folder:
+  gdlaunch, DLL, prism, injector, assets, README, licenses, `version.txt`) + the PDB beside it. `.github/workflows/build.yml`:
+  job `mod` (build -> `gdcore_tests` -> package), job `installer` (cargo test + build in `installer/`), job `publish`
+  (a `v*` tag = a GitHub release with zip + installer + pdb; every main push recreates the `ci-latest` pre-release).
+- **Installer** (`installer/`, Rust + wxdragon = native wx controls, modelled on wotr-access's; 2026-09-19): per-user
+  install to `%LOCALAPPDATA%\Programs\GD Access` (replaced wholesale; `%LOCALAPPDATA%\gdaccess` data untouched),
+  Desktop + Start Menu `.lnk` via IShellLink, HKCU Uninstall key (Add/Remove runs the copy inside the folder with
+  `--uninstall`, which re-execs from %TEMP% to delete itself), version = `version.txt` vs release tags (semver only;
+  `ci-latest` listed LAST as "latest successful CI build"), Install from file, Launch, `--cli`. Download/unpack on a
+  worker thread, a 100 ms wx Timer drains progress into the log. Building it locally needs Ninja + CMake on PATH:
+  `tools\vsdev.cmd cargo build --release --manifest-path installer\Cargo.toml` (wxdragon-sys compiles wxWidgets, ~10 min
+  cold). Toolchain pinned by `installer/rust-toolchain.toml`.
 - `tools/archive_build.py --version X` — copies the game's exe/DLLs + the unpacked dump to `../grim-dawn-archive/<version>-<pe-ts>/`
   (refuses a stale dump). Run once the mod WORKS on a build, so it is the baseline for the next patch ("Game patches" below).
 - `tools/gen_exports.py` — dumps `.def` files and undecorated export listings from the installed DLLs into
