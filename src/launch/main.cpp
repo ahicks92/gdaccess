@@ -3,7 +3,7 @@
 // console open while the game runs, echoing what the mod says from its log. Every hard failure is a message box
 // (a screen reader reads those natively; the mod's speech is not up yet) plus a console line.
 //
-//   gdlaunch.exe [--game "<path>\x64\Grim Dawn.exe"] [--dry-run] [--no-wait]
+//   gdlaunch.exe [--game "<path>\x64\Grim Dawn.exe"] [--dry-run]
 //
 // Game location, in order: --game; game_path.txt next to this exe (one line); Steam's own records (registry
 // SteamPath -> steamapps\libraryfolders.vdf -> the library holding appmanifest_219990.acf -> its installdir);
@@ -26,21 +26,12 @@
 namespace {
 const wchar_t* kAppId = L"219990";
 const wchar_t* kDefaultExe = L"C:\\Program Files (x86)\\Steam\\steamapps\\common\\Grim Dawn\\x64\\Grim Dawn.exe";
-bool g_wait = true;
-
-void pause_if_wanted() {
-  if (!g_wait) return;
-  printf("\nPress Enter to close this window.\n");
-  fflush(stdout);
-  (void)getchar();
-}
-
-// A hard failure: console line, message box, exit code 1.
+// A hard failure: console line, message box, exit code 1 (the console closes with the launcher, so the box
+// carries the message).
 int fail(const wchar_t* title, const std::wstring& text) {
   printf("\n%ls: %ls\n", title, text.c_str());
   fflush(stdout);
   MessageBoxW(nullptr, text.c_str(), title, MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
-  pause_if_wanted();
   return 1;
 }
 
@@ -185,8 +176,7 @@ int wmain(int argc, wchar_t** argv) {
   for (int i = 1; i < argc; ++i) {
     if (!_wcsicmp(argv[i], L"--game") && i + 1 < argc) game_arg = argv[++i];
     else if (!_wcsicmp(argv[i], L"--dry-run")) dry = true;
-    else if (!_wcsicmp(argv[i], L"--no-wait")) g_wait = false;
-    else { printf("usage: gdlaunch [--game <path to x64\\Grim Dawn.exe>] [--dry-run] [--no-wait]\n"); return 2; }
+    else { printf("usage: gdlaunch [--game <path to x64\\Grim Dawn.exe>] [--dry-run]\n"); return 2; }
   }
   printf("GD Access launcher\n\n");
 
@@ -209,7 +199,7 @@ int wmain(int argc, wchar_t** argv) {
   if (find_pid(L"Grim Dawn.exe")) return fail(L"Grim Dawn is already running", L"Close the running game first (the mod has to be loaded before the game starts), then run GD Access again.");
   printf("Steam is running.\n");
 
-  if (dry) { printf("Dry run: would start the game with %ls\n", dll.c_str()); pause_if_wanted(); return 0; }
+  if (dry) { printf("Dry run: would start the game with %ls\n", dll.c_str()); return 0; }
 
   fake_steam_environment();
   {   // start the log fresh so the tail below never echoes a previous run (the DLL truncates it again when it loads)
@@ -267,6 +257,5 @@ int wmain(int argc, wchar_t** argv) {
   tail.poll();
   if (exit_code == 0) printf("\nThe game exited normally.\n");
   else printf("\nThe game exited with code 0x%lx. If it crashed, the log has the details: %ls\n", exit_code, log_path().c_str());
-  pause_if_wanted();
   return 0;
 }

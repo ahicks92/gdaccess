@@ -59,7 +59,7 @@ Unzip the mod folder anywhere (it is self-contained; `%LOCALAPPDATA%\gdaccess` i
 is running and the game is not, and run `gdlaunch.exe` from inside that folder. It finds Grim Dawn through
 Steam's own records (any Steam library), starts the 64-bit game with the mod loaded before the game initializes,
 and keeps its console window open while you play: that window shows every line the mod speaks and, when the game
-closes, how it ended. Anything that stops the launch (Steam not running, the game already running, the game not
+closes, how it ended (the window then closes with it). Anything that stops the launch (Steam not running, the game already running, the game not
 found) comes up as a message box.
 
 If the game is somewhere the launcher cannot find, put the full path of `x64\Grim Dawn.exe` on the first line of
