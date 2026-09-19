@@ -311,6 +311,10 @@ The first run configures a Ninja RelWithDebInfo build in `build\ninja\`; later r
 
 On success MSVC and Ninja print very little; check the exit code.
 
+CI (`.github/workflows/build.yml`) does the same on a clean Windows runner for every push and packages the
+player zip with `tools/package.py` (artifact `gdaccess`: the DLL, prism, the injector, a stopgap `launch.cmd`,
+`assets/`, this README and the licenses; the PDB is the `gdaccess-pdb` artifact). A `v*` tag publishes it as a release.
+
 ## License
 
 The mod's own code is by Austin Hicks, under the zlib license (`LICENSE`). Third-party components and their

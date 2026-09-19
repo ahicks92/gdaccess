@@ -928,6 +928,9 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
 - `tools/rooms.py` + `tools/gdmap/` (arc, map header, level bodies: navmesh tile layers + terrain layers,
   segmentation, renderer, `roomsdb.py`) -- the rooms pipeline, `docs/rooms.md`. `rooms.py area
   devilscrossing --write` regenerates `assets/rooms.db`; floor plans in `build/rooms/`.
+- `tools/package.py [--out dist/gdaccess.zip]` — the player zip in its final layout (`gdaccess/` folder: DLL, prism,
+  injector, `launch.cmd` stopgap, assets, README, licenses) + the PDB beside it. `.github/workflows/build.yml` runs
+  build -> `gdcore_tests` -> package on windows-latest per push (green since 2026-09-19); a `v*` tag = a release.
 - `tools/archive_build.py --version X` — copies the game's exe/DLLs + the unpacked dump to `../grim-dawn-archive/<version>-<pe-ts>/`
   (refuses a stale dump). Run once the mod WORKS on a build, so it is the baseline for the next patch ("Game patches" below).
 - `tools/gen_exports.py` — dumps `.def` files and undecorated export listings from the installed DLLs into
