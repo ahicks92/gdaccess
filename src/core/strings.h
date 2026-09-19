@@ -48,9 +48,9 @@ inline constexpr std::string_view kSearchCleared = "search cleared";
 inline constexpr std::string_view kNothingThere = "nothing there";
 inline constexpr std::string_view kNoTextOnScreen = "no text on screen";
 inline constexpr std::string_view kUnsupportedScreen = "unsupported screen";
-inline constexpr std::string_view kModName = "G D Access";
-inline constexpr std::string_view kModLoaded = "G D Access loaded";
-inline constexpr std::string_view kModLoadedNoSpeech = "G D Access loaded, no speech backend";
+inline constexpr std::string_view kModName = "Grimdark";
+inline constexpr std::string_view kModLoaded = "Grimdark loaded";
+inline constexpr std::string_view kModLoadedNoSpeech = "Grimdark loaded, no speech backend";
 
 // ---- composed shapes: push_* helpers so call sites never concatenate ----
 // "3 of 7"
@@ -86,13 +86,13 @@ inline constexpr std::string_view kUnknown = "unknown";
 inline constexpr std::string_view kSecondaryBag = "secondary";   // the game's selected bag: where pickups overflow to once bag 1 is full (bag 1 is always first)
 inline constexpr std::string_view kNotABag = "not a bag";
 inline constexpr std::string_view kOffering = "offering";   // a shrine's required item row: "offering 1, Aether Crystal"
-inline constexpr std::string_view kModMenu = "G D Access menu";              // F1 anywhere
+inline constexpr std::string_view kModMenu = "Grimdark menu";              // F1 anywhere
 inline constexpr std::string_view kSoundGlossary = "sound glossary";         // every WAV the mod plays, landing plays it
 inline constexpr std::string_view kUnsupportedBuild = "unsupported game build";   // the version gate's one line
 inline constexpr std::string_view kExeTimestamp = "exe timestamp";
 inline constexpr std::string_view kSupported = "supported";
 inline constexpr std::string_view kModOff = "the mod is off";
-// "G D Access unsupported game build, exe timestamp 6a85fbec, supported 1.3.0.8 Steam, the mod is off"
+// "Grimdark unsupported game build, exe timestamp 6a85fbec, supported 1.3.0.8 Steam, the mod is off"
 gd::core::MessageBuilder& push_unsupported_build(gd::core::MessageBuilder& m, std::string_view exe_ts, const std::vector<std::string_view>& supported);
 inline constexpr std::string_view kModOptions = "mod options";            // the F1 menu's switches screen
 inline constexpr std::string_view kDevServer = "dev server";              // its loopback HTTP server toggle (off by default)
@@ -459,6 +459,6 @@ gd::core::MessageBuilder& push_shortfall(gd::core::MessageBuilder& m, std::strin
 // "<name>, <level name>, 1500 of 5000" -- a faction row
 gd::core::MessageBuilder& push_faction(gd::core::MessageBuilder& m, std::string_view name, std::string_view level_name, float value, int low, int high);
 
-inline constexpr std::string_view kUnsupportedGameVersion = "this game version is not supported by G D Access; menus will not be read";
+inline constexpr std::string_view kUnsupportedGameVersion = "this game version is not supported by Grimdark; menus will not be read";
 
 }  // namespace gd::strings

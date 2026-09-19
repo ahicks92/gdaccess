@@ -77,7 +77,7 @@ static DWORD WINAPI init_thread(LPVOID) {
   // gets it regardless, so a hot reload into a dev-launched game keeps its server.
   if (gd::settings::get_bool("devserver", false) || GetEnvironmentVariableW(L"GRIMDARK_PORT", nullptr, 0) > 0)
     gd::dev::start(env_int(L"GRIMDARK_PORT", 8791));
-  gd::speech::speak(sp ? "G D Access loaded" : "G D Access loaded, no speech backend", true);
+  gd::speech::speak(sp ? "Grimdark loaded" : "Grimdark loaded, no speech backend", true);
   // Always APPLY the state, both ways: Windows remembers a per-app session mute across launches, so a muted dev
   // run would otherwise leave the next real (speaking) launch silent. Give the game time to open its session.
   Sleep(3000);

@@ -224,7 +224,7 @@ int wmain(int argc, wchar_t** argv) {
   }
   ResumeThread(pi.hThread);
   CloseHandle(pi.hThread);
-  printf("Mod loaded. The game is starting; it says \"G D Access loaded\" when the mod is up.\n");
+  printf("Mod loaded. The game is starting; it says \"Grimdark loaded\" when the mod is up.\n");
   printf("Leave this window open; it shows what the mod says. Log: %ls\n\n", log_path().c_str());
   fflush(stdout);
 

@@ -14,7 +14,7 @@ export const meta = {
   ],
 }
 
-const ROOT = 'D:/projects/in_progress/gdaccess'
+const ROOT = 'D:/projects/in_progress/grimdark'
 const region = args.region
 const rooms = args.rooms || []
 const RULES = `${ROOT}/docs/rooms-description-rules.md`

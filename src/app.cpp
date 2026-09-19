@@ -111,7 +111,7 @@ static void register_actions() {
     if (u.repeat) a.repeating();
   }
   // F1 = the mod's own menu, live everywhere (Global); tooltips stay on Space (2026-09-01, F1 used to double as tooltip).
-  m.register_action("mod.menu", "G D Access menu", InputCategory::Global, [] { screens::open_mod_menu(); }).bind(keys::F1);
+  m.register_action("mod.menu", "Grimdark menu", InputCategory::Global, [] { screens::open_mod_menu(); }).bind(keys::F1);
   // Ctrl+Tab / Ctrl+Shift+Tab: the current screen's tabs (tab list across the top; the page is one column).
   m.register_action("ui.tabNext", "Next tab", InputCategory::UI, [] { Screen* s = g_screens.current(); if (s) s->switch_tab(1); }).bind(keys::Tab, true, false, false);
   m.register_action("ui.tabPrev", "Previous tab", InputCategory::UI, [] { Screen* s = g_screens.current(); if (s) s->switch_tab(-1); }).bind(keys::Tab, true, true, false);

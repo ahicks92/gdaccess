@@ -5,7 +5,7 @@
 # HARD RULES (see memory act1-authoring-openrouter): OpenRouter only, never the Opus workflow; stop on credit
 # exhaustion (describe_or exits 42); safety-blocked rooms are skipped+logged by describe_or; test char only.
 # Stops (does NOT auto-recover) if the game is not in-world as 'test' -- never risks the user's 'real' save.
-cd /d/projects/in_progress/gdaccess || exit 1
+cd /d/projects/in_progress/grimdark || exit 1
 DEV=http://127.0.0.1:8791
 WORKERS=32
 regions=$(uv run python -c "import json;print('\n'.join(json.load(open('build/rooms/worklist.json'))))" | tr -d '\r')   # Python stdout is CRLF on Windows; a trailing \r would break every region-key match
