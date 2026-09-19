@@ -58,14 +58,14 @@ them) and leave "Display Damage" on (combat speech reads the floating numbers).
 Download `GDAccessInstaller.exe` from the newest release on GitHub and run it. It is an ordinary window: a status
 line, a log of what it is doing, and the buttons Install (or Update), Install from file, Launch, Uninstall. Install
 lists the released versions newest first and, last, "latest successful CI build", which is the untested build of the
-current source and is there for people who know they want it. The mod goes to `%LOCALAPPDATA%\Programs\GD Access`,
-a "GD Access" shortcut lands on your desktop and in the Start Menu, and an entry appears in Add/Remove Programs.
+current source and is there for people who know they want it. The mod goes to `%LOCALAPPDATA%\Programs\GrimDark`,
+a "GrimDark" shortcut lands on your desktop and in the Start Menu, and a "GrimDark" entry appears in Add/Remove Programs.
 Your settings live in `%LOCALAPPDATA%\gdaccess` and survive updates and uninstalls. Nothing in the game folder is
 touched. `GDAccessInstaller.exe --cli` does the same thing on the console.
 
 ## Launching
 
-Run the "GD Access" shortcut (it starts `gdlaunch.exe` in the mod folder). Without the installer: unzip the release
+Run the "GrimDark" shortcut (it starts `gdlaunch.exe` in the mod folder). Without the installer: unzip the release
 zip anywhere, make sure Steam is running and the game is not, and run `gdlaunch.exe` from inside that folder. It finds Grim Dawn through
 Steam's own records (any Steam library), starts the 64-bit game with the mod loaded before the game initializes,
 and keeps its console window open while you play: that window shows every line the mod speaks and, when the game

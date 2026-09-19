@@ -942,8 +942,9 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   job `mod` (build -> `gdcore_tests` -> package), job `installer` (cargo test + build in `installer/`), job `publish`
   (a `v*` tag = a GitHub release with zip + installer + pdb; every main push recreates the `ci-latest` pre-release).
 - **Installer** (`installer/`, Rust + wxdragon = native wx controls, modelled on wotr-access's; 2026-09-19): per-user
-  install to `%LOCALAPPDATA%\Programs\GD Access` (replaced wholesale; `%LOCALAPPDATA%\gdaccess` data untouched),
-  Desktop + Start Menu `.lnk` via IShellLink, HKCU Uninstall key (Add/Remove runs the copy inside the folder with
+  install to `%LOCALAPPDATA%\Programs\GrimDark` (replaced wholesale; `%LOCALAPPDATA%\gdaccess` data untouched),
+  Desktop + Start Menu `GrimDark.lnk` via IShellLink, HKCU Uninstall key `GrimDark` (on-disk names = the coming
+  brand, fixed 2026-09-19 before anyone installs; `paths::BRAND` vs the still-spoken `APP_NAME`), HKCU Uninstall key (Add/Remove runs the copy inside the folder with
   `--uninstall`, which re-execs from %TEMP% to delete itself), version = `version.txt` vs release tags (semver only;
   `ci-latest` listed LAST as "latest successful CI build"), Install from file, Launch, `--cli`. Download/unpack on a
   worker thread, a 100 ms wx Timer drains progress into the log. Building it locally needs Ninja + CMake on PATH:

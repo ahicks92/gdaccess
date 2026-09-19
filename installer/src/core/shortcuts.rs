@@ -1,8 +1,8 @@
 //! Desktop + Start Menu shortcuts to gdlaunch.exe (IShellLink, the shell's own .lnk writer) and the
-//! per-user Add/Remove Programs entry (HKCU\...\Uninstall\GDAccess, which runs our copy with --uninstall).
+//! per-user Add/Remove Programs entry (HKCU\...\Uninstall\GrimDark, which runs our copy with --uninstall).
 use std::path::Path;
 
-use super::paths::{desktop_shortcut, start_menu_shortcut, APP_NAME, INSTALLER_EXE, LAUNCHER_EXE, UNINSTALL_KEY};
+use super::paths::{desktop_shortcut, start_menu_shortcut, BRAND, INSTALLER_EXE, LAUNCHER_EXE, UNINSTALL_KEY};
 
 #[cfg(windows)]
 fn write_lnk(lnk: &Path, target: &Path, workdir: &Path, description: &str) -> Result<(), String> {
@@ -51,7 +51,7 @@ fn register_uninstall(install_dir: &Path, version: &str) -> Result<(), String> {
     let installer = install_dir.join(INSTALLER_EXE);
     let launcher = install_dir.join(LAUNCHER_EXE);
     let set = |name: &str, value: &str| key.set_value(name, &value.to_string()).map_err(|e| format!("Registry write {} failed: {}", name, e));
-    set("DisplayName", APP_NAME)?;
+    set("DisplayName", BRAND)?;
     set("DisplayVersion", version)?;
     set("Publisher", "Austin Hicks")?;
     set("InstallLocation", &install_dir.to_string_lossy())?;

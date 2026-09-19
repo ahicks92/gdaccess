@@ -28,7 +28,7 @@ fn uninstall_entry(from_temp: bool) {
     if !from_temp {
         if let Ok(me) = std::env::current_exe() {
             if me.starts_with(install_dir()) {
-                let temp = std::env::temp_dir().join("GDAccessInstaller-uninstall.exe");
+                let temp = std::env::temp_dir().join("GrimDark-uninstall.exe");
                 if std::fs::copy(&me, &temp).is_ok()
                     && std::process::Command::new(&temp).args(["--uninstall", "--from-temp"]).spawn().is_ok()
                 {

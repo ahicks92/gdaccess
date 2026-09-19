@@ -6,7 +6,7 @@ use std::fs;
 use std::io::{Cursor, Read};
 use std::path::{Component, Path, PathBuf};
 
-use super::paths::{install_dir, INSTALLER_EXE, LAUNCHER_EXE, MOD_DLL, VERSION_FILE, ZIP_ROOT};
+use super::paths::{install_dir, BRAND, INSTALLER_EXE, LAUNCHER_EXE, MOD_DLL, VERSION_FILE, ZIP_ROOT};
 use super::shortcuts;
 
 /// Progress as the worker sees it; the GUI shows it, the CLI prints it.
@@ -74,8 +74,8 @@ fn sanitize(name: &str) -> Result<PathBuf, String> {
 
 pub fn install_zip(data: &[u8], progress: &dyn Fn(Progress)) -> Result<(), String> {
     let dest = install_dir();
-    let staging = dest.with_file_name("GD Access.installing");
-    let old = dest.with_file_name("GD Access.old");
+    let staging = dest.with_file_name(format!("{}.installing", BRAND));
+    let old = dest.with_file_name(format!("{}.old", BRAND));
     progress(Progress::Status("Unpacking...".into()));
 
     let mut archive = zip::ZipArchive::new(Cursor::new(data)).map_err(|e| format!("Not a valid zip: {}", e))?;

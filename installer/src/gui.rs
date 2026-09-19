@@ -86,7 +86,7 @@ impl Ui {
             Ok(what) => {
                 self.log(&format!("{} {} ({}).", APP_NAME, verb, what));
                 let text = if verb == "installed" {
-                    format!("{} {} ({}). A shortcut is on your desktop and in the Start Menu; run it to play.", APP_NAME, verb, what)
+                    format!("{} {} ({}). A \"GrimDark\" shortcut is on your desktop and in the Start Menu; run it to play.", APP_NAME, verb, what)
                 } else {
                     format!("{} {}.", APP_NAME, verb)
                 };
