@@ -45,3 +45,6 @@ __pycache__/
 *.pyc
 
 .env
+
+# player zip + pdb from tools/package.py
+dist/
