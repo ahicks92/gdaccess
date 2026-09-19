@@ -54,7 +54,12 @@ def main():
     if os.path.exists(folder) and not a.force: sys.exit(f"already archived: {folder} (pass --force to overwrite)")
     os.makedirs(folder, exist_ok=True)
 
+    # The three timestamps are the row the mod's version gate needs (src/game_versions.h).
+    ts_engine = pe_timestamp(os.path.join(a.game, "x64", "Engine.dll"))
+    ts_game = pe_timestamp(os.path.join(a.game, "x64", "Game.dll"))
+    print(f"game_versions.h row: {{\"{a.version} Steam\", {ts_exe:#x}, {ts_engine:#x}, {ts_game:#x}}}")
     manifest = {"version": a.version, "pe_timestamp": f"{ts_exe:#x}",
+                "engine_pe_timestamp": f"{ts_engine:#x}", "game_pe_timestamp": f"{ts_game:#x}",
                 "pe_timestamp_utc": datetime.datetime.fromtimestamp(ts_exe, datetime.UTC).isoformat(),
                 "archived_utc": datetime.datetime.now(datetime.UTC).isoformat(), "source": a.game, "files": {}}
     for name in FILES + ["GrimDawn.unpacked.bin"]:

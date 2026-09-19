@@ -542,7 +542,7 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   inactiveUpdateRate / windowed / 1600x900 / targetLock are dev-loop artifacts, irrelevant to a focused player.
   Game-free CI is feasible (nothing links a game file; `gd_names.h`, `rooms.db` and the prism SDK parts the build
   uses are all committed -- a fresh export of the tree builds with only VS 2022, verified 2026-08-25).
-  Runnable-by-others gaps: a non-CLI injector/launcher, and gating the dev HTTP server out of release.
+  Runnable-by-others gaps: a non-CLI injector/launcher (the dev HTTP server is off by default since 2026-09-18).
 - Game patches (quantified 2026-08-25): exports (367, by decorated name) survive a rebuild unless a signature
   changes and degrade per feature; Engine/Game object offsets (~30) survive unless the class changed and fail
   SILENTLY; the exe layer (19 RVAs + ~75 offsets in `exe_ui`, 14 byte signatures checked by `available()`) dies
@@ -553,7 +553,8 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   ground truth for that is the archive: `1.3.0.8-6a85fbec` is in `../grim-dawn-archive` (exe PE timestamp
   0x6a85fbec, the exe's version resource is meaningless). Procedure on a patch: the menu layer dies -> dump the
   new exe -> relocate against the previous build's archive -> when the mod works again, archive the new build.
-  Nothing has to happen before Steam updates; only never skip archiving a build the mod works on.
+  Nothing has to happen before Steam updates; only never skip archiving a build the mod works on. Since 2026-09-18 an
+  unknown build is refused outright by the version gate (above), so a patch is "the mod is off" for players, not a crash.
 - Destructibles on B (2026-08-25, verified live in Devil's Crossing): the B group is flavour NPCs OR an unbroken,
   targetable `Destructible` (`Destructible::GetStaticClassInfo` is-a, `IsBroken()` = +0x66c, `IsTargetable()` =
   the record's `targetable` flag at +0x765 and not broken). `targetable = False` scenery (rustic chairs, tables,
@@ -915,6 +916,10 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
 - `powershell -File tools/inject.ps1` — hot reload into the running game: ejects the old DLL (so the linker
   can overwrite it), builds, re-injects. `-Eject` unloads. `-NoBuild` skips the build.
 - Log: `%LOCALAPPDATA%\gdaccess\gdaccess.log` (truncated on each load). Speech lines are logged as `[speak]`.
+- The dev server is OFF by default (2026-09-18): it starts when settings.txt has `devserver=1` (F1 -> mod options,
+  `screens/mod_options.cpp`, the row shows the live state) or `GDACCESS_PORT` is set, which `inject.ps1 -Launch`
+  always does, so the dev loop is unchanged. `gd.py status` reports HUNG when the server is simply off. The CRT is
+  static (`CMAKE_MSVC_RUNTIME_LIBRARY`): no VC++ redistributable on a player's machine.
 - The F10-F12 GetAsyncKeyState dev hotkeys were removed 2026-09-13 (the dev routes replaced them long before).
 - Speech: prism (prebuilt SDK in `third_party/prism-bin`, delay-loaded from next to gdaccess.dll).
 - Hooking: Microsoft Detours, vendored source in `third_party/Detours`, built as a static lib.
@@ -943,7 +948,10 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   (`DialogManager` for message boxes): a button is pressed through its listeners / its window's registry,
   never by a click at a drawn label or a measured pixel. Text capture (`textcap`) is a dev discovery tool
   (`/text`) and the fallback's name source only. Unknown screens get the honest "unsupported screen"
-  fallback; a game build whose code bytes fail `exe_ui::available()` gets "game version not supported" once.
+  fallback. **Version gate** (2026-09-18, `src/version_gate.cpp`, table `src/game_versions.h`): before any hook, the
+  exe + Engine.dll + Game.dll PE timestamps must match a table row, else ONE spoken line ("unsupported game build, exe
+  timestamp <hex>, supported ...") and nothing is installed (`GDACCESS_ANY_VERSION=1` skips it for measuring a patch;
+  `tools/archive_build.py` prints the row for a new build). `exe_ui::available()` remains the byte-signature backstop.
   No screen clicks at drawn text any more; the two remaining synthesized clicks land on a widget's OWN rectangle
   (an edit box taking focus, a conversation row) because the game's handler for them has side effects we
   must not bypass.

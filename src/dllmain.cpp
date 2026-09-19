@@ -1,4 +1,6 @@
 #include <windows.h>
+#include <string_view>
+#include <vector>
 #include "app.h"
 #include "audio.h"
 #include "audio_mute.h"
@@ -14,6 +16,9 @@
 #include "db.h"
 #include "voice.h"
 #include "world.h"
+#include "version_gate.h"
+#include "game_versions.h"
+#include "core/strings.h"
 #include "exe_ui.h"
 #include "devserver.h"
 #include "hooks.h"
@@ -30,6 +35,8 @@ static int env_int(const wchar_t* name, int def) {
   return GetEnvironmentVariableW(name, v, 16) > 0 ? _wtoi(v) : def;
 }
 
+static bool g_installed = false;   // false = the version gate refused; unload has nothing to tear down
+
 static DWORD WINAPI init_thread(LPVOID) {
   gd::log::init();
   gd::log::write("gdaccess: loaded");
@@ -40,6 +47,19 @@ static DWORD WINAPI init_thread(LPVOID) {
   bool mute = env_flag(L"GDACCESS_MUTE");
   gd::speech::set_muted(mute);
   bool sp = gd::speech::init();
+  // The version gate: an unknown game build gets one spoken line and no hooks at all (GDACCESS_ANY_VERSION=1
+  // to measure a new patch). Every game-side layer below assumes the build in src/game_versions.h.
+  gd::version::Check ver = gd::version::check();
+  gd::log::write(gd::version::describe(ver));
+  if (!ver.supported && !env_flag(L"GDACCESS_ANY_VERSION")) {
+    std::vector<std::string_view> names;
+    for (const auto& b : gd::version::kSupportedBuilds) names.push_back(b.name);
+    gd::core::MessageBuilder m;
+    gd::speech::speak(gd::strings::push_unsupported_build(m, ver.exe_ts, names).build(), true);
+    gd::log::write("gdaccess: version gate refused; nothing installed");
+    return 0;
+  }
+  g_installed = true;
   gd::hooks::install();
   gd::world::install();
   gd::combat::install();
@@ -53,7 +73,10 @@ static DWORD WINAPI init_thread(LPVOID) {
   gd::voice::init();  // the positional voices (OneCore worker); falls back to the screen reader if it fails
   gd::app::init();
   gd::rooms::init();  // assets/rooms.db (missing = the rooms feature stays silent)
-  gd::dev::start(env_int(L"GDACCESS_PORT", 8791));
+  // The dev server is a player setting (F1 -> mod options, off by default); the dev loop sets GDACCESS_PORT and
+  // gets it regardless, so a hot reload into a dev-launched game keeps its server.
+  if (gd::settings::get_bool("devserver", false) || GetEnvironmentVariableW(L"GDACCESS_PORT", nullptr, 0) > 0)
+    gd::dev::start(env_int(L"GDACCESS_PORT", 8791));
   gd::speech::speak(sp ? "G D Access loaded" : "G D Access loaded, no speech backend", true);
   // Always APPLY the state, both ways: Windows remembers a per-app session mute across launches, so a muted dev
   // run would otherwise leave the next real (speaking) launch silent. Give the game time to open its session.
@@ -67,6 +90,7 @@ static DWORD WINAPI init_thread(LPVOID) {
 // lock (measured: FreeLibrary from DllMain-side teardown deadlocked the unload thread).
 extern "C" __declspec(dllexport) DWORD WINAPI gdaccess_unload(LPVOID) {
   gd::log::write("gdaccess: unloading");
+  if (!g_installed) { gd::crash::remove(); gd::speech::shutdown(); return 1; }   // the gate refused: only these two are up
   gd::dev::stop();
   gd::app::shutdown();
   gd::rooms::shutdown();

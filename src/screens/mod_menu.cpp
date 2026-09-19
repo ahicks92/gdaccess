@@ -6,6 +6,7 @@
 #include "core/strings.h"
 #include "screens/announcements.h"
 #include "screens/cue_settings.h"
+#include "screens/mod_options.h"
 #include "screens/sound_glossary.h"
 #include "screens/window_base.h"
 #include "world.h"
@@ -33,6 +34,7 @@ class ModMenuScreen : public Screen {
       b.add_item(ControlId::structural("mod.announcements"), row_item(std::string(strings::kAnnouncements), {}, [] { g_open = false; open_announcements(); }));
       b.add_item(ControlId::structural("mod.cues"), row_item(std::string(strings::kCueSettings), {}, [] { g_open = false; open_cue_settings(); }));
     }
+    b.add_item(ControlId::structural("mod.options"), row_item(std::string(strings::kModOptions), {}, [] { g_open = false; open_mod_options(); }));
   }
 };
 }  // namespace

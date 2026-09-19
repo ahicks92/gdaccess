@@ -41,6 +41,7 @@
 #include "screens/announcements.h"
 #include "screens/cue_settings.h"
 #include "screens/mod_menu.h"
+#include "screens/mod_options.h"
 #include "screens/sound_glossary.h"
 #include "screens/pets.h"
 #include "gameapi.h"
@@ -284,6 +285,7 @@ void init() {
   g_screens.register_screen(screens::make_cue_settings_overlay());
   g_screens.register_screen(screens::make_mod_menu());
   g_screens.register_screen(screens::make_sound_glossary());
+  g_screens.register_screen(screens::make_mod_options());
   g_screens.register_screen(screens::make_list_picker());
   g_screens.register_screen(screens::make_count_prompt());
   g_screens.register_screen(screens::make_reward_notice());

@@ -38,6 +38,13 @@ MessageBuilder& push_scan_self(MessageBuilder& m, std::string_view label, int in
   push_position(m, index1, count);
   return m;
 }
+MessageBuilder& push_unsupported_build(MessageBuilder& m, std::string_view exe_ts, const std::vector<std::string_view>& supported) {
+  m.fragment(kModName).list_item().fragment(kUnsupportedBuild).list_item().fragment(kExeTimestamp).fragment(exe_ts);
+  m.list_item().fragment(kSupported);
+  for (std::string_view s : supported) m.fragment(s);
+  m.list_item().fragment(kModOff);
+  return m;
+}
 MessageBuilder& push_pet_event(MessageBuilder& m, std::string_view label, std::string_view event) {
   m.fragment(label).fragment(event);
   return m;

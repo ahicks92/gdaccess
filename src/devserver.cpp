@@ -663,10 +663,22 @@ static void loop(int port) {
   }
 }
 
-void start(int port) { g_run = true; g_thread = std::thread(loop, port); }
-void stop() {
+static int g_port = 8791;
+
+void start(int port) {
+  if (g_run) return;
+  if (g_thread.joinable()) g_thread.join();   // a previous stop(false) left the finished thread to collect
+  g_port = port;
+  g_run = true;
+  g_thread = std::thread(loop, port);
+}
+void stop(bool wait) {
   g_run = false;
   if (g_listen != INVALID_SOCKET) { closesocket(g_listen); g_listen = INVALID_SOCKET; }
-  if (g_thread.joinable()) g_thread.join();
+  // The game thread must not join: a request in flight may be waiting for it to run its job (the next start()
+  // collects the thread instead; the loop leaves as soon as that request completes).
+  if (wait && g_thread.joinable()) g_thread.join();
 }
+bool running() { return g_run; }
+int port() { return g_port; }
 }  // namespace gd::dev

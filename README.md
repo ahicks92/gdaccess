@@ -24,7 +24,9 @@ get; hopefully you have fun, but it might also explode on you in ways no one can
 
 - Grim Dawn **v1.3.0.8, 64-bit, Steam build**, at its default install path
   `C:\Program Files (x86)\Steam\steamapps\common\Grim Dawn`. The mod reaches into the game's private UI
-  objects by code layout; any other build says "game version not supported" once and does nothing else.
+  objects by code layout; any other build (a GOG build, a Steam patch) gets one spoken line -- "unsupported
+  game build, exe timestamp <hex>, supported 1.3.0.8 Steam, the mod is off" -- and the mod installs nothing.
+  Report that timestamp when you ask about a new build.
   A different install path works if you pass `-GameExe` to `tools/inject.ps1` (below).
 - Windows 10/11 x64.
 - A screen reader (NVDA, JAWS, or any that prism supports). Menu and window text goes to the screen reader.
@@ -192,7 +194,7 @@ itself hovers and targets it, and plays a route ping. Shift reverses; Alt jumps 
 | H | Health and energy in full |
 | X | The current room: title and description |
 | Q | Objectives of the tracked quests |
-| F1 | G D Access menu (anywhere): sound glossary (every mod sound as a tree; landing on a row plays it) and, in the world, announcement config (T) and sonar config (Ctrl+T) |
+| F1 | G D Access menu (anywhere): sound glossary (every mod sound as a tree; landing on a row plays it), in the world announcement config (T) and sonar config (Ctrl+T), and mod options: the dev server on/off (off by default; Enter flips it now and remembers it) |
 | T | Combat announcement settings. First Tab stop: outgoing announcements off / brief (just "hit", "crit", "miss", "blocked") / full (the numbers), incoming announcements (your health, effects on you) on/off, incoming hit announcements ("hit" for every attack that lands on you) on/off, and telegraph cues with four states: off, your target (only the enemy you are reviewing or fighting), highest tier (only the strongest kind of enemy nearby, so a pack's boss speaks and its adds do not), all. Enter cycles, Left/Right step. Second Tab stop: one on/off row per cue shape (swing, stomp, wave, shot, ring). Escape closes; everything is saved between sessions |
 | Ctrl+T | Sonar config. First Tab stop: one on/off row per positioned cue -- wall tones, harmful ground (all three of its sounds), and the sonar's enemy, loot, entrance, breakable, shrine and interactable pings (Enter flips). Second Tab stop: six volumes in percent -- wall tones, harmful ground, enemy pings, other pings, the enemy voice (Mark) and your voice (Zira) (Left/Right by 5; Enter steps up and wraps); every step is 3 decibels, so the steps sound even, and plays that channel's sound at the new level so you set it by ear. Escape closes; everything is saved between sessions. The bare backslash still switches the whole sonar off and on |
 
@@ -256,7 +258,9 @@ nearest first) and one stop per act in the game's own order.
 
 For development the game runs **visible but never focused, with game audio and speech muted**, and it is
 driven over a local HTTP dev server inside the DLL (port 8791, `GDACCESS_PORT` to change) -- so iterating on
-the mod never fights the developer's screen reader. Requires the game NOT to be running already, and
+the mod never fights the developer's screen reader. The server is off by default: F1 -> mod options turns it on
+for a player who wants to debug (it listens on localhost only, but its routes can teleport, cheat and run Lua, so
+nothing starts it unasked); the dev launcher sets `GDACCESS_PORT`, which turns it on for that game process. Requires the game NOT to be running already, and
 [uv](https://docs.astral.sh/uv/) for the Python tooling (`uv run` installs Python 3.12+ and the dependencies
 from `pyproject.toml` on first use):
 
@@ -274,7 +278,8 @@ Do not restore or click the game window during a dev session: it activates itsel
 `gd.py` without arguments lists every command; the dev routes, the hot-reload loop and the implementation
 notes are in `CLAUDE.md`.
 
-Environment variables read by the DLL: `GDACCESS_PORT` (dev server port), `GDACCESS_MUTE=1` (mute game audio
+Environment variables read by the DLL: `GDACCESS_ANY_VERSION=1` (skip the version gate on an unknown game build --
+for measuring a patch, expect crashes), `GDACCESS_PORT` (dev server port; set = the server starts), `GDACCESS_MUTE=1` (mute game audio
 and speech), `GDACCESS_NOFOCUS=1` (block the game's own focus grabs, dev only), `GDACCESS_HOOK_WIDGETS=1`
 (experimental, crashes the game -- leave unset).
 
@@ -284,6 +289,8 @@ and speech), `GDACCESS_NOFOCUS=1` (block the game's own focus grabs, dev only), 
   author uses; the game's ABI is MSVC, so no other compiler will do). CMake and Ninja are installed by that
   workload and `tools/vsdev.cmd` finds them at the Community edition's default path. Another edition or
   path: edit the two paths in `tools/vsdev.cmd`.
+- The build links the C runtime statically, so a player needs no Visual C++ redistributable; only `prism.dll`
+  has to sit next to `gdaccess.dll`.
 - No other downloads: the prism speech SDK (the x64 headers, import library and `prism.dll` of release
   v0.18.1), Detours, miniaudio, SQLite, doctest, the room database and the audio assets are all in the repo.
 

@@ -6,6 +6,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(NOT MSVC)
   message(FATAL_ERROR "gdaccess must be built with MSVC (it links against the game's MSVC ABI)")
 endif()
+# Static CRT: the DLL is injected into a process whose own VC runtime is older than this toolset's, and a
+# player has no reason to have the 2022 redistributable. Everything here (Detours, SQLite, the core, the
+# injector) builds with /MT; prism.dll carries its own runtime.
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 add_compile_definitions(WIN32_LEAN_AND_MEAN NOMINMAX _CRT_SECURE_NO_WARNINGS UNICODE _UNICODE)
 add_compile_options(/utf-8 /W4 /permissive- /Zc:__cplusplus)
 
@@ -53,7 +57,8 @@ add_library(gdaccess SHARED
   src/voice.cpp src/tts_onecore.cpp src/combat.cpp src/casts.cpp src/telegraph.cpp src/settings.cpp src/cues.cpp src/screens/announcements.cpp src/screens/cue_settings.cpp src/screens/mod_menu.cpp src/screens/sound_glossary.cpp src/notify.cpp src/quest_rewards.cpp src/gameapi.cpp src/gameapi_items.cpp src/gameapi_skills.cpp src/gameapi_devotion.cpp src/gameapi_pets.cpp src/screens/pets.cpp src/gameapi_loot.cpp src/screens/loot_filter.cpp src/gameapi_crafting.cpp src/screens/crafting.cpp src/screens/inventor.cpp
   src/screens/codex.cpp src/screens/factions.cpp src/screens/inventory.cpp src/screens/skills.cpp src/screens/quickbar.cpp
   src/screens/modals.cpp src/screens/vendor.cpp src/db.cpp src/rooms.cpp src/sonar.cpp src/hazard.cpp src/screens/riftgate.cpp
-  src/screens/list_picker.cpp src/screens/count_prompt.cpp src/screens/reward_list.cpp src/screens/hotbar_manager.cpp src/screens/map_markers.cpp)
+  src/screens/list_picker.cpp src/screens/count_prompt.cpp src/screens/reward_list.cpp src/screens/hotbar_manager.cpp src/screens/map_markers.cpp
+  src/screens/mod_options.cpp src/version_gate.cpp)
 # C++/WinRT (OneCore speech in src/tts_onecore.cpp): the projection headers are heavy, and windowsapp.lib's
 # api-ms-win-* imports are delay-loaded so a machine without them loses combat speech, not the whole mod.
 set_source_files_properties(src/tts_onecore.cpp PROPERTIES COMPILE_OPTIONS "/bigobj")

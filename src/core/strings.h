@@ -48,6 +48,7 @@ inline constexpr std::string_view kSearchCleared = "search cleared";
 inline constexpr std::string_view kNothingThere = "nothing there";
 inline constexpr std::string_view kNoTextOnScreen = "no text on screen";
 inline constexpr std::string_view kUnsupportedScreen = "unsupported screen";
+inline constexpr std::string_view kModName = "G D Access";
 inline constexpr std::string_view kModLoaded = "G D Access loaded";
 inline constexpr std::string_view kModLoadedNoSpeech = "G D Access loaded, no speech backend";
 
@@ -87,6 +88,14 @@ inline constexpr std::string_view kNotABag = "not a bag";
 inline constexpr std::string_view kOffering = "offering";   // a shrine's required item row: "offering 1, Aether Crystal"
 inline constexpr std::string_view kModMenu = "G D Access menu";              // F1 anywhere
 inline constexpr std::string_view kSoundGlossary = "sound glossary";         // every WAV the mod plays, landing plays it
+inline constexpr std::string_view kUnsupportedBuild = "unsupported game build";   // the version gate's one line
+inline constexpr std::string_view kExeTimestamp = "exe timestamp";
+inline constexpr std::string_view kSupported = "supported";
+inline constexpr std::string_view kModOff = "the mod is off";
+// "G D Access unsupported game build, exe timestamp 6a85fbec, supported 1.3.0.8 Steam, the mod is off"
+gd::core::MessageBuilder& push_unsupported_build(gd::core::MessageBuilder& m, std::string_view exe_ts, const std::vector<std::string_view>& supported);
+inline constexpr std::string_view kModOptions = "mod options";            // the F1 menu's switches screen
+inline constexpr std::string_view kDevServer = "dev server";              // its loopback HTTP server toggle (off by default)
 inline constexpr std::string_view kGlossaryWallTones = "wall tones";
 inline constexpr std::string_view kGlossaryWallAhead = "wall ahead";
 inline constexpr std::string_view kGlossaryWallRight = "wall right";
