@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.24)
-project(gdaccess LANGUAGES C CXX)
+project(grimdark LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(NOT MSVC)
-  message(FATAL_ERROR "gdaccess must be built with MSVC (it links against the game's MSVC ABI)")
+  message(FATAL_ERROR "grimdark must be built with MSVC (it links against the game's MSVC ABI)")
 endif()
 # Static CRT: the DLL is injected into a process whose own VC runtime is older than this toolset's, and a
 # player has no reason to have the 2022 redistributable. Everything here (Detours, SQLite, the core, the
@@ -50,7 +50,7 @@ target_link_libraries(gdcore_tests PRIVATE gdcore)
 add_custom_target(check COMMAND gdcore_tests DEPENDS gdcore_tests)
 
 # --- the injected DLL ---
-add_library(gdaccess SHARED
+add_library(grimdark SHARED
   src/dllmain.cpp src/log.cpp src/crash.cpp src/speech.cpp src/hooks.cpp src/textcap.cpp src/devserver.cpp src/audio_mute.cpp src/app.cpp src/screens/main_menu.cpp src/screens/create_character.cpp src/screens/difficulty_select.cpp
   src/audio.cpp src/world.cpp src/screens/in_game.cpp src/screens/message_box.cpp src/screens/pause_menu.cpp
   src/screens/loading.cpp src/screens/tip.cpp src/screens/conversation.cpp src/exe_ui.cpp src/screens/delete_character.cpp src/screens/options.cpp
@@ -62,14 +62,14 @@ add_library(gdaccess SHARED
 # C++/WinRT (OneCore speech in src/tts_onecore.cpp): the projection headers are heavy, and windowsapp.lib's
 # api-ms-win-* imports are delay-loaded so a machine without them loses combat speech, not the whole mod.
 set_source_files_properties(src/tts_onecore.cpp PROPERTIES COMPILE_OPTIONS "/bigobj")
-target_include_directories(gdaccess PRIVATE src ${PRISM_SDK}/include third_party/miniaudio)
-target_link_libraries(gdaccess PRIVATE gdcore detours sqlite3 ${PRISM_LIB} user32 ws2_32 ole32 delayimp windowsapp)
-target_link_options(gdaccess PRIVATE /DELAYLOAD:${PRISM_DLL_NAME}
+target_include_directories(grimdark PRIVATE src ${PRISM_SDK}/include third_party/miniaudio)
+target_link_libraries(grimdark PRIVATE gdcore detours sqlite3 ${PRISM_LIB} user32 ws2_32 ole32 delayimp windowsapp)
+target_link_options(grimdark PRIVATE /DELAYLOAD:${PRISM_DLL_NAME}
   /DELAYLOAD:api-ms-win-core-winrt-l1-1-0.dll /DELAYLOAD:api-ms-win-core-winrt-error-l1-1-1.dll /DELAYLOAD:api-ms-win-core-winrt-string-l1-1-0.dll)
-target_compile_definitions(gdaccess PRIVATE PRISM_DLL_NAME="${PRISM_DLL_NAME}")
-add_custom_command(TARGET gdaccess POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PRISM_DLL} $<TARGET_FILE_DIR:gdaccess>
-  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:gdaccess>/assets)
+target_compile_definitions(grimdark PRIVATE PRISM_DLL_NAME="${PRISM_DLL_NAME}")
+add_custom_command(TARGET grimdark POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PRISM_DLL} $<TARGET_FILE_DIR:grimdark>
+  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:grimdark>/assets)
 
 # --- the injector ---
 add_executable(gdinject src/inject/main.cpp)

@@ -159,12 +159,12 @@ static std::string handle(const std::string& path, const std::map<std::string, s
   if (path == "/mute") {
     bool on = truthy(q.count("on") ? q.at("on") : "1");
     speech::set_muted(on);
-    if (!on) SetEnvironmentVariableW(L"GDACCESS_MUTE", nullptr);  // or the next hot reload re-mutes (dllmain reads it)
+    if (!on) SetEnvironmentVariableW(L"GRIMDARK_MUTE", nullptr);  // or the next hot reload re-mutes (dllmain reads it)
     return std::format("speech_muted={}\n", speech::muted());
   }
   if (path == "/audiomute") {  // the process's WASAPI session (game sounds AND our tones): /audiomute?on=0 to hear it
     bool on = truthy(q.count("on") ? q.at("on") : "1");
-    if (!on) SetEnvironmentVariableW(L"GDACCESS_MUTE", nullptr);
+    if (!on) SetEnvironmentVariableW(L"GRIMDARK_MUTE", nullptr);
     return std::format("audio_muted={} ok={}\n", on, audio::mute_process(on));
   }
   if (path == "/gamekeys") { hooks::set_game_keys_muted(truthy(q.count("on") ? q.at("on") : "1")); return std::format("game_keys_muted={}\n", hooks::game_keys_muted()); }

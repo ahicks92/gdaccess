@@ -515,22 +515,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gdaccess-installer"
-version = "0.1.0"
-dependencies = [
- "dirs",
- "embed-resource",
- "reqwest 0.12.28",
- "semver",
- "serde",
- "serde_json",
- "windows",
- "winreg",
- "wxdragon",
- "zip",
-]
-
-[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -586,6 +570,22 @@ name = "glob"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
+
+[[package]]
+name = "grimdark-installer"
+version = "0.1.0"
+dependencies = [
+ "dirs",
+ "embed-resource",
+ "reqwest 0.12.28",
+ "semver",
+ "serde",
+ "serde_json",
+ "windows",
+ "winreg",
+ "wxdragon",
+ "zip",
+]
 
 [[package]]
 name = "hashbrown"

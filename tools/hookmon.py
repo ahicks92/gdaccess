@@ -6,7 +6,7 @@ once a second via SendInput, and logs:
     being called (time spent in hooks ahead of us in the chain),
   - a loud line the moment a probe is NOT seen within 500 ms (== our hook was removed
     by the system, which is what happens when a hook in the chain times out).
-Usage: uv run tools/hookmon.py [seconds]   (log: %LOCALAPPDATA%\\gdaccess\\hookmon.log)
+Usage: uv run tools/hookmon.py [seconds]   (log: %LOCALAPPDATA%\\Grimdark\\hookmon.log)
 """
 import ctypes, ctypes.wintypes as wt, os, sys, threading, time
 
@@ -39,7 +39,7 @@ kernel32.GetModuleHandleW.argtypes = [wt.LPCWSTR]
 user32.GetForegroundWindow.restype = ctypes.c_void_p
 user32.GetWindowTextW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_int]
 
-logdir = os.path.join(os.environ.get("LOCALAPPDATA", "."), "gdaccess")
+logdir = os.path.join(os.environ.get("LOCALAPPDATA", "."), "Grimdark")
 os.makedirs(logdir, exist_ok=True)
 logf = open(os.path.join(logdir, "hookmon.log"), "w", buffering=1, encoding="utf-8")
 def log(s):

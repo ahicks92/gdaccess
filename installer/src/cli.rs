@@ -98,7 +98,7 @@ fn install_from_github() {
 }
 
 fn install_from_file() {
-    let path = PathBuf::from(prompt("Path to the GD Access zip: "));
+    let path = PathBuf::from(prompt("Path to the Grimdark zip: "));
     if !path.exists() {
         println!("Error: no such file.");
         return;

@@ -14,7 +14,7 @@ using namespace gd::core;
 namespace {
 bool g_open = false;
 
-// The row shows the LIVE state (the dev loop turns the server on through GDACCESS_PORT whatever the setting says);
+// The row shows the LIVE state (the dev loop turns the server on through GRIMDARK_PORT whatever the setting says);
 // Enter flips it now and remembers the choice for the next launch.
 void toggle_devserver() {
   bool on = !dev::running();

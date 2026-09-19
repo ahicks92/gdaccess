@@ -1,8 +1,8 @@
 //! Desktop + Start Menu shortcuts to gdlaunch.exe (IShellLink, the shell's own .lnk writer) and the
-//! per-user Add/Remove Programs entry (HKCU\...\Uninstall\GrimDark, which runs our copy with --uninstall).
+//! per-user Add/Remove Programs entry (HKCU\...\Uninstall\Grimdark, which runs our copy with --uninstall).
 use std::path::Path;
 
-use super::paths::{desktop_shortcut, start_menu_shortcut, BRAND, INSTALLER_EXE, LAUNCHER_EXE, UNINSTALL_KEY};
+use super::paths::{desktop_shortcut, start_menu_shortcut, APP_NAME, INSTALLER_EXE, LAUNCHER_EXE, UNINSTALL_KEY};
 
 #[cfg(windows)]
 fn write_lnk(lnk: &Path, target: &Path, workdir: &Path, description: &str) -> Result<(), String> {
@@ -51,13 +51,13 @@ fn register_uninstall(install_dir: &Path, version: &str) -> Result<(), String> {
     let installer = install_dir.join(INSTALLER_EXE);
     let launcher = install_dir.join(LAUNCHER_EXE);
     let set = |name: &str, value: &str| key.set_value(name, &value.to_string()).map_err(|e| format!("Registry write {} failed: {}", name, e));
-    set("DisplayName", BRAND)?;
+    set("DisplayName", APP_NAME)?;
     set("DisplayVersion", version)?;
     set("Publisher", "Austin Hicks")?;
     set("InstallLocation", &install_dir.to_string_lossy())?;
     set("DisplayIcon", &launcher.to_string_lossy())?;
     set("UninstallString", &format!("\"{}\" --uninstall", installer.to_string_lossy()))?;
-    set("URLInfoAbout", "https://github.com/ahicks92/gdaccess")?;
+    set("URLInfoAbout", "https://github.com/ahicks92/grimdark")?;
     key.set_value("NoModify", &1u32).map_err(|e| e.to_string())?;
     key.set_value("NoRepair", &1u32).map_err(|e| e.to_string())?;
     Ok(())
@@ -65,7 +65,7 @@ fn register_uninstall(install_dir: &Path, version: &str) -> Result<(), String> {
 
 pub fn create_all(install_dir: &Path) -> Result<(), String> {
     let target = install_dir.join(LAUNCHER_EXE);
-    let desc = "Start Grim Dawn with the GD Access screen-reader mod";
+    let desc = "Start Grim Dawn with the Grimdark screen-reader mod";
     if let Some(lnk) = desktop_shortcut() {
         write_lnk(&lnk, &target, install_dir, desc)?;
     }

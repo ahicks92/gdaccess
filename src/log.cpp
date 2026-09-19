@@ -15,9 +15,9 @@ LineRing& ring() { return g_ring; }
 void init() {
   wchar_t base[MAX_PATH];
   DWORD n = GetEnvironmentVariableW(L"LOCALAPPDATA", base, MAX_PATH);
-  std::wstring dir = n ? std::wstring(base, n) + L"\\gdaccess" : L"C:\\gdaccess";
+  std::wstring dir = n ? std::wstring(base, n) + L"\\Grimdark" : L"C:\\Grimdark";
   CreateDirectoryW(dir.c_str(), nullptr);
-  g_path = dir + L"\\gdaccess.log";
+  g_path = dir + L"\\grimdark.log";
   g_file = _wfopen(g_path.c_str(), L"w");
 }
 

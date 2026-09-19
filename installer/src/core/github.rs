@@ -58,7 +58,7 @@ pub fn catalog_from(releases: Vec<ReleaseInfo>) -> Catalog {
 
 pub fn fetch_catalog() -> Result<Catalog, String> {
     let client = reqwest::blocking::Client::builder()
-        .user_agent("GDAccessInstaller")
+        .user_agent("GrimdarkInstaller")
         .timeout(std::time::Duration::from_secs(15))
         .build()
         .map_err(|e| format!("Failed to create the HTTP client: {}", e))?;

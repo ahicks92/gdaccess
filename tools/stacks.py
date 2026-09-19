@@ -138,7 +138,7 @@ ok = k32.Thread32First(snap, ctypes.byref(te))
 while ok:
     if te.th32OwnerProcessID == pid: threads.append(te.th32ThreadID)
     ok = k32.Thread32Next(snap, ctypes.byref(te))
-print(f"pid {pid}: {len(threads)} threads; showing first {max_threads} plus any in gdaccess/user32/Engine frames")
+print(f"pid {pid}: {len(threads)} threads; showing first {max_threads} plus any in grimdark/user32/Engine frames")
 
 def walk(tid):
     ht = k32.OpenThread(THREAD_ALL_ACCESS, False, tid)
@@ -165,7 +165,7 @@ shown = 0
 for tid in threads:
     frames = walk(tid)
     if frames is None: continue
-    interesting = any(("gdaccess" in f or "Engine.dll" in f or "Game.dll" in f or "user32" in f.lower() or "DirectInput" in f) for f in frames)
+    interesting = any(("grimdark" in f or "Engine.dll" in f or "Game.dll" in f or "user32" in f.lower() or "DirectInput" in f) for f in frames)
     if shown < max_threads or interesting:
         shown += 1
         print(f"\n--- thread {tid} ---")

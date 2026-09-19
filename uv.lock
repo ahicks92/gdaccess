@@ -21,7 +21,7 @@ wheels = [
 ]
 
 [[package]]
-name = "gdaccess-tools"
+name = "grimdark-tools"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

@@ -1,11 +1,11 @@
 [package]
-name = "gdaccess-installer"
+name = "grimdark-installer"
 version = "0.1.0"
 edition = "2021"
-description = "GD Access installer: downloads a release of the Grim Dawn screen-reader mod, installs it per-user, makes shortcuts"
+description = "Grimdark installer: downloads a release of the Grim Dawn screen-reader mod, installs it per-user, makes shortcuts"
 
 [[bin]]
-name = "GDAccessInstaller"
+name = "GrimdarkInstaller"
 path = "src/main.rs"
 
 [dependencies]

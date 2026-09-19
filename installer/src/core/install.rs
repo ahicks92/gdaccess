@@ -1,4 +1,4 @@
-//! Install = download the release zip, unpack its `gdaccess/` folder into a staging folder next to the
+//! Install = download the release zip, unpack its `grimdark/` folder into a staging folder next to the
 //! install folder, swap it in (the old install is replaced wholesale so nothing stale lingers), put a copy of
 //! this installer inside it (Add/Remove Programs runs that copy), then the shortcuts and the registry entry.
 //! The mod's own data folder (log, settings) is never touched.
@@ -6,7 +6,7 @@ use std::fs;
 use std::io::{Cursor, Read};
 use std::path::{Component, Path, PathBuf};
 
-use super::paths::{install_dir, BRAND, INSTALLER_EXE, LAUNCHER_EXE, MOD_DLL, VERSION_FILE, ZIP_ROOT};
+use super::paths::{install_dir, APP_NAME, INSTALLER_EXE, LAUNCHER_EXE, MOD_DLL, VERSION_FILE, ZIP_ROOT};
 use super::shortcuts;
 
 /// Progress as the worker sees it; the GUI shows it, the CLI prints it.
@@ -18,7 +18,7 @@ pub enum Progress {
 
 pub fn download_bytes(url: &str, progress: &dyn Fn(Progress)) -> Result<Vec<u8>, String> {
     let client = reqwest::blocking::Client::builder()
-        .user_agent("GDAccessInstaller")
+        .user_agent("GrimdarkInstaller")
         .timeout(std::time::Duration::from_secs(300))
         .build()
         .map_err(|e| format!("Failed to create the HTTP client: {}", e))?;
@@ -74,8 +74,8 @@ fn sanitize(name: &str) -> Result<PathBuf, String> {
 
 pub fn install_zip(data: &[u8], progress: &dyn Fn(Progress)) -> Result<(), String> {
     let dest = install_dir();
-    let staging = dest.with_file_name(format!("{}.installing", BRAND));
-    let old = dest.with_file_name(format!("{}.old", BRAND));
+    let staging = dest.with_file_name(format!("{}.installing", APP_NAME));
+    let old = dest.with_file_name(format!("{}.old", APP_NAME));
     progress(Progress::Status("Unpacking...".into()));
 
     let mut archive = zip::ZipArchive::new(Cursor::new(data)).map_err(|e| format!("Not a valid zip: {}", e))?;
@@ -107,7 +107,7 @@ pub fn install_zip(data: &[u8], progress: &dyn Fn(Progress)) -> Result<(), Strin
     for required in [LAUNCHER_EXE, MOD_DLL, "prism.dll"] {
         if !staging.join(required).exists() {
             let _ = fs::remove_dir_all(&staging);
-            return Err(format!("The zip does not contain {}/{} -- is this a GD Access release zip?", ZIP_ROOT, required));
+            return Err(format!("The zip does not contain {}/{} -- is this a Grimdark release zip?", ZIP_ROOT, required));
         }
     }
     if !staging.join(VERSION_FILE).exists() {
@@ -122,7 +122,7 @@ pub fn install_zip(data: &[u8], progress: &dyn Fn(Progress)) -> Result<(), Strin
     let _ = fs::remove_dir_all(&old);
     if dest.exists() {
         fs::rename(&dest, &old).map_err(|e| {
-            format!("Could not replace the existing install at {} -- close GD Access and the game if they are running, then try again. ({})", dest.display(), e)
+            format!("Could not replace the existing install at {} -- close Grimdark and the game if they are running, then try again. ({})", dest.display(), e)
         })?;
     }
     if let Some(parent) = dest.parent() {
@@ -146,8 +146,8 @@ mod tests {
 
     #[test]
     fn sanitize_rejects_traversal() {
-        assert!(sanitize("gdaccess/../x").is_err());
+        assert!(sanitize("grimdark/../x").is_err());
         assert!(sanitize("C:/x").is_err());
-        assert_eq!(sanitize("gdaccess/assets/a.wav").unwrap(), PathBuf::from("gdaccess/assets/a.wav"));
+        assert_eq!(sanitize("grimdark/assets/a.wav").unwrap(), PathBuf::from("grimdark/assets/a.wav"));
     }
 }

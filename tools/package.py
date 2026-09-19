@@ -1,17 +1,17 @@
 """Assemble the player zip from a finished build (CI runs this; it works locally too).
 
-    python tools/package.py [--build build/ninja] [--out dist/gdaccess.zip] [--pdb-out dist/pdb]
+    python tools/package.py [--build build/ninja] [--out dist/grimdark.zip] [--pdb-out dist/pdb]
 
 Layout inside the zip (one top-level folder, so unzipping anywhere gives a self-contained mod folder):
 
-    gdaccess/
-      gdlaunch.exe (the player runs this), gdaccess.dll, prism.dll, gdinject.exe (dev: inject into a running game)
+    grimdark/
+      gdlaunch.exe (the player runs this), grimdark.dll, prism.dll, gdinject.exe (dev: inject into a running game)
       assets/          rooms.db, rooms_base.db, audio/...   -- the DLL loads these from next to itself
       README.md, LICENSE, THIRD_PARTY.md
       licenses/prism/  prism's NOTICE + LICENSES (MPL-2.0 attribution for the redistributed prism.dll)
 
 The PDB is NOT in the zip; --pdb-out copies it beside it (the crash log records module+offset, so each released
-build's gdaccess.pdb must be kept to symbolize a tester's log). No Python dependencies beyond the stdlib.
+build's grimdark.pdb must be kept to symbolize a tester's log). No Python dependencies beyond the stdlib.
 """
 import argparse, os, shutil, sys, zipfile
 
@@ -29,9 +29,9 @@ def git_describe():
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--build", default=os.path.join(ROOT, "build", "ninja"))
-    ap.add_argument("--out", default=os.path.join(ROOT, "dist", "gdaccess.zip"))
-    ap.add_argument("--pdb-out", default=None, help="directory to copy gdaccess.pdb into (default: next to --out)")
-    ap.add_argument("--version", default=None, help="written to gdaccess/version.txt (the installer compares it to release tags); default: git describe")
+    ap.add_argument("--out", default=os.path.join(ROOT, "dist", "grimdark.zip"))
+    ap.add_argument("--pdb-out", default=None, help="directory to copy grimdark.pdb into (default: next to --out)")
+    ap.add_argument("--version", default=None, help="written to grimdark/version.txt (the installer compares it to release tags); default: git describe")
     a = ap.parse_args()
     version = a.version or git_describe()
 
@@ -46,27 +46,27 @@ def main():
                 src = os.path.join(dp, fn)
                 add(zdir + "/" + os.path.relpath(src, srcdir).replace(os.sep, "/"), src)
 
-    for name in ("gdlaunch.exe", "gdaccess.dll", "prism.dll", "gdinject.exe"):
-        add("gdaccess/" + name, os.path.join(a.build, name))
-    add_tree("gdaccess/assets", os.path.join(ROOT, "assets"))   # the repo copy, not the build's mirror of it
-    add("gdaccess/README.md", os.path.join(ROOT, "README.md"))
-    add("gdaccess/LICENSE", os.path.join(ROOT, "LICENSE"))
-    add("gdaccess/THIRD_PARTY.md", os.path.join(ROOT, "third_party", "README.md"))
-    add("gdaccess/licenses/prism/NOTICE", os.path.join(PRISM, "NOTICE"))
-    add_tree("gdaccess/licenses/prism/LICENSES", os.path.join(PRISM, "LICENSES"))
+    for name in ("gdlaunch.exe", "grimdark.dll", "prism.dll", "gdinject.exe"):
+        add("grimdark/" + name, os.path.join(a.build, name))
+    add_tree("grimdark/assets", os.path.join(ROOT, "assets"))   # the repo copy, not the build's mirror of it
+    add("grimdark/README.md", os.path.join(ROOT, "README.md"))
+    add("grimdark/LICENSE", os.path.join(ROOT, "LICENSE"))
+    add("grimdark/THIRD_PARTY.md", os.path.join(ROOT, "third_party", "README.md"))
+    add("grimdark/licenses/prism/NOTICE", os.path.join(PRISM, "NOTICE"))
+    add_tree("grimdark/licenses/prism/LICENSES", os.path.join(PRISM, "LICENSES"))
 
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with zipfile.ZipFile(a.out, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as z:
         for zpath, src in files: z.write(src, zpath)
-        z.writestr("gdaccess/version.txt", version + "\n")
-        files.append(("gdaccess/version.txt", "(generated)"))
-    pdb = os.path.join(a.build, "gdaccess.pdb")
+        z.writestr("grimdark/version.txt", version + "\n")
+        files.append(("grimdark/version.txt", "(generated)"))
+    pdb = os.path.join(a.build, "grimdark.pdb")
     pdb_out = a.pdb_out or os.path.dirname(os.path.abspath(a.out))
     if os.path.exists(pdb):
         os.makedirs(pdb_out, exist_ok=True)
-        shutil.copy2(pdb, os.path.join(pdb_out, "gdaccess.pdb"))
+        shutil.copy2(pdb, os.path.join(pdb_out, "grimdark.pdb"))
     else:
-        print("package: no gdaccess.pdb next to the build (not fatal)")
+        print("package: no grimdark.pdb next to the build (not fatal)")
     print(f"package: {a.out} ({os.path.getsize(a.out) / 1e6:.1f} MB, {len(files)} files)")
 
 if __name__ == "__main__":

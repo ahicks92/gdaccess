@@ -208,7 +208,7 @@ Details of the survey: the 2026-09-14 session (mapdiff / bodydiff / anchor tests
 Consequences for the tools and the db:
 - **Every offline tool reads through `gamefiles.py`**: the highest installed layer's `Levels.arc`, the databases
   overlaid (`arz.load()` returns a `Layered` view, later records override), the Text arcs merged (the DLC zone names
-  `tagGDX1Rift*` / `tagGDX2Rift*` live only there). `GDACCESS_GAME_LAYERS=base` forces the base world.
+  `tagGDX1Rift*` / `tagGDX2Rift*` live only there). `GRIMDARK_GAME_LAYERS=base` forces the base world.
 - The gdx2 region record has a third string slot (a skybox record) the base map left empty; `mapfile.py` parses it.
 - **The level-body cache is per map** (`build/rooms/cache/<map_id>/`): gdx2 rewrote moved chunks at the SAME byte
   size and the shared name+size cache served the base bodies (Warden's Laboratory came out at its old place).

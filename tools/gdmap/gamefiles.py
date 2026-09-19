@@ -7,13 +7,13 @@ Prospect Hill corner is replaced by Gloomwald), and `GDX1.arz` / `GDX2.arz` add 
 game mounts the layers base < gdx1 < gdx2, last wins per file / per record (verified live: `/regions` counts the
 gdx2 table exactly). Every offline tool reads through here so it sees the same world the running game does.
 
-`GDACCESS_GAME_DIR` overrides the install path; `GDACCESS_GAME_LAYERS` (comma list of base,gdx1,gdx2) forces a
+`GRIMDARK_GAME_DIR` overrides the install path; `GRIMDARK_GAME_LAYERS` (comma list of base,gdx1,gdx2) forces a
 layer set, e.g. `base` to build the base-game rooms db on a full install."""
 from __future__ import annotations
 
 import os
 
-GAME_DIR = os.environ.get("GDACCESS_GAME_DIR", r"C:\Program Files (x86)\Steam\steamapps\common\Grim Dawn")
+GAME_DIR = os.environ.get("GRIMDARK_GAME_DIR", r"C:\Program Files (x86)\Steam\steamapps\common\Grim Dawn")
 # (layer name, database file); the resources live in <layer>/resources
 LAYERS = (("base", "database/database.arz"), ("gdx1", "gdx1/database/GDX1.arz"), ("gdx2", "gdx2/database/GDX2.arz"))
 
@@ -25,7 +25,7 @@ def layer_dir(layer: str) -> str:
 def installed() -> list[str]:
     """The mounted layers in overlay order (base first). An expansion counts when its Levels.arc is on disk
     (Steam removes the folder when the DLC is disabled)."""
-    forced = os.environ.get("GDACCESS_GAME_LAYERS")
+    forced = os.environ.get("GRIMDARK_GAME_LAYERS")
     if forced:
         return [l.strip() for l in forced.split(",") if l.strip()]
     out = []

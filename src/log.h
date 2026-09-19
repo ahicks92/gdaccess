@@ -5,7 +5,7 @@
 #include "ring.h"
 
 namespace gd::log {
-void init();  // %LOCALAPPDATA%\gdaccess\gdaccess.log (truncated per load)
+void init();  // %LOCALAPPDATA%\Grimdark\grimdark.log (truncated per load)
 void write(std::string_view line);
 template <typename... A>
 void writef(std::format_string<A...> fmt, A&&... a) { write(std::format(fmt, std::forward<A>(a)...)); }

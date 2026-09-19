@@ -14,7 +14,7 @@ namespace gd::dev {
 //   /cursor?x=&y= | ?clear=1    override the game's cursor position
 //   /buttons                    which Button values the game polls via IsButtonDown
 // Off by default for a player: the F1 menu's "mod options" toggle (settings key `devserver`) or the dev loop's
-// GDACCESS_PORT environment variable turns it on (dllmain.cpp). The routes are loopback-only but unauthenticated
+// GRIMDARK_PORT environment variable turns it on (dllmain.cpp). The routes are loopback-only but unauthenticated
 // (/lua, /cheat, /teleport ...), so nothing starts it unasked.
 void start(int port);          // no-op while running
 void stop(bool wait = true);   // wait = join the server thread; pass false from the game thread (a request may be waiting for it)

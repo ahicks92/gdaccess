@@ -1,4 +1,4 @@
-"""Dev-loop client for gdaccess. Talks to the in-process dev server; never touches focus or real input.
+"""Dev-loop client for grimdark. Talks to the in-process dev server; never touches focus or real input.
 
   uv run --with pillow tools/gd.py launch [--speak]      build + launch unfocused + wait for /health
   uv run tools/gd.py health | text | buttons | log [--since N] | speech [--since N] [--wait SEC]
@@ -13,7 +13,7 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 import argparse, os, subprocess, sys, time, urllib.parse, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PORT = int(os.environ.get("GDACCESS_PORT", "8791"))
+PORT = int(os.environ.get("GRIMDARK_PORT", "8791"))
 
 def get(path, timeout=15):
     try:
@@ -91,7 +91,7 @@ def capture(out=None, width=1600):
     img = Image.frombuffer("RGB", (w, h), data, "raw", "BGRX", 0, 1)
     g32.DeleteObject(bmp); g32.DeleteDC(mdc); u32.ReleaseDC(hwnd, hdc)
     if width and w > width: img = img.resize((width, int(h * width / w)))
-    path = out or os.path.join(os.environ.get("LOCALAPPDATA", "."), "gdaccess", "shot.png")
+    path = out or os.path.join(os.environ.get("LOCALAPPDATA", "."), "Grimdark", "shot.png")
     img.save(path)
     return path
 

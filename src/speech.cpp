@@ -17,7 +17,7 @@ static void prism_log(void*, PrismLogLevel level, const char* source, const char
 }
 
 bool init() {
-  // prism.dll sits next to gdaccess.dll, which is NOT on the game's DLL search path; load it by
+  // prism.dll sits next to grimdark.dll, which is NOT on the game's DLL search path; load it by
   // full path first so the delay-load resolver finds the already-loaded module by name.
   HMODULE self = nullptr;
   GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)&init, &self);

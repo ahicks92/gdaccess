@@ -1,5 +1,5 @@
 #pragma once
-// Player settings that survive a session: a key=value text file at %LOCALAPPDATA%\gdaccess\settings.txt
+// Player settings that survive a session: a key=value text file at %LOCALAPPDATA%\Grimdark\settings.txt
 // (the announcement toggles). Read once at load, rewritten on every change. Not the game's options.txt.
 #include <string>
 #include <string_view>

@@ -20,7 +20,7 @@ const rooms = args.rooms || []
 const RULES = `${ROOT}/docs/rooms-description-rules.md`
 const CLI = `cd ${ROOT} && export PYTHONIOENCODING=utf-8 && uv run tools/author.py`
 
-const COMMON = `You are working on GD Access, a screen-reader mod for Grim Dawn (an ARPG). Blind players hear a
+const COMMON = `You are working on Grimdark, a screen-reader mod for Grim Dawn (an ARPG). Blind players hear a
 place as "<region>, <sub-region>, <room title>" and press X for a one-or-two-sentence description. Read the
 rules first: ${RULES}. All reads and writes go through the CLI "${CLI} ..." (Bash tool). Never edit the
 database or any file directly. Region key: ${region}.`

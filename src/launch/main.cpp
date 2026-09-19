@@ -1,4 +1,4 @@
-// gdlaunch: the player's launcher. Finds the Steam install of Grim Dawn, starts the 64-bit game with gdaccess.dll
+// gdlaunch: the player's launcher. Finds the Steam install of Grim Dawn, starts the 64-bit game with grimdark.dll
 // loaded before the game initializes (its NVDA-killing keyboard-hook code runs at startup), and keeps this
 // console open while the game runs, echoing what the mod says from its log. Every hard failure is a message box
 // (a screen reader reads those natively; the mod's speech is not up yet) plus a console line.
@@ -7,7 +7,7 @@
 //
 // Game location, in order: --game; game_path.txt next to this exe (one line); Steam's own records (registry
 // SteamPath -> steamapps\libraryfolders.vdf -> the library holding appmanifest_219990.acf -> its installdir);
-// the default install path. The mod folder itself can sit anywhere: gdaccess.dll, prism.dll and assets\ are
+// the default install path. The mod folder itself can sit anywhere: grimdark.dll, prism.dll and assets\ are
 // loaded from next to this exe.
 //
 // Steam: the game is started the way GDCommunityLauncher does it -- the environment block the Steam client sets
@@ -139,7 +139,7 @@ void fake_steam_environment() {
 std::wstring log_path() {
   wchar_t base[MAX_PATH];
   DWORD n = GetEnvironmentVariableW(L"LOCALAPPDATA", base, MAX_PATH);
-  return (n ? std::wstring(base, n) + L"\\gdaccess" : L"C:\\gdaccess") + L"\\gdaccess.log";
+  return (n ? std::wstring(base, n) + L"\\Grimdark" : L"C:\\Grimdark") + L"\\grimdark.log";
 }
 
 // Echo the mod's log lines worth a player's attention as they appear (the DLL truncates the log when it loads).
@@ -158,9 +158,9 @@ struct LogTail {
       std::string line = carry.substr(0, nl);
       carry.erase(0, nl + 1);
       if (!line.empty() && line.back() == '\r') line.pop_back();
-      if (line.find("gdaccess: loaded") != std::string::npos) saw_loaded = true;
+      if (line.find("grimdark: loaded") != std::string::npos) saw_loaded = true;
       bool show = line.find("[speak") != std::string::npos || line.find("version:") != std::string::npos ||
-                  line.find("gdaccess:") != std::string::npos || line.find("crash:") != std::string::npos ||
+                  line.find("grimdark:") != std::string::npos || line.find("crash:") != std::string::npos ||
                   line.find("speech:") != std::string::npos;
       if (show) { printf("  %s\n", line.c_str()); fflush(stdout); }
     }
@@ -170,7 +170,7 @@ struct LogTail {
 }  // namespace
 
 int wmain(int argc, wchar_t** argv) {
-  SetConsoleTitleW(L"GD Access");
+  SetConsoleTitleW(L"Grimdark");
   std::wstring game_arg;
   bool dry = false;
   for (int i = 1; i < argc; ++i) {
@@ -178,25 +178,25 @@ int wmain(int argc, wchar_t** argv) {
     else if (!_wcsicmp(argv[i], L"--dry-run")) dry = true;
     else { printf("usage: gdlaunch [--game <path to x64\\Grim Dawn.exe>] [--dry-run]\n"); return 2; }
   }
-  printf("GD Access launcher\n\n");
+  printf("Grimdark launcher\n\n");
 
   std::wstring dir = exe_dir();
-  std::wstring dll = dir + L"\\gdaccess.dll";
-  if (!file_exists(dll)) return fail(L"GD Access", L"gdaccess.dll is not next to gdlaunch.exe. Unzip the whole mod folder and run gdlaunch.exe from inside it.");
-  if (!file_exists(dir + L"\\prism.dll")) return fail(L"GD Access", L"prism.dll is missing from the mod folder. Unzip the whole mod folder again.");
+  std::wstring dll = dir + L"\\grimdark.dll";
+  if (!file_exists(dll)) return fail(L"Grimdark", L"grimdark.dll is not next to gdlaunch.exe. Unzip the whole mod folder and run gdlaunch.exe from inside it.");
+  if (!file_exists(dir + L"\\prism.dll")) return fail(L"Grimdark", L"prism.dll is missing from the mod folder. Unzip the whole mod folder again.");
 
   std::wstring exe = find_game(game_arg);
-  if (exe.empty()) return fail(L"GD Access", L"Grim Dawn was not found. Is it installed through Steam? If it is somewhere unusual, put the full path of x64\\Grim Dawn.exe on the first line of a file named game_path.txt next to gdlaunch.exe.");
-  if (!file_exists(exe)) return fail(L"GD Access", L"The game exe does not exist: " + exe);
+  if (exe.empty()) return fail(L"Grimdark", L"Grim Dawn was not found. Is it installed through Steam? If it is somewhere unusual, put the full path of x64\\Grim Dawn.exe on the first line of a file named game_path.txt next to gdlaunch.exe.");
+  if (!file_exists(exe)) return fail(L"Grimdark", L"The game exe does not exist: " + exe);
   {
     std::wstring d = exe.substr(0, exe.find_last_of(L"\\/"));
     std::wstring leaf = d.substr(d.find_last_of(L"\\/") + 1);
-    if (_wcsicmp(leaf.c_str(), L"x64") != 0) return fail(L"GD Access", L"GD Access needs the 64-bit game (the exe under the x64 folder), not: " + exe);
+    if (_wcsicmp(leaf.c_str(), L"x64") != 0) return fail(L"Grimdark", L"Grimdark needs the 64-bit game (the exe under the x64 folder), not: " + exe);
   }
   printf("Game: %ls\n", exe.c_str());
 
-  if (!find_pid(L"steam.exe")) return fail(L"Steam is not running", L"Start Steam, sign in, and then run GD Access again. The game needs Steam running in the background.");
-  if (find_pid(L"Grim Dawn.exe")) return fail(L"Grim Dawn is already running", L"Close the running game first (the mod has to be loaded before the game starts), then run GD Access again.");
+  if (!find_pid(L"steam.exe")) return fail(L"Steam is not running", L"Start Steam, sign in, and then run Grimdark again. The game needs Steam running in the background.");
+  if (find_pid(L"Grim Dawn.exe")) return fail(L"Grim Dawn is already running", L"Close the running game first (the mod has to be loaded before the game starts), then run Grimdark again.");
   printf("Steam is running.\n");
 
   if (dry) { printf("Dry run: would start the game with %ls\n", dll.c_str()); return 0; }
@@ -210,17 +210,17 @@ int wmain(int argc, wchar_t** argv) {
   std::wstring cmd = L"\"" + exe + L"\"";
   STARTUPINFOW si{};
   si.cb = sizeof si;
-  {   // dev: GDACCESS_NOFOCUS=1 (the DLL then blocks the game's own focus grabs) also keeps the initial window from activating
+  {   // dev: GRIMDARK_NOFOCUS=1 (the DLL then blocks the game's own focus grabs) also keeps the initial window from activating
     wchar_t v[4];
-    if (GetEnvironmentVariableW(L"GDACCESS_NOFOCUS", v, 4) > 0 && v[0] == L'1') { si.dwFlags = STARTF_USESHOWWINDOW; si.wShowWindow = SW_SHOWNOACTIVATE; }
+    if (GetEnvironmentVariableW(L"GRIMDARK_NOFOCUS", v, 4) > 0 && v[0] == L'1') { si.dwFlags = STARTF_USESHOWWINDOW; si.wShowWindow = SW_SHOWNOACTIVATE; }
   }
   PROCESS_INFORMATION pi{};
   if (!CreateProcessW(exe.c_str(), cmd.data(), nullptr, nullptr, FALSE, CREATE_SUSPENDED | NORMAL_PRIORITY_CLASS, nullptr, cwd.c_str(), &si, &pi))
-    return fail(L"GD Access", L"Could not start the game (Windows error " + std::to_wstring(GetLastError()) + L"): " + exe);
+    return fail(L"Grimdark", L"Could not start the game (Windows error " + std::to_wstring(GetLastError()) + L"): " + exe);
   printf("Started the game (pid %lu), loading the mod...\n", pi.dwProcessId);
   if (!inject_dll(pi.hProcess, dll.c_str())) {
     TerminateProcess(pi.hProcess, 1);   // a game without the mod would break the screen reader's keys on the first focus change
-    return fail(L"GD Access", L"The mod could not be loaded into the game, so the game was closed again. The log is " + log_path());
+    return fail(L"Grimdark", L"The mod could not be loaded into the game, so the game was closed again. The log is " + log_path());
   }
   ResumeThread(pi.hThread);
   CloseHandle(pi.hThread);
@@ -247,8 +247,8 @@ int wmain(int argc, wchar_t** argv) {
     if (other && other != pid && !tail.saw_loaded) {
       printf("The game restarted itself (pid %lu); loading the mod there.\n", other);
       proc = OpenProcess(PROCESS_ALL_ACCESS, FALSE, other);
-      if (!proc) return fail(L"GD Access", L"The game restarted itself and the mod could not follow it (Windows error " + std::to_wstring(GetLastError()) + L").");
-      if (!inject_dll(proc, dll.c_str())) { TerminateProcess(proc, 1); return fail(L"GD Access", L"The mod could not be loaded into the restarted game, so it was closed again."); }
+      if (!proc) return fail(L"Grimdark", L"The game restarted itself and the mod could not follow it (Windows error " + std::to_wstring(GetLastError()) + L").");
+      if (!inject_dll(proc, dll.c_str())) { TerminateProcess(proc, 1); return fail(L"Grimdark", L"The mod could not be loaded into the restarted game, so it was closed again."); }
       pid = other;
       continue;
     }

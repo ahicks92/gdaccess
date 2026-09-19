@@ -1,4 +1,4 @@
-# GD Access — screen-reader accessibility mod for Grim Dawn (C++)
+# Grimdark — screen-reader accessibility mod for Grim Dawn (C++)
 
 Injected DLL that hooks the game's own engine exports. Design lineage: `../wotr-access` (C#/Unity sibling
 project by the same author) — see `docs/design-notes-from-wotr.md` for the decisions we carry over.
@@ -66,7 +66,7 @@ project by the same author) — see `docs/design-notes-from-wotr.md` for the dec
   (the export is the base implementation); `RTTI_ClassInfo` = vptr + `const char* name` ("Player", "Npc",
   "Monster", "PlayerSpawnPoint"). `/entities`, `/project?id=`, `/lock?id=|off=1`, `/target` are the dev routes.
 - Hot reload crashes (the in-world `bad_function_call` abort of 2026-08-21 and a main-menu crash inside our
-  tick on 2026-08-22) were Detours transactions updating only the calling thread: `gdaccess_unload` runs on a
+  tick on 2026-08-22) were Detours transactions updating only the calling thread: `grimdark_unload` runs on a
   remote thread, so the game thread could sit in a trampoline being freed (and the new DLL maps at the old
   base, which is why the stale frames symbolized against the new PDB). Fixed: `hooks.cpp ThreadUpdater`
   suspends/updates every thread of the process in every transaction, and the unload sleeps 250 ms after
@@ -125,13 +125,13 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   running with a MessageBox (not prism: the mod is not up yet), fakes GDCommunityLauncher's Steam environment block
   (SteamEnv/SteamClientLaunch/SteamGameId/SteamAppId/SteamOverlayGameId/SteamAppUser/SteamUser/STEAMID/USER_MYDOCS)
   so the stub does not relaunch, injects at suspended start, then keeps the console open tailing the log's
-  `[speak]`/`version:`/`gdaccess:`/`crash:`/`speech:` lines until the game exits. Honours GDACCESS_NOFOCUS for the
-  initial show state, so `GDACCESS_NOFOCUS=1 GDACCESS_MUTE=1 GDACCESS_PORT=8791 gdlaunch.exe` is a dev-safe run of
+  `[speak]`/`version:`/`grimdark:`/`crash:`/`speech:` lines until the game exits. Honours GRIMDARK_NOFOCUS for the
+  initial show state, so `GRIMDARK_NOFOCUS=1 GRIMDARK_MUTE=1 GRIMDARK_PORT=8791 gdlaunch.exe` is a dev-safe run of
   the real launcher. Deliberately NOT Steam launch options (Factorio Access support-load lesson).
-- Hot reload: `powershell -File tools/inject.ps1` (ejects via the DLL's exported `gdaccess_unload`, rebuilds,
+- Hot reload: `powershell -File tools/inject.ps1` (ejects via the DLL's exported `grimdark_unload`, rebuilds,
   re-injects). Never tear down from DllMain (joining a thread there deadlocks under the loader lock).
 - How it stays unfocused: `gdinject --launch` uses `STARTF_USESHOWWINDOW` + `SW_SHOWNOACTIVATE`, and with
-  `GDACCESS_NOFOCUS=1` the DLL defangs the game's own `SetForegroundWindow`/activating `ShowWindow`/
+  `GRIMDARK_NOFOCUS=1` the DLL defangs the game's own `SetForegroundWindow`/activating `ShowWindow`/
   `SetWindowPos` and fakes `GetForegroundWindow`/`GetActiveWindow`/`GetFocus`. Do NOT un-minimize or restore the
   window from outside — the game activates itself on restore. `inactiveUpdateRate` must be nonzero
   (launcher patches 0 -> 30) or the engine stops ticking while unfocused.
@@ -144,7 +144,7 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   Create Character dialog.
 - The engine dispatches events to `Engine::AddWidget` registrants (vector at Engine+0x3e8, vtable +0x10 key /
   +0x18 mouse). The exe's real mouse handler is `exe+0xbef10`; several slots are import thunks or
-  `return false` stubs — **never detour those** (it crashed the game; `GDACCESS_HOOK_WIDGETS=1` re-enables the
+  `return false` stubs — **never detour those** (it crashed the game; `GRIMDARK_HOOK_WIDGETS=1` re-enables the
   experimental handler hooks). The exe is SteamStub-packed on disk: `tools/dump_exe.py` dumps the unpacked
   image from the live process and `tools/exe_dis.py <rva>` disassembles it with Engine/Game export names.
 - **A crashed game looks alive**: its crash handler keeps the process in a dialog, `tasklist` still lists it and
@@ -706,7 +706,7 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   push_context titles): outgoing off / brief (hit, crit, miss, blocked) / full (Mark numbers; kills+XP in both) / incoming
   (Zira health steps, effects on you) / incoming hits ("hit" per attack reaching you via `CombatManager::TakeAttack`,
   works while invincible) / telegraph cues as a FOUR-STATE (off, your target = reviewed or combat
-  enemy, highest tier = casters at the top MonsterClassification within 25 u, all) + a per-shape on/off stop; persisted in `%LOCALAPPDATA%\gdaccess\settings.txt` (`src/settings.cpp`,
+  enemy, highest tier = casters at the top MonsterClassification within 25 u, all) + a per-shape on/off stop; persisted in `%LOCALAPPDATA%\Grimdark\settings.txt` (`src/settings.cpp`,
   key=value; the mod's only persisted settings). The authoring note that was on T is the dev route `/note`. Cue files are
   loudness-matched to the sonar's enemy cue (K-weighted -13.9 LKFS, limiter) and play above the master on the voice rolloff.
 - Phantom mouse hold mutes WASD (2026-09-01, diagnosed live, fix built, NOT yet verified): the exe keeps its own
@@ -866,7 +866,7 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   object read happens inside the hook (`read_objects`), `Raw::skill` is an opaque key. `world::rtti_of` refuses any
   vtable (or slot) outside the exe/Engine.dll/Game.dll images, which covers every class lookup. `src/crash.cpp`
   = a first-chance vectored exception handler writing code/address/registers + a return-address scan of the stack
-  (module+rva, no heap, own file handle) to gdaccess.log; ordinary codes are deduped per (code, address) and
+  (module+rva, no heap, own file handle) to grimdark.log; ordinary codes are deduped per (code, address) and
   capped at 200, heap corruption / fast-fail / execute faults always logged. `tools/vsdev.cmd` finds any VS 2022
   edition through vswhere (Build Tools included). Note for anyone reading a tester's log: a new character's intro
   cutscene runs minutes with the mod silent (Escape skips it), and the VM's load is slow.
@@ -886,7 +886,7 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   differ, mostly < 1 %), three dungeons move by (+224, +160), Gloomwald replaces the cut Prospect Hill corner off
   Burrwitch Village's west edge, Malmouth hangs north of Ugdenbog, Forgotten Gods is an island reached by the
   Emissary's portal. Tools read the overlay through `tools/gdmap/gamefiles.py` (map, arz `Layered`, Text arcs;
-  `GDACCESS_GAME_LAYERS=base` forces the base world); the level-body cache is per map (a same-size rewrite fooled the
+  `GRIMDARK_GAME_LAYERS=base` forces the base world); the level-body cache is per map (a same-size rewrite fooled the
   shared one). **Two dbs**: `assets/rooms.db` = gdx2 world (meta.map), `assets/rooms_base.db` = the frozen base one;
   `rooms.cpp` picks by `gdx2/resources/Levels.arc` under the install root. Regen = `rooms.py shift` (moved dungeons)
   -> `rebuild --write --prune` -> `rehome --write` -> `areas --write` -> `seams --write`. Riftgate zones now carry
@@ -924,27 +924,27 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   initializes (sets `SteamAppId` so the Steam stub does not relaunch; follows a relaunch if it happens).
 - `powershell -File tools/inject.ps1` — hot reload into the running game: ejects the old DLL (so the linker
   can overwrite it), builds, re-injects. `-Eject` unloads. `-NoBuild` skips the build.
-- Log: `%LOCALAPPDATA%\gdaccess\gdaccess.log` (truncated on each load). Speech lines are logged as `[speak]`.
+- Log: `%LOCALAPPDATA%\Grimdark\grimdark.log` (truncated on each load). Speech lines are logged as `[speak]`.
 - The dev server is OFF by default (2026-09-18): it starts when settings.txt has `devserver=1` (F1 -> mod options,
-  `screens/mod_options.cpp`, the row shows the live state) or `GDACCESS_PORT` is set, which `inject.ps1 -Launch`
+  `screens/mod_options.cpp`, the row shows the live state) or `GRIMDARK_PORT` is set, which `inject.ps1 -Launch`
   always does, so the dev loop is unchanged. `gd.py status` reports HUNG when the server is simply off. The CRT is
   static (`CMAKE_MSVC_RUNTIME_LIBRARY`): no VC++ redistributable on a player's machine.
 - The F10-F12 GetAsyncKeyState dev hotkeys were removed 2026-09-13 (the dev routes replaced them long before).
-- Speech: prism (prebuilt SDK in `third_party/prism-bin`, delay-loaded from next to gdaccess.dll).
+- Speech: prism (prebuilt SDK in `third_party/prism-bin`, delay-loaded from next to grimdark.dll).
 - Hooking: Microsoft Detours, vendored source in `third_party/Detours`, built as a static lib.
 
 ## Tools (Python: `uv run tools/<script>.py` -- the repo root `pyproject.toml` declares lz4/pefile/capstone/numpy/scipy/pillow, no `--with` needed)
 - `tools/rooms.py` + `tools/gdmap/` (arc, map header, level bodies: navmesh tile layers + terrain layers,
   segmentation, renderer, `roomsdb.py`) -- the rooms pipeline, `docs/rooms.md`. `rooms.py area
   devilscrossing --write` regenerates `assets/rooms.db`; floor plans in `build/rooms/`.
-- `tools/package.py [--out dist/gdaccess.zip] [--version v]` — the player zip in its final layout (`gdaccess/` folder:
+- `tools/package.py [--out dist/grimdark.zip] [--version v]` — the player zip in its final layout (`grimdark/` folder:
   gdlaunch, DLL, prism, injector, assets, README, licenses, `version.txt`) + the PDB beside it. `.github/workflows/build.yml`:
   job `mod` (build -> `gdcore_tests` -> package), job `installer` (cargo test + build in `installer/`), job `publish`
   (a `v*` tag = a GitHub release with zip + installer + pdb; every main push recreates the `ci-latest` pre-release).
 - **Installer** (`installer/`, Rust + wxdragon = native wx controls, modelled on wotr-access's; 2026-09-19): per-user
-  install to `%LOCALAPPDATA%\Programs\GrimDark` (replaced wholesale; `%LOCALAPPDATA%\gdaccess` data untouched),
-  Desktop + Start Menu `GrimDark.lnk` via IShellLink, HKCU Uninstall key `GrimDark` (on-disk names = the coming
-  brand, fixed 2026-09-19 before anyone installs; `paths::BRAND` vs the still-spoken `APP_NAME`), HKCU Uninstall key (Add/Remove runs the copy inside the folder with
+  install to `%LOCALAPPDATA%\Programs\Grimdark` (replaced wholesale; `%LOCALAPPDATA%\Grimdark` data untouched),
+  Desktop + Start Menu `Grimdark.lnk` via IShellLink, HKCU Uninstall key `Grimdark` (`paths::APP_NAME` is the one
+  name, spoken and on disk; the rebrand from GD Access / gdaccess landed 2026-09-18 before any release; Add/Remove runs the copy inside the folder with
   `--uninstall`, which re-execs from %TEMP% to delete itself), version = `version.txt` vs release tags (semver only;
   `ci-latest` listed LAST as "latest successful CI build"), Install from file, Launch, `--cli`. Download/unpack on a
   worker thread, a 100 ms wx Timer drains progress into the log. Building it locally needs Ninja + CMake on PATH:
@@ -972,7 +972,7 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   (`/text`) and the fallback's name source only. Unknown screens get the honest "unsupported screen"
   fallback. **Version gate** (2026-09-18, `src/version_gate.cpp`, table `src/game_versions.h`): before any hook, the
   exe + Engine.dll + Game.dll PE timestamps must match a table row, else ONE spoken line ("unsupported game build, exe
-  timestamp <hex>, supported ...") and nothing is installed (`GDACCESS_ANY_VERSION=1` skips it for measuring a patch;
+  timestamp <hex>, supported ...") and nothing is installed (`GRIMDARK_ANY_VERSION=1` skips it for measuring a patch;
   `tools/archive_build.py` prints the row for a new build). `exe_ui::available()` remains the byte-signature backstop.
   No screen clicks at drawn text any more; the two remaining synthesized clicks land on a widget's OWN rectangle
   (an edit box taking focus, a conversation row) because the game's handler for them has side effects we

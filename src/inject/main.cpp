@@ -1,4 +1,4 @@
-// gdinject: load (or unload) gdaccess.dll into the running Grim Dawn process.
+// gdinject: load (or unload) grimdark.dll into the running Grim Dawn process.
 //   gdinject.exe <path-to-dll>            inject
 //   gdinject.exe --eject <path-to-dll>    FreeLibrary the module in the target
 #include <windows.h>
@@ -83,13 +83,13 @@ int wmain(int argc, wchar_t** argv) {
     if (!m) { printf("module not loaded in target\n"); return 1; }
     // Run the DLL's orderly shutdown first (same image, same export RVA in every process), then FreeLibrary.
     HMODULE local = LoadLibraryExW(full, nullptr, DONT_RESOLVE_DLL_REFERENCES);
-    FARPROC unload = local ? GetProcAddress(local, "gdaccess_unload") : nullptr;
+    FARPROC unload = local ? GetProcAddress(local, "grimdark_unload") : nullptr;
     if (unload) {
       LPVOID remote = (LPVOID)((uintptr_t)m + ((uintptr_t)unload - (uintptr_t)local));
       HANDLE t = CreateRemoteThread(proc, nullptr, 0, (LPTHREAD_START_ROUTINE)remote, nullptr, 0, nullptr);
-      if (t) { DWORD w = WaitForSingleObject(t, 15000); CloseHandle(t); printf("gdaccess_unload %s\n", w == WAIT_OBJECT_0 ? "done" : "TIMED OUT"); }
+      if (t) { DWORD w = WaitForSingleObject(t, 15000); CloseHandle(t); printf("grimdark_unload %s\n", w == WAIT_OBJECT_0 ? "done" : "TIMED OUT"); }
     } else {
-      printf("warning: gdaccess_unload export not found; unloading without orderly shutdown\n");
+      printf("warning: grimdark_unload export not found; unloading without orderly shutdown\n");
     }
     if (local) FreeLibrary(local);
     return remote_call(proc, "FreeLibrary", (LPVOID)m) ? 0 : 1;

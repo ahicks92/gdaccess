@@ -1,4 +1,4 @@
-# GD Access
+# Grimdark
 
 A screen-reader accessibility mod for Grim Dawn. It is a DLL injected into the game that hooks the engine's
 own exported functions, models each game screen as a keyboard-navigable list, speaks through your screen
@@ -55,17 +55,17 @@ them) and leave "Display Damage" on (combat speech reads the floating numbers).
 
 ## Installing
 
-Download `GDAccessInstaller.exe` from the newest release on GitHub and run it. It is an ordinary window: a status
+Download `GrimdarkInstaller.exe` from the newest release on GitHub and run it. It is an ordinary window: a status
 line, a log of what it is doing, and the buttons Install (or Update), Install from file, Launch, Uninstall. Install
 lists the released versions newest first and, last, "latest successful CI build", which is the untested build of the
-current source and is there for people who know they want it. The mod goes to `%LOCALAPPDATA%\Programs\GrimDark`,
-a "GrimDark" shortcut lands on your desktop and in the Start Menu, and a "GrimDark" entry appears in Add/Remove Programs.
-Your settings live in `%LOCALAPPDATA%\gdaccess` and survive updates and uninstalls. Nothing in the game folder is
-touched. `GDAccessInstaller.exe --cli` does the same thing on the console.
+current source and is there for people who know they want it. The mod goes to `%LOCALAPPDATA%\Programs\Grimdark`,
+a "Grimdark" shortcut lands on your desktop and in the Start Menu, and a "Grimdark" entry appears in Add/Remove Programs.
+Your settings live in `%LOCALAPPDATA%\Grimdark` and survive updates and uninstalls. Nothing in the game folder is
+touched. `GrimdarkInstaller.exe --cli` does the same thing on the console.
 
 ## Launching
 
-Run the "GrimDark" shortcut (it starts `gdlaunch.exe` in the mod folder). Without the installer: unzip the release
+Run the "Grimdark" shortcut (it starts `gdlaunch.exe` in the mod folder). Without the installer: unzip the release
 zip anywhere, make sure Steam is running and the game is not, and run `gdlaunch.exe` from inside that folder. It finds Grim Dawn through
 Steam's own records (any Steam library), starts the 64-bit game with the mod loaded before the game initializes,
 and keeps its console window open while you play: that window shows every line the mod speaks and, when the game
@@ -76,7 +76,7 @@ If the game is somewhere the launcher cannot find, put the full path of `x64\Gri
 a file named `game_path.txt` next to `gdlaunch.exe`. The launcher does not touch options.txt or any other game
 file.
 
-Log: `%LOCALAPPDATA%\gdaccess\gdaccess.log`, truncated on each load; every spoken line appears as `[speak]`.
+Log: `%LOCALAPPDATA%\Grimdark\grimdark.log`, truncated on each load; every spoken line appears as `[speak]`.
 
 Building from source and the developer's own launch path (unfocused, muted, driven over HTTP) are under "The dev
 loop" and "Building" at the end.
@@ -268,10 +268,10 @@ nearest first) and one stop per act in the game's own order.
 ## The dev loop (how the author iterates)
 
 For development the game runs **visible but never focused, with game audio and speech muted**, and it is
-driven over a local HTTP dev server inside the DLL (port 8791, `GDACCESS_PORT` to change) -- so iterating on
+driven over a local HTTP dev server inside the DLL (port 8791, `GRIMDARK_PORT` to change) -- so iterating on
 the mod never fights the developer's screen reader. The server is off by default: F1 -> mod options turns it on
 for a player who wants to debug (it listens on localhost only, but its routes can teleport, cheat and run Lua, so
-nothing starts it unasked); the dev launcher sets `GDACCESS_PORT`, which turns it on for that game process. Requires the game NOT to be running already, and
+nothing starts it unasked); the dev launcher sets `GRIMDARK_PORT`, which turns it on for that game process. Requires the game NOT to be running already, and
 [uv](https://docs.astral.sh/uv/) for the Python tooling (`uv run` installs Python 3.12+ and the dependencies
 from `pyproject.toml` on first use):
 
@@ -289,9 +289,9 @@ Do not restore or click the game window during a dev session: it activates itsel
 `gd.py` without arguments lists every command; the dev routes, the hot-reload loop and the implementation
 notes are in `CLAUDE.md`.
 
-Environment variables read by the DLL: `GDACCESS_ANY_VERSION=1` (skip the version gate on an unknown game build --
-for measuring a patch, expect crashes), `GDACCESS_PORT` (dev server port; set = the server starts), `GDACCESS_MUTE=1` (mute game audio
-and speech), `GDACCESS_NOFOCUS=1` (block the game's own focus grabs, dev only), `GDACCESS_HOOK_WIDGETS=1`
+Environment variables read by the DLL: `GRIMDARK_ANY_VERSION=1` (skip the version gate on an unknown game build --
+for measuring a patch, expect crashes), `GRIMDARK_PORT` (dev server port; set = the server starts), `GRIMDARK_MUTE=1` (mute game audio
+and speech), `GRIMDARK_NOFOCUS=1` (block the game's own focus grabs, dev only), `GRIMDARK_HOOK_WIDGETS=1`
 (experimental, crashes the game -- leave unset).
 
 ## Building
@@ -301,7 +301,7 @@ and speech), `GDACCESS_NOFOCUS=1` (block the game's own focus grabs, dev only), 
   workload and `tools/vsdev.cmd` finds them at the Community edition's default path. Another edition or
   path: edit the two paths in `tools/vsdev.cmd`.
 - The build links the C runtime statically, so a player needs no Visual C++ redistributable; only `prism.dll`
-  has to sit next to `gdaccess.dll`.
+  has to sit next to `grimdark.dll`.
 - No other downloads: the prism speech SDK (the x64 headers, import library and `prism.dll` of release
   v0.18.1), Detours, miniaudio, SQLite, doctest, the room database and the audio assets are all in the repo.
 
@@ -313,7 +313,7 @@ tools\build.cmd
 
 The first run configures a Ninja RelWithDebInfo build in `build\ninja\`; later runs just build. Output:
 
-- `build\ninja\gdaccess.dll` -- the mod
+- `build\ninja\grimdark.dll` -- the mod
 - `build\ninja\gdinject.exe` -- the injector
 - `build\ninja\prism.dll` (the screen-reader speech library) and `build\ninja\assets\` -- copied next to
   the DLL at build time; the DLL loads them from its own directory, so keep the folder together.
@@ -323,8 +323,8 @@ The first run configures a Ninja RelWithDebInfo build in `build\ninja\`; later r
 On success MSVC and Ninja print very little; check the exit code.
 
 CI (`.github/workflows/build.yml`) does the same on a clean Windows runner for every push and packages the
-player zip with `tools/package.py` (artifact `gdaccess`: the DLL, prism, the injector, a stopgap `launch.cmd`,
-`assets/`, this README and the licenses; the PDB is the `gdaccess-pdb` artifact). A `v*` tag publishes it as a release.
+player zip with `tools/package.py` (artifact `grimdark`: the DLL, prism, the injector, a stopgap `launch.cmd`,
+`assets/`, this README and the licenses; the PDB is the `grimdark-pdb` artifact). A `v*` tag publishes it as a release.
 
 ## License
 

@@ -589,7 +589,7 @@ static int g_slots_used = 0;
 static void hook_handlers() {
   if (!g_engine) return;
   static int enabled = -1;
-  if (enabled < 0) { wchar_t v[4]; enabled = GetEnvironmentVariableW(L"GDACCESS_HOOK_WIDGETS", v, 4) > 0 && v[0] == L'1'; }
+  if (enabled < 0) { wchar_t v[4]; enabled = GetEnvironmentVariableW(L"GRIMDARK_HOOK_WIDGETS", v, 4) > 0 && v[0] == L'1'; }
   if (!enabled) return;  // experimental: detouring the exe's widget handlers has crashed the game; opt-in only
   unsigned char* e = (unsigned char*)g_engine;
   void** begin = *(void***)(e + 0x3e8); void** end = *(void***)(e + 0x3f0);
@@ -666,10 +666,10 @@ static void frame_tick() {
 
 // ======================= dev mode: never let the game take the foreground =======================
 // The dev loop runs the game visible but unfocused (the developer's screen reader must not be interrupted).
-// The game activates itself on restore/startup, so under GDACCESS_NOFOCUS=1 its activating calls are defanged.
+// The game activates itself on restore/startup, so under GRIMDARK_NOFOCUS=1 its activating calls are defanged.
 static bool g_nofocus = false;
 HWND game_window();
-// Under GDACCESS_NOFOCUS the game's OWN code (exe, Engine.dll, Game.dll, Crate's DirectInput.dll wrapper) is told
+// Under GRIMDARK_NOFOCUS the game's OWN code (exe, Engine.dll, Game.dll, Crate's DirectInput.dll wrapper) is told
 // its window is active -- its UI ignores mouse events otherwise -- but Microsoft's dinput8.dll and everything
 // else see the truth, or a foreground-mode keyboard would keep delivering keystrokes to the unfocused game
 // (measured 2026-08-21: the game processed keys typed into other windows).
@@ -780,7 +780,7 @@ static void install_late() {
 }
 
 bool install() {
-  { wchar_t v[4]; g_nofocus = GetEnvironmentVariableW(L"GDACCESS_NOFOCUS", v, 4) > 0 && v[0] == L'1'; }
+  { wchar_t v[4]; g_nofocus = GetEnvironmentVariableW(L"GRIMDARK_NOFOCUS", v, 4) > 0 && v[0] == L'1'; }
   g_hooks = {
     Hook{"user32.dll", "SetForegroundWindow", (void*)&SetForegroundWindow_hook, (void**)&SetForegroundWindow_orig, "SetForegroundWindow", false},
     Hook{"user32.dll", "SetActiveWindow", (void*)&SetActiveWindow_hook, (void**)&SetActiveWindow_orig, "SetActiveWindow", false},

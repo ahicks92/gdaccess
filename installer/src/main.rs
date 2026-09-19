@@ -1,8 +1,8 @@
-//! GDAccessInstaller.exe: installs a release of the GD Access mod per user, makes the shortcuts, uninstalls.
+//! GrimdarkInstaller.exe: installs a release of the Grimdark mod per user, makes the shortcuts, uninstalls.
 //!
-//!   GDAccessInstaller.exe                the window
-//!   GDAccessInstaller.exe --cli          the same on the console
-//!   GDAccessInstaller.exe --uninstall    what Add/Remove Programs runs (confirm box, then remove)
+//!   GrimdarkInstaller.exe                the window
+//!   GrimdarkInstaller.exe --cli          the same on the console
+//!   GrimdarkInstaller.exe --uninstall    what Add/Remove Programs runs (confirm box, then remove)
 #![windows_subsystem = "windows"]
 
 mod cli;
@@ -28,7 +28,7 @@ fn uninstall_entry(from_temp: bool) {
     if !from_temp {
         if let Ok(me) = std::env::current_exe() {
             if me.starts_with(install_dir()) {
-                let temp = std::env::temp_dir().join("GrimDark-uninstall.exe");
+                let temp = std::env::temp_dir().join("Grimdark-uninstall.exe");
                 if std::fs::copy(&me, &temp).is_ok()
                     && std::process::Command::new(&temp).args(["--uninstall", "--from-temp"]).spawn().is_ok()
                 {

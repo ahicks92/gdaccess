@@ -263,10 +263,10 @@ void note_place() {
   std::string line = std::format("{:04}-{:02}-{:02} {:02}:{:02}  area='{}'  chunk={}  at ({:.1f}, {:.1f})  region={}  room={}\n",
                                  t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, area, world::region_name(), have ? p.x : 0.0f, have ? p.z : 0.0f,
                                  g_current ? g_current->key : std::string("none"), room);
-  // build/ninja/gdaccess.dll -> the repo root is two levels up; fall back to the log directory.
+  // build/ninja/grimdark.dll -> the repo root is two levels up; fall back to the log directory.
   std::string path = audio::module_dir() + "..\\..\\untagged_rooms.txt";
   FILE* f = fopen(path.c_str(), "ab");
-  if (!f) { char la[MAX_PATH] = {}; GetEnvironmentVariableA("LOCALAPPDATA", la, MAX_PATH); path = std::string(la) + "\\gdaccess\\untagged_rooms.txt"; f = fopen(path.c_str(), "ab"); }
+  if (!f) { char la[MAX_PATH] = {}; GetEnvironmentVariableA("LOCALAPPDATA", la, MAX_PATH); path = std::string(la) + "\\Grimdark\\untagged_rooms.txt"; f = fopen(path.c_str(), "ab"); }
   if (f) { fputs(line.c_str(), f); fclose(f); }
   log::writef("rooms: noted {}", line);
   MessageBuilder m;

@@ -39,31 +39,31 @@ static bool g_installed = false;   // false = the version gate refused; unload h
 
 static DWORD WINAPI init_thread(LPVOID) {
   gd::log::init();
-  gd::log::write("gdaccess: loaded");
+  gd::log::write("grimdark: loaded");
   gd::crash::install();   // first: a fault anywhere below leaves its address in the log
   gd::settings::init();
   gd::cues::init();   // the Ctrl+T cue switches / channel volumes (after settings)
-  // GDACCESS_MUTE=1 (set by the dev launcher): speech is recorded but not voiced, game audio session muted.
-  bool mute = env_flag(L"GDACCESS_MUTE");
+  // GRIMDARK_MUTE=1 (set by the dev launcher): speech is recorded but not voiced, game audio session muted.
+  bool mute = env_flag(L"GRIMDARK_MUTE");
   gd::speech::set_muted(mute);
   bool sp = gd::speech::init();
-  // The version gate: an unknown game build gets one spoken line and no hooks at all (GDACCESS_ANY_VERSION=1
+  // The version gate: an unknown game build gets one spoken line and no hooks at all (GRIMDARK_ANY_VERSION=1
   // to measure a new patch). Every game-side layer below assumes the build in src/game_versions.h.
   gd::version::Check ver = gd::version::check();
   gd::log::write(gd::version::describe(ver));
-  if (!ver.supported && !env_flag(L"GDACCESS_ANY_VERSION")) {
+  if (!ver.supported && !env_flag(L"GRIMDARK_ANY_VERSION")) {
     std::vector<std::string_view> names;
     for (const auto& b : gd::version::kSupportedBuilds) names.push_back(b.name);
     gd::core::MessageBuilder m;
     gd::speech::speak(gd::strings::push_unsupported_build(m, ver.exe_ts, names).build(), true);
-    gd::log::write("gdaccess: version gate refused; nothing installed");
+    gd::log::write("grimdark: version gate refused; nothing installed");
     return 0;
   }
   g_installed = true;
   gd::hooks::install();
   gd::world::install();
   gd::combat::install();
-  if (!env_flag(L"GDACCESS_NOCASTS")) gd::casts::install();
+  if (!env_flag(L"GRIMDARK_NOCASTS")) gd::casts::install();
   gd::telegraph::init();   // dev: skip the cast instrumentation
   gd::gameapi::install_crafting_hooks();
   gd::notify::install();
@@ -73,10 +73,10 @@ static DWORD WINAPI init_thread(LPVOID) {
   gd::voice::init();  // the positional voices (OneCore worker); falls back to the screen reader if it fails
   gd::app::init();
   gd::rooms::init();  // assets/rooms.db (missing = the rooms feature stays silent)
-  // The dev server is a player setting (F1 -> mod options, off by default); the dev loop sets GDACCESS_PORT and
+  // The dev server is a player setting (F1 -> mod options, off by default); the dev loop sets GRIMDARK_PORT and
   // gets it regardless, so a hot reload into a dev-launched game keeps its server.
-  if (gd::settings::get_bool("devserver", false) || GetEnvironmentVariableW(L"GDACCESS_PORT", nullptr, 0) > 0)
-    gd::dev::start(env_int(L"GDACCESS_PORT", 8791));
+  if (gd::settings::get_bool("devserver", false) || GetEnvironmentVariableW(L"GRIMDARK_PORT", nullptr, 0) > 0)
+    gd::dev::start(env_int(L"GRIMDARK_PORT", 8791));
   gd::speech::speak(sp ? "G D Access loaded" : "G D Access loaded, no speech backend", true);
   // Always APPLY the state, both ways: Windows remembers a per-app session mute across launches, so a muted dev
   // run would otherwise leave the next real (speaking) launch silent. Give the game time to open its session.
@@ -88,8 +88,8 @@ static DWORD WINAPI init_thread(LPVOID) {
 // Orderly shutdown, called by the injector on a remote thread BEFORE FreeLibrary. It must not run from
 // DllMain: stopping the dev server joins a thread, and a thread cannot exit while DllMain holds the loader
 // lock (measured: FreeLibrary from DllMain-side teardown deadlocked the unload thread).
-extern "C" __declspec(dllexport) DWORD WINAPI gdaccess_unload(LPVOID) {
-  gd::log::write("gdaccess: unloading");
+extern "C" __declspec(dllexport) DWORD WINAPI grimdark_unload(LPVOID) {
+  gd::log::write("grimdark: unloading");
   if (!g_installed) { gd::crash::remove(); gd::speech::shutdown(); return 1; }   // the gate refused: only these two are up
   gd::dev::stop();
   gd::app::shutdown();
@@ -109,7 +109,7 @@ extern "C" __declspec(dllexport) DWORD WINAPI gdaccess_unload(LPVOID) {
   // The detours are gone, but the game thread may still be inside one of our hook bodies (the per-frame tick
   // runs from Engine::Update): let any in-flight frame finish before the injector unmaps this DLL.
   Sleep(250);
-  gd::log::write("gdaccess: hooks removed, ready for FreeLibrary");
+  gd::log::write("grimdark: hooks removed, ready for FreeLibrary");
   return 1;
 }
 
@@ -119,7 +119,7 @@ BOOL WINAPI DllMain(HMODULE h, DWORD reason, LPVOID) {
     HANDLE t = CreateThread(nullptr, 0, init_thread, nullptr, 0, nullptr);
     if (t) CloseHandle(t);
   } else if (reason == DLL_PROCESS_DETACH) {
-    gd::log::write("gdaccess: unloaded");
+    gd::log::write("grimdark: unloaded");
   }
   return TRUE;
 }

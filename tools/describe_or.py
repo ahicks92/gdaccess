@@ -84,7 +84,7 @@ def or_chat(model, messages, schema=None, max_tokens=800, retries=5):
     for attempt in range(retries):
         req = urllib.request.Request(ENDPOINT, data=data, headers={
             "Authorization": f"Bearer {KEY}", "Content-Type": "application/json",
-            "HTTP-Referer": "https://github.com/gdaccess", "X-Title": "gdaccess rooms"})
+            "HTTP-Referer": "https://github.com/grimdark", "X-Title": "grimdark rooms"})
         try:
             with urllib.request.urlopen(req, timeout=120) as r:
                 o = json.load(r)

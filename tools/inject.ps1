@@ -1,4 +1,4 @@
-# Build, then load gdaccess.dll into Grim Dawn.
+# Build, then load grimdark.dll into Grim Dawn.
 #   .\tools\inject.ps1 -Launch    build, then start the game UNFOCUSED with the DLL injected before it initializes,
 #                                 speech + game audio muted (pass -Speak to hear it), then wait for the dev server
 #   .\tools\inject.ps1            build, then (re)inject into the running game: ejects the old DLL first so the
@@ -8,7 +8,7 @@
 param([switch]$Launch, [switch]$Eject, [switch]$NoBuild, [switch]$Speak, [int]$Port = 8791,
       [string]$GameExe = "C:\Program Files (x86)\Steam\steamapps\common\Grim Dawn\x64\Grim Dawn.exe")
 $root = Split-Path $PSScriptRoot -Parent
-$dll = "$root\build\ninja\gdaccess.dll"
+$dll = "$root\build\ninja\grimdark.dll"
 $inj = "$root\build\ninja\gdinject.exe"
 $running = [bool](Get-Process -Name "Grim Dawn" -ErrorAction SilentlyContinue)
 if ($Eject) { & $inj --eject $dll; exit $LASTEXITCODE }
@@ -29,9 +29,9 @@ if ($Launch) {
       Write-Host "options.txt: inactiveUpdateRate 0 -> 30 (keeps the game ticking while unfocused)"
     }
   }
-  if ($Speak) { Remove-Item Env:\GDACCESS_MUTE -ErrorAction SilentlyContinue } else { $env:GDACCESS_MUTE = '1' }
-  $env:GDACCESS_PORT = "$Port"
-  $env:GDACCESS_NOFOCUS = '1'
+  if ($Speak) { Remove-Item Env:\GRIMDARK_MUTE -ErrorAction SilentlyContinue } else { $env:GRIMDARK_MUTE = '1' }
+  $env:GRIMDARK_PORT = "$Port"
+  $env:GRIMDARK_NOFOCUS = '1'
   & $inj --launch $GameExe $dll
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   Write-Host "waiting for the dev server on 127.0.0.1:$Port ..."
@@ -39,11 +39,11 @@ if ($Launch) {
   while ((Get-Date) -lt $deadline) {
     try { $r = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/health" -TimeoutSec 2 -UseBasicParsing; Write-Host $r.Content; exit 0 } catch {}
     $gp = Get-Process -Name "Grim Dawn" -ErrorAction SilentlyContinue
-    if (-not $gp) { Write-Host "game exited before the dev server came up; see %LOCALAPPDATA%\gdaccess\gdaccess.log"; exit 1 }
+    if (-not $gp) { Write-Host "game exited before the dev server came up; see %LOCALAPPDATA%\Grimdark\grimdark.log"; exit 1 }
     Start-Sleep -Seconds 1
   }
   # A crashed game sits in its crash-reporter dialog forever; do not leave those around.
-  Write-Host "timed out waiting for /health; killing the instance (check gdaccess.log / tools/stacks.py next time)"
+  Write-Host "timed out waiting for /health; killing the instance (check grimdark.log / tools/stacks.py next time)"
   Get-Process -Name "Grim Dawn" -ErrorAction SilentlyContinue | Stop-Process -Force
   exit 1
 }

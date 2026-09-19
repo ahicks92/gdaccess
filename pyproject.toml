@@ -1,7 +1,7 @@
 [project]
-name = "gdaccess-tools"
+name = "grimdark-tools"
 version = "0.1.0"
-description = "Python tooling for GD Access: the dev-loop client, offline map/navmesh/terrain readers, room segmentation, RE helpers."
+description = "Python tooling for Grimdark: the dev-loop client, offline map/navmesh/terrain readers, room segmentation, RE helpers."
 requires-python = ">=3.12"
 dependencies = [
     "lz4>=4",

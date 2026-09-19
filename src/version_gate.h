@@ -2,7 +2,7 @@
 // The version gate (2026-09-18): before any game hook is installed, the running exe + Engine.dll + Game.dll are
 // matched by PE timestamp against src/game_versions.h. An unknown build gets one spoken refusal and NO hooks
 // (the exe layer dies on any relink of the exe, the object offsets fail silently -- a stranger's crash with no
-// diagnosis). GDACCESS_ANY_VERSION=1 skips the refusal (dev, while measuring a new patch).
+// diagnosis). GRIMDARK_ANY_VERSION=1 skips the refusal (dev, while measuring a new patch).
 #include <string>
 
 namespace gd::version {

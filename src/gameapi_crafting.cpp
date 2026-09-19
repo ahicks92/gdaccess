@@ -182,7 +182,7 @@ std::optional<CrafterBonus> crafter_bonus(unsigned npc_id) {
         if (g.AttributeRange_dtor) g.AttributeRange_dtor(ar);
       }
     }
-    if (g.DestroyObjectEx) g.DestroyObjectEx(om, table, "gdaccess", 0);
+    if (g.DestroyObjectEx) g.DestroyObjectEx(om, table, "grimdark", 0);
   });
   return out;
 }
