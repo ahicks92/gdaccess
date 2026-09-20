@@ -116,5 +116,13 @@ and blink-strikes: it closes the distance itself; running does not help). Toggle
 summons, moves and markers are deliberately silent (no wind-up moment). A class not in the table is silent and
 counted (`/telegraph` lists `unknown class <name> xN`, the log has one line per class), so a game patch adding a class
 shows up instead of being guessed. Cue words: `tools/gen_telegraph_cues.py` (Zira, 200 ms, loudness-matched).
-Not covered: dying skills (the Ancient Shambler's death burst, an 8 u ground-breaker on the corpse) never enter the
-cast pipeline -- a per-record "explodes on death" note is the open follow-up.
+Not covered, by decision (2026-09-20): dying skills. RE of the timing: on death the controller enters
+`ControllerMonsterStateDying`; its ctor copies the record's `lootDropCallbackPoint` / `dyingSkillCallbackPoint`
+(controllermonster.tpl, default "", no creature record overrides either) into two `Name`s, and `OnBegin` runs
+`StartDyingSkill` at once when the name equals Engine's `Name::noName` (zero-initialized .data, 0 live) -- an empty
+field leaves the Name 0, so EVERY monster fires its dying skill in the first frame of death, never on a death-animation
+callback (`HandleEvent` is the other caller, for a named callback point nobody uses). The activation is direct (the
+hit arrives with callback name `End`), so the Ancient Shambler's 8 u burst lands on whoever is in reach at the killing
+blow; the 83-frame death animation is only the picture. Nothing a telegraph can do; the only useful player-facing
+thing would be a per-record "explodes on death" note (545 monsters carry a dying skill, many of them chest / loot
+spawns) -- left alone for now.
