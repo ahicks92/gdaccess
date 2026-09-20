@@ -918,6 +918,22 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   cursor's ground point and else fire at the point; the 16 `Skill_TargetedSpawnPet` skills (Inquisitor Seal, totems,
   traps, summons) are DBR `targetingMode = Point` but runtime type 2 (docs/skills-targeting.md; the spoken word for them
   is still "at a target" -- wording open). No class skill reads type 3; Nullification and Vire's Might read 4.
+- Sonar crowd compression (2026-09-20, HEARD and kept by the user on a Korvan scarab pack; F12 = dev A/B, to be removed):
+  in a busy field the per-thing loudness stops being a usable distance signal, so `core::LevelCompressor` (sonar_field.h)
+  flattens the level slope PER KIND while the rate signal stays exact. Input = the kind's estimated mean power over the
+  coming window: contribution c = gain^2 / period (rate x energy per pulse; the kinds are loudness-matched by the trims,
+  so the sample energy drops out), B = sum c. Below `cap` nothing happens. Above it the field is fitted to
+  cap + (B - cap) / ratio (ratio <= 1 = hard cap, the default) by range compression toward a pivot: each pulse's amplitude
+  x (c/pivot)^((1/r - 1)/2), r bisected per frame so sum c' = the target, clamped <= 1 -- the biggest contributors give
+  the most, anything under the pivot is never touched, nothing is boosted or thinned. r slewed 0.25 s. **Tuned live**:
+  cap 5, pivot 0.5 (an enemy beyond ~9 u). A nine-scarab pack at 2.6..8.8 u (B 11.9): nearest -6.9 dB, 4.5 u -3.8, 8.8 u 0;
+  a lone enemy is under the cap. The first values (cap 25 = five at 2 u, pivot 0.1 = the radius edge) put a flat 1.5 dB
+  on the whole pack -- real packs sit at 3-9 u where the log period has already thinned them, and a pivot at the edge
+  spreads the loss evenly; raising the pivot is the tilt lever. Design by the user: a power CAP, not a threshold-free
+  ratio (the first cut drove r from n_eff = (sum c)^2 / sum c^2 and started at the second thing; n_eff is a diagnostic).
+  Knobs `/sonar?cap=&ratio=&pivot=&slew=&compress=0|1`; status prints per-kind B / n / r and per-thing `c` / `comp dB`.
+  The game's key enum is NOT DIK above F10: F11 0x55, F12 0x56 (`tools/exports/keynames.txt`). Not finished: the user
+  wants "a bit more" (next session).
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.
