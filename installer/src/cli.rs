@@ -79,7 +79,7 @@ fn install_from_github() {
     }
     let n = cat.versions.len();
     if let Some(ci) = &cat.ci {
-        println!("  {}. latest successful CI build ({})", n + 1, ci.published_at);
+        println!("  {}. latest successful CI build ({})", n + 1, github::ci_build_label(ci));
     }
     let choice = prompt(&format!("Choose a version (1-{}), or Enter for the newest: ", n + cat.ci.iter().count()));
     let idx = if choice.is_empty() { if n > 0 { 0 } else { n } } else { choice.parse::<usize>().unwrap_or(0).saturating_sub(1) };

@@ -13,8 +13,34 @@ pub struct ReleaseInfo {
     pub prerelease: bool,
     #[serde(default)]
     pub published_at: String,
+    /// The commit the release was created against: the workflow passes `--target $GITHUB_SHA` for `ci-latest`,
+    /// so this is the exact main commit the CI build came from (a tagged release reports its branch name).
+    #[serde(default)]
+    pub target_commitish: String,
     #[serde(default)]
     pub assets: Vec<Asset>,
+}
+
+/// "2026-09-20T18:17:16Z" -> "2026-09-20 18:17 UTC" (GitHub timestamps are always UTC); anything else verbatim.
+pub fn format_timestamp(iso: &str) -> String {
+    let t = iso.trim_end_matches('Z');
+    match (t.get(..10), t.get(11..16)) {
+        (Some(d), Some(hm)) if t.as_bytes().get(10) == Some(&b'T') => format!("{} {} UTC", d, hm),
+        _ => iso.to_string(),
+    }
+}
+
+/// What identifies a CI build to a tester: "03c9462, 2026-09-20 18:17 UTC" (short commit, publish time).
+/// The zip's version.txt carries the same short sha as "ci-03c9462", so the two can be matched by eye.
+pub fn ci_build_label(r: &ReleaseInfo) -> String {
+    let sha = r.target_commitish.get(..7).unwrap_or(&r.target_commitish);
+    let when = format_timestamp(&r.published_at);
+    match (sha.is_empty(), when.is_empty()) {
+        (false, false) => format!("{}, {}", sha, when),
+        (false, true) => sha.to_string(),
+        (true, false) => when,
+        (true, true) => "unknown build".to_string(),
+    }
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -89,7 +115,19 @@ mod tests {
     use super::*;
 
     fn rel(tag: &str) -> ReleaseInfo {
-        ReleaseInfo { tag_name: tag.into(), body: String::new(), prerelease: false, published_at: String::new(), assets: vec![] }
+        ReleaseInfo { tag_name: tag.into(), body: String::new(), prerelease: false, published_at: String::new(), target_commitish: String::new(), assets: vec![] }
+    }
+
+    #[test]
+    fn ci_label_shows_sha_and_time() {
+        let mut r = rel("ci-latest");
+        r.target_commitish = "03c9462098a5670e736f1d7f14b7b247b2eb45d4".into();
+        r.published_at = "2026-09-20T18:17:16Z".into();
+        assert_eq!(ci_build_label(&r), "03c9462, 2026-09-20 18:17 UTC");
+        r.published_at.clear();
+        assert_eq!(ci_build_label(&r), "03c9462");
+        assert_eq!(ci_build_label(&rel("ci-latest")), "unknown build");
+        assert_eq!(format_timestamp("garbage"), "garbage");
     }
 
     #[test]

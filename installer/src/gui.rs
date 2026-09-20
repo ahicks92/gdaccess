@@ -217,8 +217,7 @@ pub fn run() {
                     .map(|r| if r.prerelease { format!("{} (pre-release)", r.tag_name) } else { r.tag_name.clone() })
                     .collect();
                 if let Some(ci) = &cat.ci {
-                    let when = ci.published_at.get(..10).unwrap_or("").to_string();
-                    labels.push(format!("latest successful CI build ({}) -- untested, may be broken", when));
+                    labels.push(format!("latest successful CI build ({}) -- untested, may be broken", github::ci_build_label(ci)));
                 }
                 if labels.is_empty() {
                     return;
@@ -251,7 +250,7 @@ pub fn run() {
                     return;
                 };
                 let url = asset.browser_download_url.clone();
-                let label = if sel < cat.versions.len() { rel.tag_name.clone() } else { "latest CI build".to_string() };
+                let label = if sel < cat.versions.len() { rel.tag_name.clone() } else { format!("latest CI build ({})", github::ci_build_label(rel)) };
                 *pending_verb.borrow_mut() = "installed";
                 ui.busy(true);
                 ui.log(&format!("Installing {}...", label));
