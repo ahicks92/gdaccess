@@ -944,7 +944,7 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   user's kiting report); the cursor override is off while lost, the keys say "too far away", the lock resumes when
   the id is found again, a death still unlocks at once. `/lock` prints found / NOT FOUND for N ms.
 - Sonar stagger reworked (2026-09-20, HEARD: "a subtle but noticeable improvement", kept; the compression may need a
-  retune now that pulses no longer pile up -- F12 is its A/B key again; the user's report: periods still aligned): the only
+  retune now that pulses no longer pile up -- A/B = /sonar?compress=0|1, F12 dropped; the user's report: periods still aligned): the only
   anti-alignment was the pan-based phase seed, which put a whole flank (five scarabs at pan +1.00) on the same fraction of
   near-equal periods, and nothing ever separated things drifting through each other (0.21 s vs 0.31 s coincide every
   ~0.65 s). Now (1) a new id is seeded at hash(id) of a period (`FieldParams::hash_phase`; the pan seed stays as the

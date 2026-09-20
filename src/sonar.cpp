@@ -130,7 +130,7 @@ std::string status() {
   s += "trims dB:"; for (int i = 0; i < kKinds; ++i) s += std::format(" {}={:+.1f}", kKindName[i], g_trim_db[i]); s += "\n";
   const core::CompressParams& cp = g_comp[0].params();
   s += std::format("crowd compression {} cap={:.1f} ratio={:.1f} pivot={:.3f} slew={:.2f}s (per kind: power B, n_eff -> ratio r):",
-                   g_comp_on ? "APPLIED" : "OFF (F12)", cp.cap, cp.ratio, cp.pivot, cp.slew_s);
+                   g_comp_on ? "APPLIED" : "OFF (/sonar?compress=1)", cp.cap, cp.ratio, cp.pivot, cp.slew_s);
   for (int i = 0; i < kKinds; ++i) if (!g_contrib[i].empty()) s += std::format(" {} B={:.1f} n={:.1f} r={:.2f}", kKindName[i], g_comp[i].power(), g_comp[i].n_eff(), g_comp[i].ratio());
   s += "\n";
   for (auto [group, kind] : {std::pair{world::ScanGroup::Enemies, kEnemy}, std::pair{world::ScanGroup::Loot, kLoot}, std::pair{world::ScanGroup::Transitions, kTransition},
