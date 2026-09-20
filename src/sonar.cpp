@@ -34,14 +34,11 @@ float db_to_gain(float db) { return std::pow(10.0f, db / 20.0f); }
 long long g_fired = 0;
 
 // This frame's audible frame for each nearby id, so a ping is placed with the current pan/gain when it fires.
-struct Placed { float pan, gain, ahead; int kind; double contrib; };
+struct Placed { float pan, gain, ahead; int kind; };
 std::unordered_map<unsigned, Placed> g_live;
-// Crowd compression, one per kind (core/sonar_field.h LevelCompressor): contribution = gain^2 / period, the ratio
-// solved so the kind's mean power fits its cap, applied as a gain multiplier at fire time. /sonar?cap= ratio= pivot= slew= (cap=0 off).
-// Defaults cap 5 / pivot 0.5 kept by ear 2026-09-20 on a Korvan scarab pack (25 / 0.1 was a 1.5 dB blanket, not a tilt).
-core::LevelCompressor g_comp[kKinds];
-std::vector<double> g_contrib[kKinds];
-bool g_comp_on = true;   // dev A/B (/sonar?compress=): the compressors keep running (status shows what they would do); off = not applied
+// Tried and rejected 2026-09-20 (tester feedback): per-kind crowd compression of the pulse levels toward the far edge
+// once a kind's mean power (sum gain^2 / period) passed a cap -- the near things lost up to ~7 dB in a pack. Reverted
+// whole (core::LevelCompressor, commits e59da54..03c9462); the stagger rework in core/sonar_field is what was kept.
 // Tried and rejected 2026-09-20: a per-id playback-rate shift (+-2 % in 5 bins, cubic resampling) so co-located things
 // would sound like two things -- it degraded into flanging / chorus in a pack and sounded broken (the user).
 
@@ -56,9 +53,7 @@ void collect(world::ScanGroup group, Kind kind, std::vector<core::SonarField::It
     Kind k = kind;
     if (group == world::ScanGroup::Shrines) k = world::shrine_restored(it.id) ? kShrineRestored : kShrineRuined;
     items.push_back({it.id, it.dist, (pan + 1.0f) * 0.5f, (int)k});   // phase 0..1 = left..right
-    double c = (double)gain * gain / g_field.params().period_for(it.dist);   // its share of the kind's mean power
-    g_contrib[k].push_back(c);
-    g_live[it.id] = {pan, gain, ahead, (int)k, c};
+    g_live[it.id] = {pan, gain, ahead, (int)k};
   }
 }
 }  // namespace
@@ -68,7 +63,6 @@ void tick() {
   double now = app::now();
   std::vector<core::SonarField::Item> items;
   g_live.clear();
-  for (auto& v : g_contrib) v.clear();
   // The player's per-cue switches (Ctrl+T, src/cues.h): a group that is off is not even collected.
   if (cues::enabled(cues::Enemies)) collect(world::ScanGroup::Enemies, kEnemy, items);
   if (cues::enabled(cues::Loot)) collect(world::ScanGroup::Loot, kLoot, items);
@@ -76,7 +70,6 @@ void tick() {
   if (cues::enabled(cues::Breakables)) collect(world::ScanGroup::Destructibles, kDestructible, items);
   if (cues::enabled(cues::Shrines)) collect(world::ScanGroup::Shrines, kShrineRuined, items);
   if (cues::enabled(cues::Interactables)) collect(world::ScanGroup::Interactables, kInteractable, items);
-  for (int k = 0; k < kKinds; ++k) g_comp[k].update(g_contrib[k], now);   // per-kind crowd ratio, slewed
   auto pings = g_field.update(items, now);   // each thing pulses on its own period, phase-staggered
   if (pings.empty() || !audible()) return;
   for (const core::SonarField::Ping& p : pings) {
@@ -84,17 +77,15 @@ void tick() {
     if (f == g_live.end()) continue;
     const Placed& pl = f->second;
     audio::play_sample(audio::module_dir() + "assets\\audio\\interactables\\" + kCue[p.kind],
-                       pl.gain * (g_comp_on ? g_comp[pl.kind].gain_for(pl.contrib) : 1.0f) * g_vol * db_to_gain(g_trim_db[pl.kind]) * cues::gain(pl.kind == kEnemy ? cues::EnemyChannel : cues::Other),
+                       pl.gain * g_vol * db_to_gain(g_trim_db[pl.kind]) * cues::gain(pl.kind == kEnemy ? cues::EnemyChannel : cues::Other),
                        pl.pan, world::rear_shelf_db(pl.ahead));   // the player's channel volume: enemies apart from the rest
     ++g_fired;
   }
 }
 
-void reset() { g_field.reset(); g_live.clear(); for (auto& c : g_comp) c.reset(); }
+void reset() { g_field.reset(); g_live.clear(); }
 void set_enabled(bool on) { g_enabled = on; if (!on) reset(); }
 bool enabled() { return g_enabled; }
-void set_compression_enabled(bool on) { g_comp_on = on; }
-bool compression_enabled() { return g_comp_on; }
 void set_knob(const std::string& name, float v) {
   core::FieldParams& p = g_field.params();
   if (name == "radius" && v > 1) g_radius = v;
@@ -106,10 +97,6 @@ void set_knob(const std::string& name, float v) {
   else if (name == "dnear" && v > 0) p.dist_near = v;
   else if (name == "dfar" && v > 0) p.dist_far = v;
   else if (name == "force") g_force = v != 0;
-  else if (name == "cap") for (auto& c : g_comp) c.params().cap = v;        // crowd compression: mean-power budget per kind (0 = off)
-  else if (name == "ratio") for (auto& c : g_comp) c.params().ratio = v;    // output ratio above the cap (<= 1 = hard cap)
-  else if (name == "pivot" && v > 0) for (auto& c : g_comp) c.params().pivot = v;
-  else if (name == "slew" && v >= 0) for (auto& c : g_comp) c.params().slew_s = v;
   else if (name == "window" && v >= 0) p.collide_s = v;    // same-kind collision window in seconds (0 = off)
   else if (name == "hash") p.hash_phase = v != 0;           // seed by id hash (1) or by pan (0, the old way)
   else if (name == "grace" && v >= 0) p.grace_s = v;
@@ -128,22 +115,14 @@ std::string status() {
                               p.period_near, p.dist_near, p.period_far, p.dist_far, g_field.tracked(), g_fired,
                               p.hash_phase ? "id hash" : "pan", p.collide_s, p.grace_s);
   s += "trims dB:"; for (int i = 0; i < kKinds; ++i) s += std::format(" {}={:+.1f}", kKindName[i], g_trim_db[i]); s += "\n";
-  const core::CompressParams& cp = g_comp[0].params();
-  s += std::format("crowd compression {} cap={:.1f} ratio={:.1f} pivot={:.3f} slew={:.2f}s (per kind: power B, n_eff -> ratio r):",
-                   g_comp_on ? "APPLIED" : "OFF (/sonar?compress=1)", cp.cap, cp.ratio, cp.pivot, cp.slew_s);
-  for (int i = 0; i < kKinds; ++i) if (!g_contrib[i].empty()) s += std::format(" {} B={:.1f} n={:.1f} r={:.2f}", kKindName[i], g_comp[i].power(), g_comp[i].n_eff(), g_comp[i].ratio());
-  s += "\n";
   for (auto [group, kind] : {std::pair{world::ScanGroup::Enemies, kEnemy}, std::pair{world::ScanGroup::Loot, kLoot}, std::pair{world::ScanGroup::Transitions, kTransition},
                              std::pair{world::ScanGroup::Destructibles, kDestructible}, std::pair{world::ScanGroup::Shrines, kShrineRuined},
                              std::pair{world::ScanGroup::Interactables, kInteractable}})
     for (const world::ScanItem& it : world::scan(group, g_radius)) {
       float pan, gain, ahead; world::ear_frame(it.pos, pan, gain, &ahead);
       int k = group == world::ScanGroup::Shrines ? (world::shrine_restored(it.id) ? kShrineRestored : kShrineRuined) : kind;
-      double c = (double)gain * gain / p.period_for(it.dist);
-      float comp = g_comp[k].gain_for(c);
-      s += std::format("  {:<10} {:5.1f} pan {:+.2f} period {:.2f}s ahead {:+.2f} shelf {:+.1f} dB vol {:.2f} c {:.2f} comp {:+.1f} dB   {} '{}' id {}\n",
-                       kKindName[k], it.dist, pan, p.period_for(it.dist), ahead, world::rear_shelf_db(ahead), gain * g_vol, c,
-                       20.0 * std::log10(comp), it.cls, it.label, it.id);
+      s += std::format("  {:<10} {:5.1f} pan {:+.2f} period {:.2f}s ahead {:+.2f} shelf {:+.1f} dB vol {:.2f}  {} '{}' id {}\n",
+                       kKindName[k], it.dist, pan, p.period_for(it.dist), ahead, world::rear_shelf_db(ahead), gain * g_vol, it.cls, it.label, it.id);
     }
   return s;
 }

@@ -918,24 +918,14 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   cursor's ground point and else fire at the point; the 16 `Skill_TargetedSpawnPet` skills (Inquisitor Seal, totems,
   traps, summons) are DBR `targetingMode = Point` but runtime type 2 (docs/skills-targeting.md; the spoken word for them
   is still "at a target" -- wording open). No class skill reads type 3; Nullification and Vire's Might read 4.
-- Sonar crowd compression (2026-09-20, HEARD and kept by the user on a Korvan scarab pack; A/B = /sonar?compress=0|1):
-  in a busy field the per-thing loudness stops being a usable distance signal, so `core::LevelCompressor` (sonar_field.h)
-  flattens the level slope PER KIND while the rate signal stays exact. Input = the kind's estimated mean power over the
-  coming window: contribution c = gain^2 / period (rate x energy per pulse; the kinds are loudness-matched by the trims,
-  so the sample energy drops out), B = sum c. Below `cap` nothing happens. Above it the field is fitted to
-  cap + (B - cap) / ratio (ratio <= 1 = hard cap, the default) by range compression toward a pivot: each pulse's amplitude
-  x (c/pivot)^((1/r - 1)/2), r bisected per frame so sum c' = the target, clamped <= 1 -- the biggest contributors give
-  the most, anything under the pivot is never touched, nothing is boosted or thinned. r slewed 0.25 s. **Tuned live**:
-  cap 5, pivot 0.5 (an enemy beyond ~9 u). A nine-scarab pack at 2.6..8.8 u (B 11.9): nearest -6.9 dB, 4.5 u -3.8, 8.8 u 0;
-  a lone enemy is under the cap. The first values (cap 25 = five at 2 u, pivot 0.1 = the radius edge) put a flat 1.5 dB
-  on the whole pack -- real packs sit at 3-9 u where the log period has already thinned them, and a pivot at the edge
-  spreads the loss evenly; raising the pivot is the tilt lever. Design by the user: a power CAP, not a threshold-free
-  ratio (the first cut drove r from n_eff = (sum c)^2 / sum c^2 and started at the second thing; n_eff is a diagnostic).
-  Knobs `/sonar?cap=&ratio=&pivot=&slew=&compress=0|1`; status prints per-kind B / n / r and per-thing `c` / `comp dB`.
-  The game's key enum is NOT DIK above F10: F11 0x55, F12 0x56 (`tools/exports/keynames.txt`; F12 is free, it was the
-  day's A/B key). **Rejected the same day**: a per-id playback-rate shift on the cues (+-2 % in 5 bins, cubic resampling
-  in the mixer) meant to make co-located things sound like two things -- in a pack it degraded into flanging / chorus
-  and sounded broken; reverted entirely. Next experiment pending.
+- Sonar crowd compression TRIED AND REVERTED (2026-09-20, tester feedback after a day of play; commits e59da54..03c9462,
+  removed whole): per-kind range compression of the pulse levels toward the far edge once a kind's mean power
+  (sum gain^2 / period, the thing's share of the coming window) passed a cap -- tuned live to cap 5 / pivot 0.5, a
+  nine-scarab pack lost up to 7 dB on the near ones. The user first heard it as a subtle improvement; testers wanted it
+  gone, the stagger rework (below) is what fixed the pile-up. Lessons kept: the pulse-train math (mean power = sum of
+  gain^2 / period, incoherent because of the stagger), that a cap set from "five at 2 u" never fires on real packs
+  (they sit at 3-9 u where the log period has thinned them), and the game's key enum: F11 0x55, F12 0x56
+  (`tools/exports/keynames.txt`, not DIK).
 - Grace periods (2026-09-20, built + core-tested, lock grace NOT yet verified live): (1) the sonar field keeps an id's
   phase grid for `FieldParams::grace_s` 1.5 s after it drops out of the item list (radius-edge flicker, a visibility
   blink) -- an overdue one fires once on return and continues on its old grid instead of being reseeded. (2) The review
@@ -944,7 +934,7 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   user's kiting report); the cursor override is off while lost, the keys say "too far away", the lock resumes when
   the id is found again, a death still unlocks at once. `/lock` prints found / NOT FOUND for N ms.
 - Sonar stagger reworked (2026-09-20, HEARD: "a subtle but noticeable improvement", kept; the compression may need a
-  retune now that pulses no longer pile up -- A/B = /sonar?compress=0|1, F12 dropped; the user's report: periods still aligned): the only
+  retune -- since REVERTED on tester feedback; the user's report: periods still aligned): the only
   anti-alignment was the pan-based phase seed, which put a whole flank (five scarabs at pan +1.00) on the same fraction of
   near-equal periods, and nothing ever separated things drifting through each other (0.21 s vs 0.31 s coincide every
   ~0.65 s). Now (1) a new id is seeded at hash(id) of a period (`FieldParams::hash_phase`; the pan seed stays as the
