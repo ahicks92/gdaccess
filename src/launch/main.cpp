@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 #include "../inject/inject_common.h"
+#include "core/game_settings.h"
 
 namespace {
 const wchar_t* kAppId = L"219990";
@@ -142,6 +143,54 @@ std::wstring log_path() {
   return (n ? std::wstring(base, n) + L"\\Grimdark" : L"C:\\Grimdark") + L"\\grimdark.log";
 }
 
+// The game's settings folder: Documents\My Games\Grim Dawn\Settings (the game builds it from the same known folder).
+std::wstring settings_dir() {
+  PWSTR docs = nullptr;
+  std::wstring base;
+  if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Documents, 0, nullptr, &docs))) { base = docs; CoTaskMemFree(docs); }
+  if (base.empty()) return {};
+  return base + L"\\My Games\\Grim Dawn\\Settings";
+}
+
+bool write_file(const std::wstring& p, const std::string& text) {
+  HANDLE h = CreateFileW(p.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (h == INVALID_HANDLE_VALUE) return false;
+  DWORD n = 0;
+  bool ok = WriteFile(h, text.data(), (DWORD)text.size(), &n, nullptr) && n == text.size();
+  CloseHandle(h);
+  return ok;
+}
+
+// Forces the settings the mod cannot play without (core/game_settings.h) in the game's own files before it starts:
+// movementType 1 + evadeFollowCursor false in options.txt, and W/S/A/D on the keyboard-mode map's move actions,
+// which the game itself leaves unbound. Every other line is kept; the game rewrites both files with the same values
+// on exit. A file that cannot be written is reported, never fatal (the game still runs, only movement suffers).
+void force_game_settings(bool dry) {
+  namespace gs = gd::core::game_settings;
+  std::wstring dir = settings_dir();
+  if (dir.empty()) { printf("Settings: the Documents folder is unknown; leaving the game's settings alone.\n"); return; }
+  if (!dry) {   // the game creates the tree on its first run; a launch through the mod may come first
+    for (size_t i = 3; i <= dir.size(); ++i)
+      if (i == dir.size() || dir[i] == L'\\') CreateDirectoryW(dir.substr(0, i).c_str(), nullptr);
+  }
+  struct Job { const wchar_t* file; gs::Patch (*patch)(const std::string&); };
+  const Job jobs[] = {
+      {L"options.txt", [](const std::string& t) { return gs::patch_options(t, gs::required_options()); }},
+      {L"alternate_keybindings.txt", [](const std::string& t) { return gs::patch_keymap(t); }},
+  };
+  for (const Job& job : jobs) {
+    std::wstring path = dir + L"\\" + job.file;
+    bool existed = file_exists(path);
+    gs::Patch p = job.patch(existed ? read_file(path) : std::string());
+    if (!p.changed()) continue;
+    for (const auto& c : p.changes) printf("Settings: %ls: %s%s\n", job.file, c.c_str(), dry ? " (dry run: not written)" : "");
+    if (dry) continue;
+    if (!write_file(path, p.text)) printf("Settings: could not write %ls (error %lu); the game keeps its old values.\n", path.c_str(), GetLastError());
+    else if (!existed) printf("Settings: created %ls\n", path.c_str());
+  }
+  fflush(stdout);
+}
+
 // Echo the mod's log lines worth a player's attention as they appear (the DLL truncates the log when it loads).
 struct LogTail {
   std::wstring path = log_path();
@@ -199,6 +248,7 @@ int wmain(int argc, wchar_t** argv) {
   if (find_pid(L"Grim Dawn.exe")) return fail(L"Grim Dawn is already running", L"Close the running game first (the mod has to be loaded before the game starts), then run Grimdark again.");
   printf("Steam is running.\n");
 
+  force_game_settings(dry);
   if (dry) { printf("Dry run: would start the game with %ls\n", dll.c_str()); return 0; }
 
   fake_steam_environment();

@@ -2,8 +2,13 @@
 
 The game's keys are remappable by the player in Options -> Controls (the keyboard-icon tab): click a row's
 Primary or Secondary cell, press the new key, Apply. Changed maps are written to
-`%USERPROFILE%\Documents\My Games\Grim Dawn\Settings\keybindings.txt` (and `alternate_keybindings.txt`);
-with no changes the files do not exist and the defaults below are in effect. `Engine::GetKeymapPath()` /
+`%USERPROFILE%\Documents\My Games\Grim Dawn\Settings\keybindings.txt` (mouse movement) and
+`alternate_keybindings.txt` (keyboard movement, `action: primary secondary` in the button codes; the move actions are 63..66 =
+forward/backward/left/right). With no changes the files do not exist and the defaults below are in effect -- EXCEPT the four
+move actions: switching Movement Type to Keyboard creates them UNBOUND, and only the Keybinding tab's Default binds them
+(measured 2026-09-19; it also resets every other binding). gdlaunch therefore OWNS that file: before every launch it is
+rewritten as the game's default keyboard map with W/S/A/D (`core/game_settings.h`; the mod's lifted chords assume the
+defaults, players are told not to rebind), and movementType/evadeFollowCursor are forced in options.txt. `Engine::GetKeymapPath()` /
 `SetKeymapPath()` are exported, so the mod could point the game at its own map file. "Movement Type" on the
 same page is `movementType` in options.txt (Mouse = 0, Keyboard = 1).
 

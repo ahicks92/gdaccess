@@ -544,10 +544,15 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   Options screen class under a host window at `[InGameUI+0x4def8]` (+0x90; details in docs/exe-ui-layout.md),
   never entering app state 5, so `options_screen()` missed it in the world. It now resolves through the host;
   the options screen is layer 20. So `movementType` is set through the mod (pause -> Options -> Controls tab ->
-  Movement Type -> Apply); the README says so, and options.txt is NOT to be hand-edited (Steam cloud sync).
-- Settings for a shipping user (audited 2026-08-25): only ONE mandatory options.txt change, `movementType = 1`
-  (Controls -> Keyboard); nothing in the repo sets it (NOT auto-forcing it: the engine rewrites options.txt on
-  exit and the in-memory Options setter is unconfirmed). Plus keep default keybindings and `displayDamage` on.
+  Movement Type -> Apply). Since 2026-09-19 gdlaunch forces it before every start instead (next bullet); the old "Steam
+  cloud sync fights options.txt edits" worry was wrong: the cloud holds only remote/save/.
+- Settings for a shipping user (audited 2026-08-25, FORCED since 2026-09-19): `movementType = 1` and `evadeFollowCursor =
+  false` in options.txt (line-preserving) plus `alternate_keybindings.txt` REWRITTEN as the game's default keyboard map with
+  W/S/A/D on 63..66 (the launcher owns it; the mod's chords assume the defaults) -- gdlaunch does both before every start (`src/core/game_settings.h`, doctests; the game rewrites both files
+  with the same values on exit; Steam cloud holds only `remote/save/`, never Settings). Root cause of the "README steps not
+  enough" reports: switching Movement Type to Keyboard creates the four move actions UNBOUND and only the Keybinding tab's
+  Default binds them (which also resets every other binding; the dev machine's F on action 50 was lost that way). Plus keep
+  default keybindings and `displayDamage` on.
   inactiveUpdateRate / windowed / 1600x900 / targetLock are dev-loop artifacts, irrelevant to a focused player.
   Game-free CI is feasible (nothing links a game file; `gd_names.h`, `rooms.db` and the prism SDK parts the build
   uses are all committed -- a fresh export of the tree builds with only VS 2022, verified 2026-08-25).

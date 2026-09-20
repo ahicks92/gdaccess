@@ -49,14 +49,12 @@ for updates itself.
 You now have a desktop icon `Grimdark`.  You launch the game through this icon instead of the game's own.  Steam must be
 running.
 
-On first launch, you must set a few options.  Create a new character and get as far as the world, press Escape, choose
-Options Menu.  There is an apply button.  If you do not tab to and hit the apply button then your settings changes will
-not take. You need to set:
-
-- keybindings -> Movement Type to **Keyboard**. The last option in the menu.
-- Gameplay -> Evade to Cursor to **OFF**
-
-If you miss the above setting changes you will be unable to walk or dodge properly.
+The launcher also sets the two game options the mod cannot play without, every time it starts the game: Movement Type
+is forced to Keyboard (the game's own WASD walking), Evade to Cursor is forced off (otherwise Space dashes at the mouse
+cursor and ignores WASD), and the keyboard-mode key map is written as the game's default one with the four walking keys
+bound, which the game itself leaves empty until you press Default on its Keybinding tab. The mod's keys are built on the
+game's default bindings, so do not rebind keys in the game's menu: the launcher puts the defaults back on every start.
+Nothing else in your settings is touched. Changing those two options back in the game's menu lasts until the next launch.
 
 ## Getting Started
 
