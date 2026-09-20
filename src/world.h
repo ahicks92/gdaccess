@@ -228,6 +228,7 @@ bool lock_target(unsigned id);
 bool lock_point(const Vec3& world_point);   // the same, for a bare world point (a room exit); unlock_target releases it too
 void unlock_target();
 unsigned locked_target();
+std::string lock_dump();   // dev: found / not found for N ms (grace) / point / none
 void tick();                                   // per frame while in the world
 bool entity_screen_pos(unsigned id, float& x, float& y);  // client-area pixels via WorldCamera::Project
 std::string project_dump(unsigned id);

@@ -41,7 +41,9 @@ std::unordered_map<unsigned, Placed> g_live;
 // Defaults cap 5 / pivot 0.5 kept by ear 2026-09-20 on a Korvan scarab pack (25 / 0.1 was a 1.5 dB blanket, not a tilt).
 core::LevelCompressor g_comp[kKinds];
 std::vector<double> g_contrib[kKinds];
-bool g_comp_on = true;   // F12 dev A/B: the compressors keep running (status shows what they would do); off = not applied
+bool g_comp_on = true;   // dev A/B (/sonar?compress=): the compressors keep running (status shows what they would do); off = not applied
+// Tried and rejected 2026-09-20: a per-id playback-rate shift (+-2 % in 5 bins, cubic resampling) so co-located things
+// would sound like two things -- it degraded into flanging / chorus in a pack and sounded broken (the user).
 
 bool audible() {
   if (g_force) return true;
@@ -123,7 +125,7 @@ std::string status() {
   s += "trims dB:"; for (int i = 0; i < kKinds; ++i) s += std::format(" {}={:+.1f}", kKindName[i], g_trim_db[i]); s += "\n";
   const core::CompressParams& cp = g_comp[0].params();
   s += std::format("crowd compression {} cap={:.1f} ratio={:.1f} pivot={:.3f} slew={:.2f}s (per kind: power B, n_eff -> ratio r):",
-                   g_comp_on ? "APPLIED" : "OFF (F12)", cp.cap, cp.ratio, cp.pivot, cp.slew_s);
+                   g_comp_on ? "APPLIED" : "OFF (/sonar?compress=1)", cp.cap, cp.ratio, cp.pivot, cp.slew_s);
   for (int i = 0; i < kKinds; ++i) if (!g_contrib[i].empty()) s += std::format(" {} B={:.1f} n={:.1f} r={:.2f}", kKindName[i], g_comp[i].power(), g_comp[i].n_eff(), g_comp[i].ratio());
   s += "\n";
   for (auto [group, kind] : {std::pair{world::ScanGroup::Enemies, kEnemy}, std::pair{world::ScanGroup::Loot, kLoot}, std::pair{world::ScanGroup::Transitions, kTransition},
@@ -134,9 +136,9 @@ std::string status() {
       int k = group == world::ScanGroup::Shrines ? (world::shrine_restored(it.id) ? kShrineRestored : kShrineRuined) : kind;
       double c = (double)gain * gain / p.period_for(it.dist);
       float comp = g_comp[k].gain_for(c);
-      s += std::format("  {:<10} {:5.1f} pan {:+.2f} period {:.2f}s ahead {:+.2f} shelf {:+.1f} dB vol {:.2f} c {:.2f} comp {:+.1f} dB  {} '{}'\n",
+      s += std::format("  {:<10} {:5.1f} pan {:+.2f} period {:.2f}s ahead {:+.2f} shelf {:+.1f} dB vol {:.2f} c {:.2f} comp {:+.1f} dB   {} '{}' id {}\n",
                        kKindName[k], it.dist, pan, p.period_for(it.dist), ahead, world::rear_shelf_db(ahead), gain * g_vol, c,
-                       20.0 * std::log10(comp), it.cls, it.label);
+                       20.0 * std::log10(comp), it.cls, it.label, it.id);
     }
   return s;
 }

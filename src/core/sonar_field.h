@@ -16,6 +16,8 @@ struct FieldParams {
   double period_far = 0.80;    // seconds at dist_far and beyond (2x the old flat 0.40s sweep cadence)
   float dist_near = 2.0f;      // at/under this distance, period_near
   float dist_far = 25.0f;      // at/over this distance, period_far
+  double grace_s = 1.5;        // an id missing from the items keeps its phase grid this long (radius-edge flicker,
+                               // a visibility blink) before it is forgotten and reseeded on its next sighting
   double period_for(float dist) const;   // log-in-distance interpolation between the two endpoints
 };
 
@@ -25,7 +27,8 @@ class SonarField {
   struct Ping { unsigned id; int kind; };
   // Advance to now_s over the current item set. Returns the ids whose tone pulses this frame (0 or more).
   // A newly seen id is seeded a phase-offset into its period (so a wave of arrivals staggers) and does not
-  // fire on its first frame; ids absent from `items` are forgotten.
+  // fire on its first frame; an id absent from `items` keeps its grid for grace_s (an overdue one fires once on
+  // its return, then continues on the grid), after which it is forgotten.
   std::vector<Ping> update(const std::vector<Item>& items, double now_s);
   void reset();
   FieldParams& params() { return params_; }
@@ -34,7 +37,8 @@ class SonarField {
 
  private:
   FieldParams params_;
-  std::unordered_map<unsigned, double> next_at_;   // per id, when its next pulse is due (its own phase grid)
+  struct Slot { double due, last_seen; };            // when its next pulse is due (its own phase grid), last frame it was listed
+  std::unordered_map<unsigned, Slot> next_at_;
 };
 
 }  // namespace gd::core

@@ -548,7 +548,7 @@ static std::string handle(const std::string& path, const std::map<std::string, s
   if (path == "/lock") {  // /lock?id=N parks the cursor over the entity each frame; /lock?off=1 releases; no args: report
     if (q.count("off")) world::unlock_target();
     else if (q.count("id")) { if (!world::lock_target((unsigned)strtoul(q.at("id").c_str(), nullptr, 10))) return "entity not found near the player\n"; }
-    return std::format("locked={}\n", world::locked_target()) + world::target_dump();
+    return std::format("locked={}\n", world::locked_target()) + world::lock_dump() + world::target_dump();
   }
   if (path == "/project") return world::project_dump(q.count("id") ? (unsigned)strtoul(q.at("id").c_str(), nullptr, 10) : 0);
   if (path == "/target") {  // /target?id=N sets the combat enemy; /target?clear=1; no args: report

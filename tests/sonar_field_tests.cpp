@@ -47,6 +47,24 @@ TEST_CASE("field: the phase offset staggers co-distant things") {
   CHECK(fired(b, 2));
 }
 
+TEST_CASE("field: a blink at the radius edge keeps the phase grid (one pulse on return, then the old grid)") {
+  SonarField f;
+  double T = f.params().period_for(2.0f);   // 0.14
+  f.update({{1, 2.0f, 0.0f, 0}}, 0.0);
+  CHECK(f.update({{1, 2.0f, 0.0f, 0}}, 0.001).size() == 1);   // grid: 0.001 + n*T
+  for (double t = 0.05; t < 1.0; t += 0.05) CHECK(f.update({}, t).empty());   // gone for a second (within the grace)
+  CHECK(f.tracked() == 1);
+  CHECK(f.update({{1, 2.0f, 0.0f, 0}}, 1.2).size() == 1);   // back and overdue: one pulse, no reseed, no burst
+  // Still on the original grid: the next grid point after 1.2 is 0.001 + 9*T = 1.261.
+  CHECK(f.update({{1, 2.0f, 0.0f, 0}}, 1.25).empty());
+  CHECK(f.update({{1, 2.0f, 0.0f, 0}}, 1.27).size() == 1);
+  // Without the grace it would have been reseeded a phase-offset in and stayed silent on return.
+  SonarField g; g.params().grace_s = 0.0;
+  g.update({{1, 2.0f, 0.0f, 0}}, 0.0); g.update({{1, 2.0f, 0.0f, 0}}, 0.001);
+  g.update({}, 0.5);
+  CHECK(g.tracked() == 0);
+}
+
 TEST_CASE("field: a long stall advances by whole periods, never bursts") {
   SonarField f;
   double T = f.params().period_for(2.0f);
@@ -59,11 +77,13 @@ TEST_CASE("field: a long stall advances by whole periods, never bursts") {
   CHECK(f.update({{1, 2.0f, 0.0f, 0}}, 100.0 + T + 0.001).size() == 1);
 }
 
-TEST_CASE("field: an absent id is forgotten, reset clears all") {
-  SonarField f;
+TEST_CASE("field: an absent id is kept through the grace period, then forgotten; reset clears all") {
+  SonarField f;   // grace 1.5 s
   f.update({{1, 2.0f, 0.0f, 0}, {2, 5.0f, 0.0f, 0}}, 0.0);
   CHECK(f.tracked() == 2);
-  f.update({{1, 2.0f, 0.0f, 0}}, 0.05);   // 2 dropped out
+  f.update({{1, 2.0f, 0.0f, 0}}, 0.05);   // 2 dropped out: still remembered
+  CHECK(f.tracked() == 2);
+  f.update({{1, 2.0f, 0.0f, 0}}, 1.6);    // unseen for longer than the grace: gone
   CHECK(f.tracked() == 1);
   f.reset();
   CHECK(f.tracked() == 0);

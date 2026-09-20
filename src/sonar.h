@@ -11,7 +11,7 @@ void tick();                 // per frame from the in-game screen
 void reset();                // leaving the world
 void set_enabled(bool on);
 bool enabled();
-void set_compression_enabled(bool on);   // F12 dev A/B: apply the crowd compression or not (the compressors keep computing)
+void set_compression_enabled(bool on);   // dev A/B (/sonar?compress=): apply the crowd compression or not (the compressors keep computing)
 bool compression_enabled();
 void set_knob(const std::string& name, float value);   // radius vol ref floor pnear pfar dnear dfar force cap ratio pivot slew
 bool set_trim(const std::string& kind, float db);   // per-cue level trim in dB (enemy loot transition destructible shrine-ruined shrine-restored; "all" resets)

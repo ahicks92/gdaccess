@@ -1529,6 +1529,12 @@ namespace {
 unsigned g_locked_id = 0;
 void* g_locked_entity = nullptr;
 uint64_t g_lock_frames = 0;
+// Grace (2026-09-20, the user's kiting report): find_entity is a 40 u sphere query around the player, so a target
+// that ran (or was kited) out of it for a moment was unlocked at once, and the next enemy key started over from
+// the nearest thing. Now the lock survives kLockGraceMs unseen (cursor override off, "too far away" on the keys)
+// and resumes when the id is found again; a death is still immediate once the corpse is in range.
+ULONGLONG g_lock_lost_ms = 0;   // GetTickCount64 of the first frame the id was not found, 0 while found
+constexpr ULONGLONG kLockGraceMs = 5000;
 
 void* find_entity(unsigned id) {
   Buf base; void* region = nullptr;
@@ -1684,7 +1690,7 @@ bool lock_target(unsigned id) {
   void* e = find_entity(id);
   if (!e) return false;
   g_point_locked = false;
-  g_locked_id = id; g_locked_entity = e; g_lock_frames = 0;
+  g_locked_id = id; g_locked_entity = e; g_lock_frames = 0; g_lock_lost_ms = 0;
   return true;
 }
 bool lock_point(const Vec3& world_point) {
@@ -1695,9 +1701,14 @@ bool lock_point(const Vec3& world_point) {
 }
 void unlock_target() {
   if (g_locked_id || g_point_locked) gd::hooks::set_cursor_override(false, 0, 0);
-  g_locked_id = 0; g_locked_entity = nullptr; g_point_locked = false;
+  g_locked_id = 0; g_locked_entity = nullptr; g_point_locked = false; g_lock_lost_ms = 0;
 }
 unsigned locked_target() { return g_locked_id; }
+std::string lock_dump() {
+  if (!g_locked_id) return g_point_locked ? "locked point\n" : "no lock\n";
+  if (!g_lock_lost_ms) return std::format("locked id={} found\n", g_locked_id);
+  return std::format("locked id={} NOT FOUND for {} ms (grace {} ms)\n", g_locked_id, GetTickCount64() - g_lock_lost_ms, kLockGraceMs);
+}
 void tick() {
   if (g_point_locked) {
     if (!in_world()) { unlock_target(); return; }
@@ -1715,7 +1726,14 @@ void tick() {
   // override jump to the window centre off a garbage projection). find_entity is the game's own sphere query
   // and already runs per frame elsewhere in this file.
   g_locked_entity = find_entity(g_locked_id);
-  if (!g_locked_entity) { unlock_target(); return; }
+  if (!g_locked_entity) {
+    ULONGLONG now = GetTickCount64();
+    if (!g_lock_lost_ms) g_lock_lost_ms = now;
+    if (now - g_lock_lost_ms > kLockGraceMs) { unlock_target(); return; }
+    gd::hooks::set_cursor_override(false, 0, 0);   // keep the lock, park nothing: the game must not hover a stale point
+    return;
+  }
+  g_lock_lost_ms = 0;
   ++g_lock_frames;
   // A locked Monster that died is a corpse: release it, so the cursor does not sit on a body and the next
   // enemy key enters at the nearest living one (the corpse is no longer in the enemy scan either).

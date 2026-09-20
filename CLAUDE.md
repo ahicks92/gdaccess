@@ -918,7 +918,7 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   cursor's ground point and else fire at the point; the 16 `Skill_TargetedSpawnPet` skills (Inquisitor Seal, totems,
   traps, summons) are DBR `targetingMode = Point` but runtime type 2 (docs/skills-targeting.md; the spoken word for them
   is still "at a target" -- wording open). No class skill reads type 3; Nullification and Vire's Might read 4.
-- Sonar crowd compression (2026-09-20, HEARD and kept by the user on a Korvan scarab pack; F12 = dev A/B, to be removed):
+- Sonar crowd compression (2026-09-20, HEARD and kept by the user on a Korvan scarab pack; A/B = /sonar?compress=0|1):
   in a busy field the per-thing loudness stops being a usable distance signal, so `core::LevelCompressor` (sonar_field.h)
   flattens the level slope PER KIND while the rate signal stays exact. Input = the kind's estimated mean power over the
   coming window: contribution c = gain^2 / period (rate x energy per pulse; the kinds are loudness-matched by the trims,
@@ -932,8 +932,17 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   spreads the loss evenly; raising the pivot is the tilt lever. Design by the user: a power CAP, not a threshold-free
   ratio (the first cut drove r from n_eff = (sum c)^2 / sum c^2 and started at the second thing; n_eff is a diagnostic).
   Knobs `/sonar?cap=&ratio=&pivot=&slew=&compress=0|1`; status prints per-kind B / n / r and per-thing `c` / `comp dB`.
-  The game's key enum is NOT DIK above F10: F11 0x55, F12 0x56 (`tools/exports/keynames.txt`). Not finished: the user
-  wants "a bit more" (next session).
+  The game's key enum is NOT DIK above F10: F11 0x55, F12 0x56 (`tools/exports/keynames.txt`; F12 is free, it was the
+  day's A/B key). **Rejected the same day**: a per-id playback-rate shift on the cues (+-2 % in 5 bins, cubic resampling
+  in the mixer) meant to make co-located things sound like two things -- in a pack it degraded into flanging / chorus
+  and sounded broken; reverted entirely. Next experiment pending.
+- Grace periods (2026-09-20, built + core-tested, lock grace NOT yet verified live): (1) the sonar field keeps an id's
+  phase grid for `FieldParams::grace_s` 1.5 s after it drops out of the item list (radius-edge flicker, a visibility
+  blink) -- an overdue one fires once on return and continues on its old grid instead of being reseeded. (2) The review
+  lock survives `kLockGraceMs` 5 s with the target not found by `find_entity` (a 40 u sphere query around the player:
+  a kited enemy that fell out of it was unlocked at once and the next enemy key restarted from the nearest -- the
+  user's kiting report); the cursor override is off while lost, the keys say "too far away", the lock resumes when
+  the id is found again, a death still unlocks at once. `/lock` prints found / NOT FOUND for N ms.
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.

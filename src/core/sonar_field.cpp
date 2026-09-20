@@ -15,8 +15,8 @@ double FieldParams::period_for(float dist) const {
 
 std::vector<SonarField::Ping> SonarField::update(const std::vector<Item>& items, double now) {
   std::vector<Ping> out;
-  std::unordered_map<unsigned, double> keep;
-  keep.reserve(items.size());
+  std::unordered_map<unsigned, Slot> keep;
+  keep.reserve(items.size() + next_at_.size());
   for (const Item& it : items) {
     double T = params_.period_for(it.dist);
     if (T < 0.01) T = 0.01;
@@ -26,14 +26,17 @@ std::vector<SonarField::Ping> SonarField::update(const std::vector<Item>& items,
       double ph = it.phase < 0 ? 0 : it.phase > 1 ? 1 : it.phase;
       due = now + ph * T;   // first pulse a phase-offset in; seeding, not firing, this frame
     } else {
-      due = found->second;
+      due = found->second.due;
       if (now >= due) {
         out.push_back({it.id, it.kind});
         do { due += T; } while (due <= now);   // advance whole periods: burst-proof, keeps the phase grid
       }
     }
-    keep.emplace(it.id, due);
+    keep.emplace(it.id, Slot{due, now});
   }
+  // Grace: an id not listed this frame keeps its grid until it has been unseen for grace_s.
+  for (const auto& [id, slot] : next_at_)
+    if (!keep.count(id) && now - slot.last_seen <= params_.grace_s) keep.emplace(id, slot);
   next_at_.swap(keep);
   return out;
 }
