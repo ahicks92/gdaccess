@@ -180,8 +180,11 @@ static void register_actions() {
     sonar::set_enabled(!sonar::enabled());
     speech::speak(sonar::enabled() ? strings::kSonarOn : strings::kSonarOff, true);
   }).bind(keys::Backslash);
-  // (F12 = 0x56 in the game's Button enum, NOT the DIK 0x58 -- tools/exports/keynames.txt; it served as the sonar A/B key
-  // on 2026-09-20 and is free for the next experiment.)
+  // F12: dev A/B of the sonar crowd compression (the cap stays as set; only whether it is applied flips).
+  m.register_action("sonar.compressToggle", "Sonar crowd compression on or off", InputCategory::InGame, [] {
+    sonar::set_compression_enabled(!sonar::compression_enabled());
+    speech::speak(sonar::compression_enabled() ? strings::kCompressionOn : strings::kCompressionOff, true);
+  }).bind(0x56);  // F12 in the game's Button enum (tools/exports/keynames.txt: F11 0x55, F12 0x56, not the DIK codes)
   m.register_action("scan.ping", "Ping the reviewed thing", InputCategory::InGame,
                     [] { if (world::ping_reviewed().empty()) speech::speak(strings::kNoTarget, true); }).bind(0x27);  // Semicolon
   // The follow key: ping the map marker picked in the Ctrl+M window, with its distance and heading.

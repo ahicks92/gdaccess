@@ -110,6 +110,9 @@ void set_knob(const std::string& name, float v) {
   else if (name == "ratio") for (auto& c : g_comp) c.params().ratio = v;    // output ratio above the cap (<= 1 = hard cap)
   else if (name == "pivot" && v > 0) for (auto& c : g_comp) c.params().pivot = v;
   else if (name == "slew" && v >= 0) for (auto& c : g_comp) c.params().slew_s = v;
+  else if (name == "window" && v >= 0) p.collide_s = v;    // same-kind collision window in seconds (0 = off)
+  else if (name == "hash") p.hash_phase = v != 0;           // seed by id hash (1) or by pan (0, the old way)
+  else if (name == "grace" && v >= 0) p.grace_s = v;
 }
 bool set_trim(const std::string& kind, float db) {   // /sonar?trim=<kind>,<dB>; kind "all" restores the defaults (all,1 = flat)
   if (kind == "all") { for (int i = 0; i < kKinds; ++i) g_trim_db[i] = db == 0 ? kDefaultTrimDb[i] : 0.0f; return true; }   // all,0 = defaults; all,1 = flat
@@ -119,13 +122,15 @@ bool set_trim(const std::string& kind, float db) {   // /sonar?trim=<kind>,<dB>;
 std::string status() {
   const core::FieldParams& p = g_field.params();
   std::string s = std::format("enabled={} radius={:.1f} vol={:.2f} rolloff {} (shared with the review pings) "
-                              "period {:.2f}s@{:.0f}u .. {:.2f}s@{:.0f}u (log in distance) tracked={} fired={}\n",
+                              "period {:.2f}s@{:.0f}u .. {:.2f}s@{:.0f}u (log in distance) tracked={} fired={}\n"
+                              "stagger: seed by {} collision window {:.3f}s grace {:.2f}s\n",
                               g_enabled, g_radius, g_vol, world::ping_rolloff(),
-                              p.period_near, p.dist_near, p.period_far, p.dist_far, g_field.tracked(), g_fired);
+                              p.period_near, p.dist_near, p.period_far, p.dist_far, g_field.tracked(), g_fired,
+                              p.hash_phase ? "id hash" : "pan", p.collide_s, p.grace_s);
   s += "trims dB:"; for (int i = 0; i < kKinds; ++i) s += std::format(" {}={:+.1f}", kKindName[i], g_trim_db[i]); s += "\n";
   const core::CompressParams& cp = g_comp[0].params();
   s += std::format("crowd compression {} cap={:.1f} ratio={:.1f} pivot={:.3f} slew={:.2f}s (per kind: power B, n_eff -> ratio r):",
-                   g_comp_on ? "APPLIED" : "OFF (/sonar?compress=1)", cp.cap, cp.ratio, cp.pivot, cp.slew_s);
+                   g_comp_on ? "APPLIED" : "OFF (F12)", cp.cap, cp.ratio, cp.pivot, cp.slew_s);
   for (int i = 0; i < kKinds; ++i) if (!g_contrib[i].empty()) s += std::format(" {} B={:.1f} n={:.1f} r={:.2f}", kKindName[i], g_comp[i].power(), g_comp[i].n_eff(), g_comp[i].ratio());
   s += "\n";
   for (auto [group, kind] : {std::pair{world::ScanGroup::Enemies, kEnemy}, std::pair{world::ScanGroup::Loot, kLoot}, std::pair{world::ScanGroup::Transitions, kTransition},

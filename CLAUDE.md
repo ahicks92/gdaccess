@@ -943,6 +943,18 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   a kited enemy that fell out of it was unlocked at once and the next enemy key restarted from the nearest -- the
   user's kiting report); the cursor override is off while lost, the keys say "too far away", the lock resumes when
   the id is found again, a death still unlocks at once. `/lock` prints found / NOT FOUND for N ms.
+- Sonar stagger reworked (2026-09-20, HEARD: "a subtle but noticeable improvement", kept; the compression may need a
+  retune now that pulses no longer pile up -- F12 is its A/B key again; the user's report: periods still aligned): the only
+  anti-alignment was the pan-based phase seed, which put a whole flank (five scarabs at pan +1.00) on the same fraction of
+  near-equal periods, and nothing ever separated things drifting through each other (0.21 s vs 0.31 s coincide every
+  ~0.65 s). Now (1) a new id is seeded at hash(id) of a period (`FieldParams::hash_phase`; the pan seed stays as the
+  false setting), and (2) a due time within `collide_s` 40 ms of another SAME-KIND due is pushed later past it
+  (`SonarField::push_clear`, bounded), on seeding and on every reschedule. Tests: a drifting pair stays >= 39 ms apart
+  at < 10 % pulse cost; eight co-distant things spread over their 0.21 s period. Consequence: in a field denser than
+  1/window the push STRETCHES the crowded things' cadences (the window is a same-kind rate ceiling of 25 pulses/s),
+  which is the density limit the ear needs anyway. Different kinds never push each other. Knobs `/sonar?window=&hash=&grace=`;
+  status prints `stagger: seed by id hash collision window 0.040s grace 1.50s`. The user has an alternative idea in
+  reserve; longer play may bring further changes.
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.

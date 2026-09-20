@@ -13,7 +13,7 @@ void set_enabled(bool on);
 bool enabled();
 void set_compression_enabled(bool on);   // dev A/B (/sonar?compress=): apply the crowd compression or not (the compressors keep computing)
 bool compression_enabled();
-void set_knob(const std::string& name, float value);   // radius vol ref floor pnear pfar dnear dfar force cap ratio pivot slew
+void set_knob(const std::string& name, float value);   // radius vol ref floor pnear pfar dnear dfar force cap ratio pivot slew window hash grace
 bool set_trim(const std::string& kind, float db);   // per-cue level trim in dB (enemy loot transition destructible shrine-ruined shrine-restored; "all" resets)
 std::string status();
 }  // namespace gd::sonar
