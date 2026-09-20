@@ -116,15 +116,15 @@ class SkillsScreen : public WindowScreen, public AssignSource {
     }
     const gameapi::SkillInfo* mastery = gameapi::mastery_skill(list, e);
     if (mastery) add_skill(b, *mastery, list, reclaim);
+    int t = tab();
     if (!committed && mastery && mastery->level == 0) {
-      int t = tab();
       auto undo = [this, t] { if (exe_ui::skills_set_pane(t, exe_ui::kSkillsClassSelectPane)) { chosen_[t] = -1; refresh(); } };
       b.add_item(ControlId::structural("skills.undo"), row_item(std::string(strings::kUndoClassSelection), {}, undo));
     }
     // The window's own Undo Points button: reverts every skill point spent since the window opened (the game
     // keeps that per-button; we press its button rather than replay it). Present while the button is enabled.
-    if (exe_ui::skills_undo_points_enabled()) {
-      auto undo_points = [this] { speech::speak(exe_ui::skills_undo_points() ? std::string(strings::kUndoPoints) : std::string(strings::kCannot), true); refresh(); };
+    if (exe_ui::skills_undo_points_enabled(t)) {
+      auto undo_points = [this, t] { speech::speak(exe_ui::skills_undo_points(t) ? std::string(strings::kUndoPoints) : std::string(strings::kCannot), true); refresh(); };
       b.add_item(ControlId::structural("skills.undopoints"), row_item(std::string(strings::kUndoPoints), {}, undo_points));
     }
     unsigned mid = mastery ? mastery->id : 0;

@@ -308,15 +308,17 @@ bool caravan_refresh(bool shared, const void* sack_vector);   // after a purchas
 constexpr int kSkillsClassSelectPane = 0x50;
 bool skills_set_pane(int tab, int pane_index);
 int skills_tab();
-// True while the skills window is in spirit-guide reclaim mode (SkillsWindow +0x1e1c): clicks reclaim instead of
-// learn. Refunding a skill point is only allowed then.
+// True while the skills window is in spirit-guide reclaim mode (the window's own byte +0x2639, set by
+// DisplaySkillReallocationWindow; else either mastery pane's +0x1e4c): clicks reclaim instead of learn. Refunding
+// a skill point is only allowed then.
 bool skills_reclaim_mode();
-// The mastery pane's "Undo Points" button (reverts the skill points spent since the window opened): whether the
-// game shows it enabled, and pressing it through the pane's own registry.
-bool skills_undo_points_enabled();
-bool skills_undo_points();
-// Press a skill's icon on the current mastery pane (the game's own learn / reclaim click, which also records the
-// pending delta Undo Points reverts). False when the tab shows no mastery pane or the skill is not on it.
+// The mastery pane's "Undo Points" button on tab slot 0 / 1 (reverts the skill points spent since the window
+// opened): whether the game shows it enabled, and pressing it through the pane's own registry. Takes the SCREEN's
+// tab: the game's own tab can rest on the class-selection pane (a one-class character) while we show the mastery.
+bool skills_undo_points_enabled(int tab);
+bool skills_undo_points(int tab);
+// Press a skill's icon on whichever mastery pane holds it (the game's own learn / reclaim click, which also records
+// the pending delta Undo Points reverts). False when no mastery pane has the skill.
 bool skills_press_skill(unsigned skill_id);
 std::string skills_pane_dump();   // dev: the pane's icon entries (control, delta, skill id)
 

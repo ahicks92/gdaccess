@@ -138,6 +138,13 @@ gate, which is why learning ignored requirements.
   the skills window with the reclaim flag set. That flag is **skills window +0x1f4c** (the handler reads it as
   `[controller+0x1e1c]`, controller = window+0x130; verified live: only that path flips window +0x1f49/+0x1f4c
   0->1 and writes a controller pointer at +0x2634). `exe_ui::skills_reclaim_mode()` reads +0x1f4c.
+  **Corrected 2026-09-20** (a one-class character's guide opened a plain window): the opener exe+0x21a6f0 writes the
+  WINDOW byte +0x2639 = 1 (+0x2634 = the npc id, not a controller), calls vt+0xa8(1) on both pane slots (UISkillPane
+  sets its +0x1e4c; the class-selection pane's slot is a bare ret), then Show(true); the window reads +0x2639 itself
+  and clears it on teardown. `skills_reclaim_mode()` now reads +0x2639, else either mastery pane's +0x1e4c, else the
+  old +0x1f4c proxy. The game rests a one-class character's window on tab 1 (the class-selection pane), which is why
+  the per-current-tab read found no flag; `skills_press_skill` now searches both panes for the skill and the Undo
+  Points helpers take the screen's tab.
   - `refund_skill` (Backspace) is only wired by the screen in reclaim mode -- outside a guide it does nothing
     (fixing the old "refund anywhere, silently charging iron bits" bug). Cost is
     `SkillManager::GetCurrentSkillReclamationCost()` (`gameapi::reclaim_cost()`), the same for every skill and

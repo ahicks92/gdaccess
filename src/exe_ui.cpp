@@ -1039,24 +1039,34 @@ namespace {
 constexpr uintptr_t kSkillPaneVt = 0x31bd18;
 constexpr size_t kSkillsWindow_Pane0 = 0x100, kSkillsWindow_Pane1 = 0x108;
 constexpr size_t kPane_Registry = 0x80, kPane_UndoPoints = 0xbd0, kPane_ReclaimMode = 0x1e4c;
-void* skills_pane() {
-  void* ui = ingame_ui();
-  if (!ui || !g_available) return nullptr;
-  char* w = (char*)ui + ingame::kSkills;
-  int tab = rd_or<int>(w, kSkillsWindow_Tab, -1);
-  if (tab != 0 && tab != 1) return nullptr;   // 2 = the Devotion tab: no pane
+// The WINDOW's own reclaim byte (RE 2026-09-20, exe+0x21a6f0 = the target of GameEngine::DisplaySkillReallocationWindow):
+// with any mastery active it writes window+0x2639 = 1, the npc id to +0x2634, calls slot vt+0xa8(1) on BOTH pane
+// slots (UISkillPane: `mov [this+0x1e4c], dl`; the class-selection pane: a bare `ret`), then Show(true). The window
+// reads +0x2639 itself (exe+0x27a155/+0x27a1d0/+0x27c8d1) and clears it with the panes on teardown (exe+0x2795a2)
+// and through its set(bl) path (exe+0x27a0b2). So it is the authoritative "opened by a spirit guide" state.
+constexpr size_t kSkillsWindow_ReclaimByte = 0x2639;
+char* skills_window() { void* ui = ingame_ui(); return ui && g_available ? (char*)ui + ingame::kSkills : nullptr; }
+// The mastery pane in tab slot 0 / 1, or null when that slot holds the class-selection pane (or nothing).
+void* skills_pane_at(int tab) {
+  char* w = skills_window();
+  if (!w || (tab != 0 && tab != 1)) return nullptr;
   void* pane = rdp(w, tab == 1 ? kSkillsWindow_Pane1 : kSkillsWindow_Pane0);
   return pane && vtable_rva_of(pane) == kSkillPaneVt ? pane : nullptr;
 }
+// The pane of the tab the GAME shows (2 = the Devotion tab: none). Dev dumps only: the screen's own tab can differ
+// from the game's (the game rests a one-class character on tab 1 = "select a class"; verified live 2026-09-20).
+void* skills_pane() { char* w = skills_window(); return w ? skills_pane_at(rd_or<int>(w, kSkillsWindow_Tab, -1)) : nullptr; }
 }  // namespace
-// The reclaim flag is per pane (+0x1e4c; RE 2026-08-27). The window byte +0x1f4c read before is the Devotion tab
-// button's state byte, which the game greys in reclaim mode -- a proxy that happened to agree; kept as the fallback
-// while the tab shows no mastery pane.
+// Reclaim mode = the window's own byte, else any mastery pane's flag, else the old Devotion-button proxy (+0x1f4c).
+// Before 2026-09-20 only the pane of the game's CURRENT tab was read: a one-class character's window rests on tab 1,
+// the class-selection pane, which carries no flag, and the proxy read 0 -- so a spirit guide opened a plain skills
+// window for them (the user's report; the log showed the rows without costs and no hint row).
 bool skills_reclaim_mode() {
-  void* ui = ingame_ui();
-  if (!ui || !g_available) return false;
-  if (void* pane = skills_pane()) return rd_or<uint8_t>(pane, kPane_ReclaimMode, 0) != 0;
-  return rd_or<uint8_t>((char*)ui + ingame::kSkills, kSkillsWindow_Reclaim, 0) != 0;
+  char* w = skills_window();
+  if (!w) return false;
+  if (rd_or<uint8_t>(w, kSkillsWindow_ReclaimByte, 0) != 0) return true;
+  for (int t = 0; t < 2; ++t) if (void* pane = skills_pane_at(t)) if (rd_or<uint8_t>(pane, kPane_ReclaimMode, 0) != 0) return true;
+  return rd_or<uint8_t>(w, kSkillsWindow_Reclaim, 0) != 0;
 }
 bool ingame_key_action(int action) {
   void* ui = ingame_ui();
@@ -1083,15 +1093,19 @@ std::vector<char*> pane_entries(void* pane) {
 }
 }  // namespace
 bool skills_press_skill(unsigned skill_id) {
-  void* pane = skills_pane();
-  if (!pane) return false;
-  for (char* en : pane_entries(pane)) {
-    if (rd_or<unsigned>(en, kEntry_SkillId, 0) != skill_id) continue;
-    WidgetB icon{rdp(en, kEntry_Control)};
-    if (!icon) return false;
-    bool ok = icon.press((char*)pane + kPane_Registry);
-    log::writef("exe_ui: skills icon press skill {} ok={}", skill_id, ok);
-    return ok;
+  // A skill sits on exactly one mastery's pane: search both slots, not the pane of the tab the game happens to show
+  // (which can be the class-selection pane while our screen is on the other tab).
+  for (int t = 0; t < 2; ++t) {
+    void* pane = skills_pane_at(t);
+    if (!pane) continue;
+    for (char* en : pane_entries(pane)) {
+      if (rd_or<unsigned>(en, kEntry_SkillId, 0) != skill_id) continue;
+      WidgetB icon{rdp(en, kEntry_Control)};
+      if (!icon) return false;
+      bool ok = icon.press((char*)pane + kPane_Registry);
+      log::writef("exe_ui: skills icon press skill {} on pane {} ok={}", skill_id, t, ok);
+      return ok;
+    }
   }
   return false;
 }
@@ -1105,8 +1119,8 @@ std::string skills_pane_dump() {
   }
   return out;
 }
-bool skills_undo_points_enabled() { void* p = skills_pane(); return p && WidgetB{(char*)p + kPane_UndoPoints}.enabled(); }
-bool skills_undo_points() { void* p = skills_pane(); return p && WidgetB{(char*)p + kPane_UndoPoints}.press((char*)p + kPane_Registry); }
+bool skills_undo_points_enabled(int tab) { void* p = skills_pane_at(tab); return p && WidgetB{(char*)p + kPane_UndoPoints}.enabled(); }
+bool skills_undo_points(int tab) { void* p = skills_pane_at(tab); return p && WidgetB{(char*)p + kPane_UndoPoints}.press((char*)p + kPane_Registry); }
 
 // ---- the devotion window's constellation graph (docs/re_devotion_exe.md sections 1.2-1.4) ----
 // window+0xa8 = std::vector<Constellation*>; Constellation: +0x38 name tag, +0x58 info tag (std::string), +0x78 stars

@@ -945,6 +945,14 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   which is the density limit the ear needs anyway. Different kinds never push each other. Knobs `/sonar?window=&hash=&grace=`;
   status prints `stagger: seed by id hash collision window 0.040s grace 1.50s`. The user has an alternative idea in
   reserve; longer play may bring further changes.
+- Spirit guide for a one-class character FIXED (2026-09-20, verified live by the user; the report: the guide
+  opened a plain skills window): `exe_ui::skills_reclaim_mode()` read the reclaim flag off the pane of the tab the
+  GAME shows, and a one-class character's window rests on tab 1 = the class-selection pane (verified live: window
+  +0x2630 = 1 with the window closed), which has no flag; the +0x1f4c proxy read 0. RE of the opener (exe+0x21a6f0):
+  window +0x2639 = 1 is the exe's own reclaim byte (read back by the window, cleared on teardown), +0x2634 = the npc
+  id, vt+0xa8(1) on both pane slots (UISkillPane -> +0x1e4c; class-select pane -> ret). Now: +0x2639, else either
+  pane's +0x1e4c, else the proxy; `skills_press_skill` searches both panes for the skill; Undo Points takes the
+  screen's tab. Lesson: our screen's tab and the game's window tab are independent -- never key a read on the game's.
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.
