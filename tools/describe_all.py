@@ -11,7 +11,7 @@ import sys
 import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB = os.path.join(ROOT, "assets", "rooms.db")
+DB = os.path.join(ROOT, "build", "rooms", "rooms.db")
 
 
 def main():

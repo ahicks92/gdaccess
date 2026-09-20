@@ -1,5 +1,5 @@
 """Room segmentation over the game's baked navmesh (offline; never touches the running game), and the
-rooms database the mod ships (assets/rooms.db). docs/rooms.md has the model and vocabulary.
+rooms database the mod ships (data/rooms -> build/rooms/rooms.db, tools/rooms_pack.py). docs/rooms.md has the model and vocabulary.
 
   uv run tools/rooms.py regions [--grep devils]            list chunks (name, location, world offset)
   uv run tools/rooms.py grid 0A001 [0A002 ...]            extract + walkable grid stats + clearance PNG
@@ -39,7 +39,7 @@ from gdmap.rooms import ALGO_VERSION, Params, Segmentation, segment, stitch  # n
 from gdmap.roomsdb import RoomsDb  # noqa: E402
 
 OUT = "build/rooms"
-DB = "assets/rooms.db"
+DB = "build/rooms/rooms.db"   # the unpacked working copy (tools/rooms_pack.py); pack after --write
 ROAD_RE = re.compile(r"gravel|cobble|flagstone|fieldstone|brick|tile|plank|road|path|pav", re.I)
 PARAM_FLAGS = {"persist": "persist", "min_area": "min-area", "cut_floor": "cut-floor", "furniture_max": "furniture",
                "max_walk": "max-walk", "min_split_area": "min-split", "island_min": "island-min"}

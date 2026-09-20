@@ -28,7 +28,7 @@ import author  # noqa: E402  (build_facts, check_room, save_description, cmd_sub
 from gdmap.roomsdb import RoomsDb  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB = os.path.join(ROOT, "assets", "rooms.db")
+DB = os.path.join(ROOT, "build", "rooms", "rooms.db")   # the unpacked working copy (tools/rooms_pack.py); pack after a run
 RULES = open(os.path.join(ROOT, "docs", "rooms-description-rules.md"), encoding="utf-8").read()
 ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 MODEL_PRICES = {   # $ per 1M tokens (prompt, completion)

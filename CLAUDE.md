@@ -232,8 +232,8 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   (`docs/compass.md`); Lua `Game.TeleportPlayer` is the riftgate fade, not a dev teleport.
 - Rooms authoring: run `subregions` BEFORE `describe` (the suffix dedupe is per sub-region; describing first numbers
   region-wide and the sub-regions then straddle it), and after any rehome / resegment run `author.py retitle --write`
-  on BOTH dbs. Never re-tag to fix titles: the pipeline does not reproduce them. The dbs have no free pages (VACUUM
-  is useless); their size is the grid blobs.
+  on BOTH working dbs, then `rooms_pack.py pack` each world. Never re-tag to fix titles: the pipeline does not
+  reproduce them. The dbs are build products since 2026-09-20 (`data/rooms/` is the source; never commit a db).
 - Process: every player-facing KEY goes in README.md and docs/controls.md in the same change. Ask before launching or
   driving the game when the user may be at the keyboard. Archive a game build the mod works on before Steam patches.
 
@@ -255,8 +255,12 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
 
 ## Tools (Python: `uv run tools/<script>.py` -- the repo root `pyproject.toml` declares lz4/pefile/capstone/numpy/scipy/pillow, no `--with` needed)
 - `tools/rooms.py` + `tools/gdmap/` (arc, map header, level bodies: navmesh tile layers + terrain layers,
-  segmentation, renderer, `roomsdb.py`) -- the rooms pipeline, `docs/rooms.md`. `rooms.py area
-  devilscrossing --write` regenerates `assets/rooms.db`; floor plans in `build/rooms/`.
+  segmentation, renderer, `roomsdb.py`) -- the rooms pipeline, `docs/rooms.md`. **The rooms data is committed as
+  text in `data/rooms/<world>/`** (JSONL per region + zlib'd grid blobs); `tools/rooms_pack.py` (stdlib-only)
+  packs/unpacks it. CMake builds `build/ninja/assets/rooms.db` + `rooms_base.db` from it (the DLL reads those);
+  the authoring tools work on `build/rooms/rooms.db` (`rooms_pack.py unpack`), and `rooms_pack.py pack` writes
+  the text back after an authoring session -- commit the text, never a db. `rooms.py area devilscrossing --write`
+  edits that working db; floor plans in `build/rooms/`.
 - `tools/package.py [--out dist/grimdark.zip] [--version v]` — the player zip in its final layout (`grimdark/` folder:
   gdlaunch, DLL, prism, injector, assets, README, licenses, `version.txt`) + the PDB beside it. `.github/workflows/build.yml`:
   job `mod` (build -> `gdcore_tests` -> package), job `installer` (cargo test + build in `installer/`), job `publish`

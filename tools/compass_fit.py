@@ -1,10 +1,10 @@
-"""Fit the compass the game's dialogue uses against the world coordinates in assets/rooms.db (docs/compass.md).
+"""Fit the compass the game's dialogue uses against the world coordinates in the working rooms db (docs/compass.md).
 Usage: uv run tools/compass_fit.py -- prints the rms disagreement for the mod's yaw-0 pin, the game's default yaw, pi/2
 and the free best fit, then every anchor. Anchors = a direction the game's text (Conversations.arc / Quests.arc /
 Text_EN lore) gives between two places; the places are room centroids (surface regions only). 2026-09-11."""
 import os
 import sqlite3, math
-c = sqlite3.connect(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "rooms.db"))
+c = sqlite3.connect(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "build", "rooms", "rooms.db"))
 UG = ("_ug", "cave", "cellar", "undercity", "interior", "armory", "outcast", "deeps", "mine", "crypt", "tomb", "lab", "transit")
 cent = {}
 for name, region, n, x, z in c.execute("select area_name, region_key, count(*), avg(anchor_x), avg(anchor_z) from rooms where area_name is not null group by area_name, region_key"):

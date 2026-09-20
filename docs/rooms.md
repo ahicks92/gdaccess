@@ -236,6 +236,25 @@ Consequences for the tools and the db:
   etc.) and the cut-content corners (0C/0E/0A085 chunks with no location record) are not segmented -- `build`
   iterates location records, and location-less chunks need a grouping path of their own.
 
+## Data layout (2026-09-20)
+
+The rooms data is committed as text, not as the SQLite files (which were 41 / 70 MB binaries git could not diff and
+GitHub caps at 100 MB): `data/rooms/<world>/` with `meta.json`, `regions/<region>.jsonl` (one JSON object per line:
+the region row, then its sub-regions, rooms, exits and shots, each sorted -- a title edit is a one-line diff) and
+`grids/<region>.bin` (the label / height / overlay RLE blobs, zlib-compressed ~0.3, behind a JSON header). Worlds:
+`gdx2` = the Forgotten Gods map the mod ships as `rooms.db`, `base` = the frozen base-game map = `rooms_base.db`.
+`tools/rooms_pack.py` moves between the two forms and is stdlib-only:
+
+- The mod's dbs are BUILD PRODUCTS: CMake runs `rooms_pack.py build` into `build/ninja/assets/` (re-run when any data
+  file changes) before the DLL builds, and `tools/package.py` takes them from there. Nothing under `assets/` is a db.
+- The authoring tools (`rooms.py`, `author.py`, `describe_or.py`, `shots.py`) work on `build/rooms/rooms.db` (and
+  `rooms_base.db`), created by `rooms_pack.py unpack --world gdx2|base`. After an authoring session run
+  `rooms_pack.py pack --world ...` and commit the text. `pack` refuses when the text changed after the db was written
+  (unpack first), `unpack` refuses when the db is newer than the text (pack first); `--force` overrides;
+  `status` says which side is ahead. `verify` proves a db and its text are identical table by table.
+- Migrated 2026-09-20 from the committed dbs with a verified identical round trip for both worlds; the old blobs
+  remain in git history.
+
 ## Duplicate titles (2026-09-20)
 
 A tester reported "unsuffixed duplicate room names" in the Flooded Passage. Four things stack:

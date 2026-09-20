@@ -28,7 +28,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gdmap.roomsdb import RoomsDb  # noqa: E402
 
 PORT = 8791
-DB = "assets/rooms.db"
+DB = "build/rooms/rooms.db"   # the unpacked working copy (tools/rooms_pack.py)
 OUT = "build/shots"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CELL = 0.25

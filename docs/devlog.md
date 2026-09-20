@@ -809,3 +809,10 @@ CLAUDE.md "Traps and lessons"; the mechanism docs are `docs/*.md`.
   dedupe. `author.py retitle --write` on both dbs (base 1403 changes, DLC 1566); `save_description` locked. Decided
   with the user: mechanical fixes over re-tagging (a retag loses every title). Open: the exits list still labels by
   title alone. VACUUM would not shrink the dbs (no free pages); zlib on the grid blobs would (~0.3).
+- Rooms data moved out of the binary dbs (2026-09-20, `docs/rooms.md` "Data layout"): the committed 41 / 70 MB SQLite
+  files could not be diffed and were heading for GitHub's 100 MB cap. Now `data/rooms/<world>/` holds JSONL per region
+  (region, sub-regions, rooms, exits, shots; sorted) + zlib'd grid blobs (17 MB for gdx2 instead of 56), and
+  `tools/rooms_pack.py` (stdlib-only) packs / unpacks / verifies; CMake builds the two dbs into `build/ninja/assets`
+  before the DLL, `package.py` takes them from there, the authoring tools use unpacked working copies in
+  `build/rooms/`. Round trip verified identical for both worlds. `gdmap.roomsdb` imports numpy lazily so the packer
+  runs on CI's plain Python.

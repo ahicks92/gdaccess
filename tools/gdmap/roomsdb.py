@@ -1,4 +1,4 @@
-"""The rooms database (assets/rooms.db): segmentation results + authored titles/descriptions, written by the
+"""The rooms database (build/rooms/rooms.db, the working copy unpacked from data/rooms by tools/rooms_pack.py): segmentation results + authored titles/descriptions, written by the
 tools, read-only for the mod. Schema is in docs/rooms.md. Room keys are coordinate anchors
 ("<region>:<x>:<z>") so authored rows survive a re-segmentation: a rerun keeps title/body/subregion for any
 room whose key still exists and marks vanished keys `orphan`."""
@@ -9,7 +9,8 @@ import sqlite3
 import struct
 from dataclasses import asdict
 
-import numpy as np
+# numpy is imported lazily inside the functions that need it: tools/rooms_pack.py (the build-time db packer)
+# imports SCHEMA from here and must run on a plain stdlib Python (CI, CMake).
 
 SCHEMA_VERSION = 2   # v2: grids.heights (RLE int16 decimeter floor y) + grids.overlays (packed upper-layer cells)
 SCHEMA = """
@@ -22,7 +23,7 @@ CREATE TABLE IF NOT EXISTS grids(
   heights BLOB, overlays BLOB);
 CREATE TABLE IF NOT EXISTS rooms(
   key TEXT PRIMARY KEY, region_key TEXT, subregion_key TEXT, anchor_x REAL, anchor_z REAL, cls TEXT,
-  area REAL, walk REAL, bbox TEXT, island INTEGER, title TEXT, body TEXT, status TEXT);
+  area REAL, walk REAL, bbox TEXT, island INTEGER, title TEXT, body TEXT, status TEXT, area_name TEXT);
 CREATE TABLE IF NOT EXISTS subregions(key TEXT PRIMARY KEY, region_key TEXT, name TEXT, summary TEXT);
 CREATE TABLE IF NOT EXISTS exits(
   region_key TEXT, room_a TEXT, room_b TEXT, x REAL, z REAL, width REAL, cut INTEGER);
@@ -38,8 +39,9 @@ def room_key(region_key: str, anchor: tuple[float, float]) -> str:
     return f"{region_key}:{round(anchor[0])}:{round(anchor[1])}"
 
 
-def rle_encode(labels: np.ndarray) -> bytes:
+def rle_encode(labels: "np.ndarray") -> bytes:
     """Row-major runs of (int16 value, uint16 length); the mod decodes the same format (core/rooms_model)."""
+    import numpy as np
     flat = labels.astype(np.int16).ravel()
     if flat.size == 0:
         return b""
@@ -56,13 +58,14 @@ def rle_encode(labels: np.ndarray) -> bytes:
     return b"".join(out)
 
 
-def rle_decode(blob: bytes, h: int, w: int) -> np.ndarray:
+def rle_decode(blob: bytes, h: int, w: int) -> "np.ndarray":
+    import numpy as np
     a = np.frombuffer(blob, dtype=np.dtype([("v", "<i2"), ("n", "<u2")]))
     return np.repeat(a["v"], a["n"]).reshape(h, w)
 
 
 class RoomsDb:
-    def __init__(self, path: str = "assets/rooms.db"):
+    def __init__(self, path: str = "build/rooms/rooms.db"):
         self.path = path
         self.c = sqlite3.connect(path, timeout=30.0)
         self.c.execute("PRAGMA busy_timeout=30000")   # concurrent shots + authoring writers wait, not error
@@ -93,6 +96,7 @@ class RoomsDb:
     def write_segmentation(self, region_key: str, name: str | None, location: str, chunks: list[str], params,
                            signature: str, algo_version: int, grid, seg, overlays=()) -> dict:
         """Store grid/rooms/exits for a region. Returns counts incl. kept/orphaned authored rows."""
+        import numpy as np
         c = self.c
         old_name = c.execute("SELECT name FROM regions WHERE key=?", (region_key,)).fetchone()
         name = name or (old_name[0] if old_name and old_name[0] else region_key)

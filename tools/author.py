@@ -1,4 +1,4 @@
-"""The authoring CLI over assets/rooms.db, used by the rooms authoring workflow's agents (docs/rooms.md M5) and
+"""The authoring CLI over the working rooms db (build/rooms/rooms.db, see tools/rooms_pack.py), used by the rooms authoring workflow's agents (docs/rooms.md M5) and
 by hand. Everything an agent needs to read or write goes through here; agents never open the db.
 
   uv run tools/author.py list <region> [--status shot] [--subregion K]   rooms: key, status, cls, area, title, subregion
@@ -23,7 +23,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gdmap.roomsdb import RoomsDb  # noqa: E402
 
-DB = "assets/rooms.db"
+DB = "build/rooms/rooms.db"   # the unpacked working copy (tools/rooms_pack.py unpack); pack after editing
 SHOTS = "build/shots"
 
 
@@ -302,7 +302,7 @@ def cmd_status(db, a):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--db", default=DB, help="rooms database (assets/rooms.db = the DLC world, assets/rooms_base.db = the base game)")
+    ap.add_argument("--db", default=DB, help="rooms database (build/rooms/rooms.db = the DLC world, build/rooms/rooms_base.db = the base game)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("list"); s.add_argument("region"); s.add_argument("--status"); s.add_argument("--subregion"); s.add_argument("--keys-only", action="store_true"); s.set_defaults(fn=cmd_list)
     s = sub.add_parser("facts"); s.add_argument("key"); s.set_defaults(fn=cmd_facts)

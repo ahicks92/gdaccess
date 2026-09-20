@@ -1,0 +1,4 @@
+# the rooms data: LF text (one JSON object per line) + compressed grid blobs
+data/rooms/**/*.jsonl text eol=lf
+data/rooms/**/*.json text eol=lf
+data/rooms/**/*.bin binary
