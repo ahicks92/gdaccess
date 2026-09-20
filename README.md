@@ -53,8 +53,8 @@ On first launch, you must set a few options.  Create a new character and get as 
 Options Menu.  There is an apply button.  If you do not tab to and hit the apply button then your settings changes will
 not take. You need to set:
 
-- Controls -> Movement Type to **Keyboard**.
-- Controls -> Evade to Cursor to **OFF**
+- keybindings -> Movement Type to **Keyboard**. The last option in the menu.
+- Gameplay -> Evade to Cursor to **OFF**
 
 If you miss the above setting changes you will be unable to walk or dodge properly.
 
