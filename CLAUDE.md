@@ -226,6 +226,9 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   cues flanges in a pack (rejected); mean power of a staggered pulse train = sum gain^2 / period (incoherent), but
   below ~5-10 pulses/s the ear hears per-pulse level, not mean power. Sound files live in the repo, never referenced
   from outside it.
+- Telegraph shapes are a table by EXACT skill class name (`telegraph::shape_of`); the class vocabulary composes
+  ("AttackRadius" is inside auras, rains and on-hit novas), so never match substrings. An unknown class is silent and
+  counted in `/telegraph`, never guessed; add it to the table with its reaction.
 - Game data: `Skill::GetMasteryLevel`-style accessors search live lists -- never hardcode the default-attack id;
   `GenerateUISkillText`'s int is the reclaim cost, not a level; affinity is not saved (derive from constellations);
   the DLC maps replace `world001.map` wholesale (two rooms dbs); the game's north is NOT the mod's yaw 0

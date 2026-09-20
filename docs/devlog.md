@@ -816,3 +816,7 @@ CLAUDE.md "Traps and lessons"; the mechanism docs are `docs/*.md`.
   before the DLL, `package.py` takes them from there, the authoring tools use unpacked working copies in
   `build/rooms/`. Round trip verified identical for both worlds. `gdmap.roomsdb` imports numpy lazily so the packer
   runs on CI's plain Python.
+- Telegraph cues re-keyed on exact skill class names, "area" + "charge" added (2026-09-20, `docs/telegraphs.md`
+  "Class table"; built, NOT yet heard): a tester's Ancient Shambler report led to the avalanche being cued as a stomp;
+  the survey showed substring matching mis-cued ~10 % of active monster skills (auras, rains, drops, lightning bolts,
+  on-hit novas, teleports). Unknown classes are silent and counted. Open: dying skills (the Shambler's death burst).

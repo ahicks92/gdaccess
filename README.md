@@ -65,7 +65,7 @@ like that (the game, not the accessibility features).  The mod mainly does a few
 - Emulates mouse clicks on enemies, loot and so on.
 - Makes the menus speak.
 - Adds sonar and wall tones (not really optional).
-- Telegraphs enemy attacks: as an enemy starts an attack, a short word says its shape (swing, stomp, wave, shot, ring)
+- Telegraphs enemy attacks: as an enemy starts an attack, a short word says its shape (swing, stomp, wave, shot, ring, area, charge)
   from where the enemy is, so you can step out of it. The game itself has no such markers.
 - Tags the level data with GPS-like information that is announced as you run around (AI-generated)
 
@@ -221,7 +221,7 @@ you probably have to get closer, or the object is behind something.  We can't re
 | X | The current room: title and description |
 | Q | Objectives of the tracked quests |
 | F1 | Grimdark menu (anywhere): sound glossary (every mod sound as a tree; landing on a row plays it), in the world the announcement config (T) and sonar config (Ctrl+T), and mod options: the dev server on/off (off by default; Enter flips it now and remembers it) |
-| T | Combat announcement settings. First Tab stop: outgoing announcements off / brief (just "hit", "crit", "miss", "blocked") / full (the numbers), incoming announcements (your health, effects on you) on/off, incoming hit announcements ("hit" for every attack that lands on you) on/off, and telegraph cues with four states: off, your target (only the enemy you are reviewing or fighting), highest tier (only the strongest kind of enemy nearby, so a pack's boss speaks and its adds do not), all. Enter cycles, Left/Right step. Second Tab stop: one on/off row per cue shape (swing, stomp, wave, shot, ring). Escape closes; everything is saved between sessions |
+| T | Combat announcement settings. First Tab stop: outgoing announcements off / brief (just "hit", "crit", "miss", "blocked") / full (the numbers), incoming announcements (your health, effects on you) on/off, incoming hit announcements ("hit" for every attack that lands on you) on/off, and telegraph cues with four states: off, your target (only the enemy you are reviewing or fighting), highest tier (only the strongest kind of enemy nearby, so a pack's boss speaks and its adds do not), all. Enter cycles, Left/Right step. Second Tab stop: one on/off row per cue shape (swing, stomp, wave, shot, ring, area, charge). Escape closes; everything is saved between sessions |
 | Ctrl+T | Sonar config. First Tab stop: one on/off row per positioned cue -- wall tones, harmful ground (all three of its sounds), and the sonar's enemy, loot, entrance, breakable, shrine and interactable pings (Enter flips). Second Tab stop: six volumes in percent -- wall tones, harmful ground, enemy pings, other pings, the enemy voice (Mark) and your voice (Zira) (Left/Right by 5; Enter steps up and wraps); every step is 3 decibels, so the steps sound even, and plays that channel's sound at the new level so you set it by ear. Escape closes; everything is saved between sessions. The bare backslash still switches the whole sonar off and on |
 
 Spoken automatically, by position: damage numbers, misses, dodges and blocks from where they happen; your health at

@@ -9,10 +9,10 @@
 #include "settings.h"
 
 namespace gd::telegraph {
-const char* const kShapeNames[kShapes] = {"swing", "stomp", "wave", "shot", "ring"};
+const char* const kShapeNames[kShapes] = {"swing", "stomp", "wave", "shot", "ring", "area", "charge"};
 namespace {
 Mode g_mode = Mode::All;
-bool g_shape_on[kShapes] = {true, true, true, true, true};
+bool g_shape_on[kShapes] = {true, true, true, true, true, true, true};
 float g_vol = 1.0f;
 int g_variant = 200;                     // the 200 ms words; the only shipped set (a 100 ms set was tried and dropped, 2026-09-01)
 float g_radius = 25.0f;                  // the sonar's radius: casts farther than this are not ours to hear
@@ -20,7 +20,8 @@ constexpr float kMeleeReach = 4.5f;      // a weapon attack started from farther
 std::map<unsigned, double> g_last;       // caster id -> time of the last cue (the weapon-pool wrapper and the basic
                                          // attack both StartAction in the same frame: one cue per caster per 80 ms)
 std::deque<std::string> g_recent; std::mutex g_mu;
-unsigned g_played = 0, g_skipped_shape = 0, g_skipped_far = 0, g_skipped_friend = 0, g_skipped_dup = 0, g_skipped_mode = 0;
+unsigned g_played = 0, g_skipped_shape = 0, g_skipped_far = 0, g_skipped_friend = 0, g_skipped_dup = 0, g_skipped_mode = 0, g_skipped_unknown = 0;
+std::map<std::string, unsigned> g_unknown_classes;   // class -> casts seen; a new class from a patch shows up here, never as a guess
 // "highest tier": the top MonsterClassification among the enemies in range, refreshed at most every 300 ms
 // (a sphere query per cast would be too much in a pack).
 int g_top_tier = -1; double g_top_tier_t = -1e9;
@@ -60,15 +61,61 @@ bool mode_admits(const Cast& c) {
 }
 }  // namespace
 
-// The concrete Skill_* class -> the reaction. Buffs, summons, moves and unknown classes get nothing.
+// The concrete Skill_* class -> the reaction, by EXACT class name (2026-09-20). The first cut matched substrings, and
+// the game's class vocabulary composes: "AttackRadius" is also inside the toggled and timed auras, the rains at a
+// point and the on-hit retaliations, "Projectile" inside drops, orbiters, mine layers and teleports -- about one
+// active monster skill in ten got a cue that sent the player the wrong way (the Ancient Shambler's avalanche read
+// as "stomp": step away from the caster, into the rain). Every class of every nonplayerskills record is listed
+// (tools/arz.py survey, 70 classes); "" = deliberately silent (no wind-up moment, or not a threat geometry);
+// a class not in the table is silent AND counted in g_unknown_classes (/telegraph) instead of guessed.
+//   swing  weapon attack in reach -- get out of reach (from beyond kMeleeReach it is a ranged weapon: shot)
+//   charge a charge or a blink-strike: it closes the distance itself -- brace / break line, running does not help
+//   stomp  a radius around the caster at the hit frame -- step away from the caster
+//   wave   a directional wave / cone / line -- get off the line
+//   shot   a projectile, a spell at your position (the lightning bolts: no flight, but the same counterplay),
+//          a beam, a pool launch -- keep moving / sidestep
+//   ring   projectiles in all directions -- run outward
+//   area   something that keeps landing on a spot: rains, drops, orbiters, geysers, timed auras -- leave the area
 const char* shape_of(const std::string& k, float dist) {
-  if (has(k, "ProjectileRing")) return "ring";
-  if (has(k, "AttackWave") || has(k, "SpellCone") || has(k, "LineFan")) return "wave";
-  if (has(k, "AttackRadius")) return "stomp";
-  if (has(k, "Projectile") || has(k, "AttackSpell") || has(k, "AttackChain") || has(k, "AttackPattern") || has(k, "Telekinesis")) return "shot";
-  if (has(k, "WPAttack") || has(k, "WeaponPool") || has(k, "AttackWeapon") || has(k, "Kick") || has(k, "AttackInherent"))
-    return dist > kMeleeReach ? "shot" : "swing";
-  return nullptr;
+  static const std::map<std::string, const char*> table = {
+    // weapon attacks
+    {"Skill_AttackWeapon", "swing"}, {"Skill_WPAttack_BasicAttack", "swing"}, {"Skill_WeaponPool_BasicAttack", "swing"},
+    {"Skill_WeaponPool_ChargedFinale", "swing"}, {"Skill_WeaponPool_ChargedLinear", "swing"}, {"Skill_AttackWeaponRadius", "swing"},
+    {"Skill_AttackWeaponKick", "swing"}, {"Skill_AttackInherent", "swing"},
+    {"Skill_AttackWeaponCharge", "charge"}, {"Skill_AttackWeaponBlink", "charge"},
+    // radius around the caster at the hit frame
+    {"Skill_AttackRadius", "stomp"}, {"SkillSecondary_AttackRadius", "stomp"}, {"SkillActivated_Suicide", "stomp"},
+    // directional
+    {"Skill_AttackWave", "wave"}, {"Skill_AttackSpellCone", "wave"}, {"Skill_AttackProjectileLineFan", "wave"},
+    // aimed at you
+    {"Skill_AttackProjectile", "shot"}, {"Skill_AttackProjectileBurst", "shot"}, {"Skill_AttackProjectileFan", "shot"},
+    {"Skill_AttackProjectileDebuf", "shot"}, {"Skill_AttackProjectileAreaEffect", "shot"}, {"Skill_AttackSpell", "shot"},
+    {"Skill_AttackSpellChaos", "shot"}, {"Skill_AttackChain", "shot"}, {"SkillSecondary_ChainLightning", "shot"}, {"ChaosBeam", "shot"},
+    {"Skill_AttackRadiusLightning", "shot"}, {"Skill_AttackRadiusLightning2", "shot"}, {"Skill_AttackPattern", "shot"}, {"Skill_Telekinesis", "shot"},
+    {"Skill_AttackProjectileRing", "ring"},
+    // keeps landing on a spot
+    {"Skill_BuffAttackRadiusDrop", "area"}, {"Skill_AttackProjectileDrop", "area"}, {"Skill_AttackProjectileOrbiting", "area"},
+    {"Skill_AttackProjectileSpawnPet", "area"}, {"Skill_CharonGeysers", "area"}, {"Skill_BuffAttackRadiusDuration", "area"},
+    // no wind-up moment or no threat geometry: auras, passives, buffs, curses, summons, moves, markers
+    {"Skill_Passive", ""}, {"SkillBuff_Passive", ""}, {"SkillBuff_PassiveShield", ""}, {"Skill_PassiveOnLifeBuffSelf", ""},
+    {"Skill_PassiveOnHitBuffSelf", ""}, {"Skill_OnHitAttackRadius", ""}, {"Skill_BuffRadiusToggled", ""}, {"Skill_BuffAttackRadiusToggled", ""},
+    {"Skill_BuffAttackRadiusLightning", ""}, {"Skill_BuffSelfDuration", ""}, {"Skill_BuffSelfToggled", ""}, {"Skill_BuffSelfShield", ""},
+    {"Skill_BuffSelfImmobilize", ""}, {"Skill_BuffSelfColossus", ""}, {"Skill_BuffOther", ""}, {"Skill_BuffRadius", ""}, {"Skill_GiveBonus", ""},
+    {"SkillBuff_Debuf", ""}, {"SkillBuff_DebufTrap", ""}, {"SkillBuff_DebufFreeze", ""}, {"SkillBuff_Contageous", ""}, {"SkillBuff_DispelMagic", ""},
+    {"Skill_DispelMagic", ""}, {"Skill_AttackBuff", ""}, {"Skill_AttackBuffRadius", ""}, {"SkillSecondary_ChainBonus", ""},
+    {"Skill_SpawnPet", ""}, {"Skill_SpawnPetMonster", ""}, {"Skill_TargetedSpawnPet", ""}, {"Skill_MonsterGenerator", ""}, {"Skill_OnDeathSpawnActor", ""},
+    {"Skill_AttackSpellTeleportSelf", ""}, {"Skill_AttackSpellTeleport", ""}, {"Skill_AktaiosMirage", ""}, {"CharonGeyserMarker", ""},
+    {"Skill_ProjectileModifier", ""}, {"Monster", ""}, {"AttributePak", ""},
+  };
+  auto it = table.find(k);
+  if (it == table.end()) {
+    ++g_skipped_unknown;
+    if (g_unknown_classes[k]++ == 0) log::writef("telegraph: unknown skill class '{}' (silent; add it to the table)", k);
+    return nullptr;
+  }
+  if (!*it->second) return nullptr;
+  if (std::string_view(it->second) == "swing" && dist > kMeleeReach) return "shot";   // a weapon attack from afar = ranged
+  return it->second;
 }
 
 void on_cast(const Cast& c) {
@@ -99,8 +146,9 @@ std::string status() {
   std::lock_guard<std::mutex> l(g_mu);
   std::string shapes;
   for (int i = 0; i < kShapes; ++i) shapes += std::format("{}={} ", kShapeNames[i], g_shape_on[i] ? "on" : "off");
-  std::string s = std::format("telegraph: mode={} ({}) shapes: {}variant={}ms vol={:.2f} radius={:.0f} played={} skipped: shape={} friend={} far={} dup={} mode={}\n",
-                              (int)g_mode, mode_name(g_mode), shapes, g_variant, g_vol, g_radius, g_played, g_skipped_shape, g_skipped_friend, g_skipped_far, g_skipped_dup, g_skipped_mode);
+  std::string s = std::format("telegraph: mode={} ({}) shapes: {}variant={}ms vol={:.2f} radius={:.0f} played={} skipped: shape={} unknown={} friend={} far={} dup={} mode={}\n",
+                              (int)g_mode, mode_name(g_mode), shapes, g_variant, g_vol, g_radius, g_played, g_skipped_shape, g_skipped_unknown, g_skipped_friend, g_skipped_far, g_skipped_dup, g_skipped_mode);
+  for (auto& [cls, n] : g_unknown_classes) s += std::format("  unknown class {} x{}\n", cls, n);
   for (auto& r : g_recent) s += r + "\n";
   return s;
 }

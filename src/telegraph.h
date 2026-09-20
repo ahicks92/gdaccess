@@ -16,8 +16,8 @@ struct Cast {
   double t = 0;
 };
 enum class Mode { Off = 0, Target = 1, HighestTier = 2, All = 3 };
-constexpr int kShapes = 5;
-extern const char* const kShapeNames[kShapes];   // "swing", "stomp", "wave", "shot", "ring"
+constexpr int kShapes = 7;
+extern const char* const kShapeNames[kShapes];   // "swing", "stomp", "wave", "shot", "ring", "area", "charge"
 
 void on_cast(const Cast& c);          // game thread
 const char* shape_of(const std::string& skill_class, float caster_dist);   // one of kShapeNames or null

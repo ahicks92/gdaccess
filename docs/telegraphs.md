@@ -100,3 +100,21 @@ Modes (2026-09-01): off / your target (`world::reviewed_id()` or the game's comb
 MonsterClassification >= the top classification among enemies within 25 u, refreshed every 300 ms -- a trash pack
 all speaks, a hero's adds do not) / all; plus a per-shape enable. Settings keys `telegraph.mode` (0..3) and
 `telegraph.shape.<name>`. Dev: `/telegraph?mode=&shape=<name>,0|1`.
+
+## Class table (2026-09-20): exact names, seven reactions, unknown = silent + counted
+
+The first cut keyed the reaction on substrings of the class name. A survey of every nonplayerskills record (about 1300
+active skills across 70 classes, `tools/arz.py`) showed the vocabulary composes: "AttackRadius" is also inside the
+toggled damage auras (39 records), the timed auras (22), the rains at a point (14, the Ancient Shambler's avalanche:
+6 rocks every 2.5 s for 10 s over a 10 u drop radius, aimed at the ground up to moderate range), the lightning bolts
+(21: an instant strike at the point picked at cast start, 1.5-2 u radius, long range -- no projectile, same counterplay
+as a shot) and the on-hit retaliations (8); "Projectile" inside drops, orbiters, mine layers and teleports (31). About
+one active skill in ten got a cue that sent the player the wrong way ("stomp" = step away from the caster, into the
+rain). `telegraph::shape_of` is now a table by exact class name -- every class of the survey is listed -- with two more
+reactions: **area** (rains, drops, orbiters, geysers, mine layers, timed auras: leave the spot) and **charge** (charges
+and blink-strikes: it closes the distance itself; running does not help). Toggled auras, passives, buffs, curses,
+summons, moves and markers are deliberately silent (no wind-up moment). A class not in the table is silent and
+counted (`/telegraph` lists `unknown class <name> xN`, the log has one line per class), so a game patch adding a class
+shows up instead of being guessed. Cue words: `tools/gen_telegraph_cues.py` (Zira, 200 ms, loudness-matched).
+Not covered: dying skills (the Ancient Shambler's death burst, an 8 u ground-breaker on the corpse) never enter the
+cast pipeline -- a per-record "explodes on death" note is the open follow-up.

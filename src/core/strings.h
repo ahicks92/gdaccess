@@ -132,7 +132,7 @@ inline constexpr std::string_view kAnnounceIncomingHits = "incoming hit announce
 inline constexpr std::string_view kAnnounceTelegraph = "telegraph cues";          // off / your target / highest tier / all
 inline constexpr std::string_view kAnnounceSwitches = "announcement settings";   // the T overlay's two Tab stops (context labels)
 inline constexpr std::string_view kAnnounceShapes = "telegraph filter";
-inline constexpr std::string_view kTelegraphShapeLabels[5] = {"swing cues", "stomp cues", "wave cues", "shot cues", "ring cues"};   // the T overlay's second stop (telegraph::kShapeNames order)
+inline constexpr std::string_view kTelegraphShapeLabels[7] = {"swing cues", "stomp cues", "wave cues", "shot cues", "ring cues", "area cues", "charge cues"};   // the T overlay's second stop (telegraph::kShapeNames order)
 // ---- the Ctrl+T overlay (screens/cue_settings.cpp, src/cues.h): which positioned cues play, channel volumes ----
 inline constexpr std::string_view kCueSettings = "sonar config";   // the Ctrl+T overlay (and its F1 row)
 inline constexpr std::string_view kCueSwitches = "cues";            // stop 1: one on/off row per cue
