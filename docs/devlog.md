@@ -803,3 +803,9 @@ CLAUDE.md "Traps and lessons"; the mechanism docs are `docs/*.md`.
 - Next (needs the user's hands): player-facing targeting keys
   (nearest enemy / cycle / announce name, distance, direction -- the hover name arrives as `box_font` HUD text),
   an attack key that clicks the locked target, wall-tone tuning by ear, hover sounds, the main menu icon buttons.
+- Room titles cleaned up (2026-09-20, `docs/rooms.md` "Duplicate titles"): the tester's "unsuffixed duplicates" were
+  cross-sub-region repeats (allowed by the rule, disambiguated by the sub-region word) next to stale " N" suffixes from
+  describing before the sub-region pass, plus 61 same-sub-region duplicates from the parallel describer's unlocked
+  dedupe. `author.py retitle --write` on both dbs (base 1403 changes, DLC 1566); `save_description` locked. Decided
+  with the user: mechanical fixes over re-tagging (a retag loses every title). Open: the exits list still labels by
+  title alone. VACUUM would not shrink the dbs (no free pages); zlib on the grid blobs would (~0.3).

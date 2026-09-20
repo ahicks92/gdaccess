@@ -230,6 +230,10 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   `GenerateUISkillText`'s int is the reclaim cost, not a level; affinity is not saved (derive from constellations);
   the DLC maps replace `world001.map` wholesale (two rooms dbs); the game's north is NOT the mod's yaw 0
   (`docs/compass.md`); Lua `Game.TeleportPlayer` is the riftgate fade, not a dev teleport.
+- Rooms authoring: run `subregions` BEFORE `describe` (the suffix dedupe is per sub-region; describing first numbers
+  region-wide and the sub-regions then straddle it), and after any rehome / resegment run `author.py retitle --write`
+  on BOTH dbs. Never re-tag to fix titles: the pipeline does not reproduce them. The dbs have no free pages (VACUUM
+  is useless); their size is the grid blobs.
 - Process: every player-facing KEY goes in README.md and docs/controls.md in the same change. Ask before launching or
   driving the game when the user may be at the keyboard. Archive a game build the mod works on before Steam patches.
 

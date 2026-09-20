@@ -235,3 +235,36 @@ Consequences for the tools and the db:
 - Untagged content: the Void (Ashen Waste + Bastion of Chaos, 33 chunks, ~169k m², paints "Obsidian Throne"
   etc.) and the cut-content corners (0C/0E/0A085 chunks with no location record) are not segmented -- `build`
   iterates location records, and location-less chunks need a grouping path of their own.
+
+## Duplicate titles (2026-09-20)
+
+A tester reported "unsuffixed duplicate room names" in the Flooded Passage. Four things stack:
+
+- Titles are unique WITHIN A SUB-REGION by rule (`author.py save_description` adds the " N" suffix against the same
+  sub-region only). Across sub-regions a title may repeat; the spoken line disambiguates with the sub-region name,
+  which is spoken only when it changes. The Flooded Passage has "ruined campsite" once per sub-region, unnumbered, next
+  to true twins that are numbered ("hanging vine cavern" / "hanging vine cavern 2") -- a player infers a rule and
+  reports the repeat as a missing suffix.
+- The exits list labels an exit by the destination's title alone, so two exits to same-titled rooms in different
+  sub-regions read the same. (Open; a runtime disambiguation would append the sub-region when the title repeats.)
+- The describer and the sub-region pass are independent commands. Where describing ran first (most regions), every
+  room had a null sub-region, so the suffix was effectively region-wide; the painted sub-regions then straddled the
+  numbering (1410 of 1980 base-db suffixes had no base in their own sub-region: "lily pad shallows 4 / 5 / 6" in three
+  sub-regions of Burrwitch Road). Burrwitch Village, authored sub-regions first, had none.
+- `describe_or.py` saved from 32 worker threads through a read-then-write dedupe: 61 same-sub-region duplicates in the
+  DLC-only regions ("tall grass path" twice in one sub-region of Aetherfire). `save_description` is now serialized.
+
+Decision (the user): no re-tagging -- the pipeline costs money and does not reproduce titles, so a retag loses every
+title anyway; manual / mechanical fixes of both dbs are fine. `author.py [--db path] retitle [--write]` is the
+mechanical pass: per (region, sub-region, base title) group, orphans excluded, one room -> the bare base; several ->
+kept if they already read base, base 2 .. base n, else the bare one stays bare and the rest take 2.. in anchor (x, z)
+order (deterministic, so the two dbs agree wherever their twin sets agree). Run 2026-09-20: base 1403 changes (794
+stale suffixes lifted, 609 twins renumbered), DLC 1566 (+93 same-sub-region duplicates fixed); afterwards 0 duplicates
+and 0 stale suffixes in either db. Rule going forward: run `subregions` BEFORE `describe` for a region, and after any
+rehome / resegment run `retitle --write` on both dbs.
+
+Size: the dbs are 41 MB (base) and 70 MB (DLC) with zero free pages, so VACUUM does nothing. 80 % is the `grids`
+table, mostly `heights` (24 / 41 MB of RLE int16 decimeters), then `labels`; zlib takes the RLE blobs to ~0.3, so
+compressing the three grid columns (inflate at load; the DLL has no zlib yet) would give ~15 / ~25 MB. `shots`
+(1.6 / 2.9 MB) is authoring data the mod never reads. The zip already deflates them for download; the cost is on
+disk and in git, where only the changed pages of a db edit cost (git delta-packs binaries).

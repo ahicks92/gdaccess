@@ -14,6 +14,7 @@ by hand. Everything an agent needs to read or write goes through here; agents ne
 from __future__ import annotations
 
 import argparse
+import threading
 import json
 import os
 import re
@@ -133,9 +134,19 @@ def cmd_assign(db, a):
     db.c.commit(); print("ok" if n else "no such room")
 
 
+_SAVE_LOCK = threading.Lock()   # describe_or.py saves from 32 worker threads: the read-then-write below must be atomic
+
+
 def save_description(db, key, title, body):
     """Store a room's title/body, mechanically de-duplicating the title within its sub-region with a trailing
-    " N" suffix. Returns the final title, or None if the room does not exist. Shared by the CLI and describe_or.py."""
+    " N" suffix. Returns the final title, or None if the room does not exist. Shared by the CLI and describe_or.py.
+    Serialized: without the lock two parallel workers both saw the title free and wrote it twice (61 same-sub-region
+    duplicates in the DLC regions, found 2026-09-20)."""
+    with _SAVE_LOCK:
+        return _save_description_locked(db, key, title, body)
+
+
+def _save_description_locked(db, key, title, body):
     region_key = key.split(":", 1)[0]
     room = next((r for r in db.rooms(region_key) if r["key"] == key), None)
     if room is None:
@@ -150,6 +161,64 @@ def save_description(db, key, title, body):
     db.c.execute("UPDATE rooms SET title=?, body=?, status='described' WHERE key=?", (final, body.strip(), key))
     db.c.commit()
     return final
+
+
+def strip_suffix(title: str) -> str:
+    return re.sub(r"\s+\d+$", "", (title or "").strip()).strip()
+
+
+def retitle_plan(db) -> list[tuple[str, str, str, str]]:
+    """The mechanical title clean-up of 2026-09-20 (docs/rooms.md "Duplicate titles"): titles must be unique within a
+    sub-region and the " N" suffix must mean "a twin in this sub-region". Historically the describer ran before the
+    sub-region pass in most regions (a null sub-region = region-wide numbering that later straddled the painted
+    sub-regions; 1410 of 1980 base-db suffixes had no base in their sub-region), and parallel workers raced the
+    dedupe (same-sub-region duplicates). Per (region, sub-region, base title) group, orphans excluded:
+      one room -> the bare base; several -> keep them if they already read base, base 2 .. base n; else the room
+      that is bare stays bare (if exactly one) and the rest take 2.. in anchor (x, z) order -- deterministic, so the
+      base and DLC dbs agree wherever their twin sets agree.
+    Returns (key, old_title, new_title, why) for every room whose title changes."""
+    rows = db.c.execute("SELECT key, region_key, subregion_key, title, anchor_x, anchor_z FROM rooms "
+                        "WHERE title IS NOT NULL AND title<>'' AND status<>'orphan'").fetchall()
+    groups: dict[tuple, list] = {}
+    for key, reg, sub, title, ax, az in rows:
+        groups.setdefault((reg, sub or "", strip_suffix(title).lower()), []).append((key, title, ax, az))
+    changes = []
+    for (reg, sub, base), members in groups.items():
+        members.sort(key=lambda m: (m[2], m[3], m[0]))
+        n = len(members)
+        if n == 1:
+            key, title, _, _ = members[0]
+            if title != base: changes.append((key, title, base, "stale suffix lifted"))
+            continue
+        want = {base} | {f"{base} {k}" for k in range(2, n + 1)}
+        have = [m[1] for m in members]
+        if set(have) == want and len(set(have)) == n:
+            continue   # already a clean contiguous numbering
+        bare = [m for m in members if m[1] == base]
+        order = ([bare[0]] + [m for m in members if m is not bare[0]]) if len(bare) == 1 else members
+        why = "same-sub-region duplicates renumbered" if len(set(have)) < n else "twins renumbered"
+        for i, (key, title, _, _) in enumerate(order):
+            new = base if i == 0 else f"{base} {i + 1}"
+            if new != title: changes.append((key, title, new, why))
+    return changes
+
+
+def cmd_retitle(db, a):
+    changes = retitle_plan(db)
+    from collections import Counter
+    why = Counter(c[3] for c in changes)
+    print(f"{len(changes)} title changes in {a.db}: " + ", ".join(f"{k} {v}" for k, v in why.items()))
+    for key, old, new, w in changes[: a.show]:
+        print(f"  {key:45s} {old!r} -> {new!r}  ({w})")
+    if len(changes) > a.show: print(f"  ... {len(changes) - a.show} more (--show N)")
+    if not a.write:
+        print("dry run; --write applies"); return
+    for key, _, new, _ in changes:
+        db.c.execute("UPDATE rooms SET title=? WHERE key=?", (new, key))
+    db.c.commit()
+    left = db.c.execute("SELECT count(*) FROM (SELECT 1 FROM rooms WHERE title<>'' AND status<>'orphan' "
+                        "GROUP BY region_key, subregion_key, title HAVING count(*)>1)").fetchone()[0]
+    print(f"written; same-sub-region duplicates left: {left}")
 
 
 def cmd_describe(db, a):
@@ -233,6 +302,7 @@ def cmd_status(db, a):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--db", default=DB, help="rooms database (assets/rooms.db = the DLC world, assets/rooms_base.db = the base game)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("list"); s.add_argument("region"); s.add_argument("--status"); s.add_argument("--subregion"); s.add_argument("--keys-only", action="store_true"); s.set_defaults(fn=cmd_list)
     s = sub.add_parser("facts"); s.add_argument("key"); s.set_defaults(fn=cmd_facts)
@@ -243,8 +313,10 @@ def main():
     s = sub.add_parser("verify"); s.add_argument("key"); s.add_argument("--fail"); s.set_defaults(fn=cmd_verify)
     s = sub.add_parser("status"); s.add_argument("region"); s.set_defaults(fn=cmd_status)
     s = sub.add_parser("check"); s.add_argument("key"); s.set_defaults(fn=cmd_check)
+    s = sub.add_parser("retitle", help="lift stale ' N' suffixes and renumber true same-sub-region twins (dry run without --write)")
+    s.add_argument("--write", action="store_true"); s.add_argument("--show", type=int, default=40); s.set_defaults(fn=cmd_retitle)
     a = ap.parse_args()
-    a.fn(RoomsDb(DB), a)
+    a.fn(RoomsDb(a.db), a)
 
 
 if __name__ == "__main__":
