@@ -112,8 +112,9 @@ Update exe+0x1d00f0 = `GameEngine::GetObjectives()` -> `mem::vector<std::string>
 `Character::GetFactionPack()` (Character `+0x19f0`); `FactionType` runs -3..46 (50-entry jump table in
 `GetFactionTag`); per faction `FactionPack::GetFactionTag(type)` (static, std::string by value: hidden pointer
 is the FIRST arg), `GetFactionInfoTag`, `GetValue`, `IsUnlocked` (`byte[pack+0xf3+type]`), `IsModified`,
-`IsPositiveBoosted/IsNegativeBoosted`; visibility `GameEngine::IsFactionPlayerVisible`, `IsHiddenFaction`,
-`IsStartingFaction`; tiers `GameEngine::GetNumFactionLevels`, `FactionValueToLevel`, `GetFactionLevelName(float,
+`IsPositiveBoosted/IsNegativeBoosted`; visibility = `FactionPack::IsModified(type) || GameEngine::IsStartingFaction(type)` and not
+`GameEngine::IsHiddenFaction(type)` (the window's own filter; `GameEngine::IsFactionPlayerVisible` is a hardcoded
+base-game whitelist that is false for every expansion faction, 2026-09-19); tiers `GameEngine::GetNumFactionLevels`, `FactionValueToLevel`, `GetFactionLevelName(float,
 u16string&)`, `GetFactionLevelBounds(float, int&, int&)`, `GetFactionTierReward`. Trap: `FactionPack::
 GetDisplay(type)` ignores its argument (returns `byte[+0x4c8]`). 8 tiers in `records/game/gamefactions.dbr`.
 Window: rows rebuilt each frame in Update exe+0x1c1ba0 from exactly these calls; close `+0xc58`.

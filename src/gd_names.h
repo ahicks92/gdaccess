@@ -793,6 +793,15 @@ inline constexpr const char* FactionPack_IsUnlocked = "?IsUnlocked@FactionPack@G
 // public: bool __cdecl GAME::GameEngine::IsFactionPlayerVisible(enum GAME::FactionType) __ptr64
 inline constexpr const char* GameEngine_IsFactionPlayerVisible_DLL = "Game.dll";
 inline constexpr const char* GameEngine_IsFactionPlayerVisible = "?IsFactionPlayerVisible@GameEngine@GAME@@QEAA_NW4FactionType@2@@Z";
+// public: bool __cdecl GAME::FactionPack::IsModified(enum GAME::FactionType)const __ptr64
+inline constexpr const char* FactionPack_IsModified_DLL = "Game.dll";
+inline constexpr const char* FactionPack_IsModified = "?IsModified@FactionPack@GAME@@QEBA_NW4FactionType@2@@Z";
+// public: bool __cdecl GAME::GameEngine::IsStartingFaction(enum GAME::FactionType)const __ptr64
+inline constexpr const char* GameEngine_IsStartingFaction_DLL = "Game.dll";
+inline constexpr const char* GameEngine_IsStartingFaction = "?IsStartingFaction@GameEngine@GAME@@QEBA_NW4FactionType@2@@Z";
+// public: bool __cdecl GAME::GameEngine::IsHiddenFaction(enum GAME::FactionType)const __ptr64
+inline constexpr const char* GameEngine_IsHiddenFaction_DLL = "Game.dll";
+inline constexpr const char* GameEngine_IsHiddenFaction = "?IsHiddenFaction@GameEngine@GAME@@QEBA_NW4FactionType@2@@Z";
 // public: void __cdecl GAME::GameEngine::GetFactionLevelName(float,class std::basic_string<unsigned short,struct std::char_traits<unsigned short>,class std::allocator<unsigned short> > & __ptr64)const __ptr64
 inline constexpr const char* GameEngine_GetFactionLevelName_DLL = "Game.dll";
 inline constexpr const char* GameEngine_GetFactionLevelName = "?GetFactionLevelName@GameEngine@GAME@@QEBAXMAEAV?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@@Z";

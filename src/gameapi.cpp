@@ -47,7 +47,10 @@ struct Api {
   MsvcStringA* (*FactionPack_GetFactionTag)(MsvcStringA*, int) = nullptr;   // static, std::string by value: hidden pointer FIRST
   float (*FactionPack_GetValue)(const void*, int) = nullptr;
   bool (*FactionPack_IsUnlocked)(const void*, int) = nullptr;
-  bool (*IsFactionPlayerVisible)(void*, int) = nullptr;
+  bool (*IsFactionPlayerVisible)(void*, int) = nullptr;   // a hardcoded 7-entry base-game whitelist: false for every DLC faction (not what the window uses)
+  bool (*FactionPack_IsModified)(const void*, int) = nullptr;   // byte[pack+0xc4+type]: the player has touched this faction
+  bool (*IsStartingFaction)(const void*, int) = nullptr;        // gamefactions.dbr startingFactions
+  bool (*IsHiddenFaction)(const void*, int) = nullptr;
   void (*GetFactionLevelName)(const void*, float, MsvcStringW*) = nullptr;
   void (*GetFactionLevelBounds)(const void*, float, int*, int*) = nullptr;
   int (*FactionValueToLevel)(const void*, float) = nullptr;
@@ -156,6 +159,9 @@ void load() {
   GAPI_LOAD(g, FactionPack_GetValue, FactionPack_GetValue);
   GAPI_LOAD(g, FactionPack_IsUnlocked, FactionPack_IsUnlocked);
   GAPI_LOAD(g, IsFactionPlayerVisible, GameEngine_IsFactionPlayerVisible);
+  GAPI_LOAD(g, FactionPack_IsModified, FactionPack_IsModified);
+  GAPI_LOAD(g, IsStartingFaction, GameEngine_IsStartingFaction);
+  GAPI_LOAD(g, IsHiddenFaction, GameEngine_IsHiddenFaction);
   GAPI_LOAD(g, GetFactionLevelName, GameEngine_GetFactionLevelName);
   GAPI_LOAD(g, GetFactionLevelBounds, GameEngine_GetFactionLevelBounds);
   GAPI_LOAD(g, FactionValueToLevel, GameEngine_FactionValueToLevel);
@@ -368,7 +374,13 @@ std::vector<Faction> factions() {
     const void* pack = g.GetFactionPack(p);
     if (!pack) return;
     for (int t = -3; t <= 46; ++t) {   // FactionType runs -3..46 (the 50-entry jump table in GetFactionTag)
-      if (g.IsFactionPlayerVisible && !g.IsFactionPlayerVisible(e, t)) continue;
+      // The game's own window (exe+0x1c1ba0) shows a faction iff the player has touched it or it is a starting
+      // faction, and it is not hidden. NOT GameEngine::IsFactionPlayerVisible: that export is a hardcoded
+      // base-game whitelist (types 1, 6, 8, 10, 11, 13, 14) and says no to every expansion faction (User9..User16).
+      if (g.FactionPack_IsModified && g.IsStartingFaction && g.IsHiddenFaction) {
+        if (!g.FactionPack_IsModified(pack, t) && !g.IsStartingFaction(e, t)) continue;
+        if (g.IsHiddenFaction(e, t)) continue;
+      } else if (g.IsFactionPlayerVisible && !g.IsFactionPlayerVisible(e, t)) continue;
       MsvcStringA tag; init_a(tag);
       g.FactionPack_GetFactionTag(&tag, t);
       Faction f{t, take_a(tag)};
