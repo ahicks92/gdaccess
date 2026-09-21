@@ -301,3 +301,27 @@ F2-F6 action ids and the pet-bar offsets, which are exe-layer and die on any exe
   leader (the state vtable +0x88 / +0x90 bodies were not read). The game always passes the owning player's
   id; the Lua bindings at exe+0x51000 / 0x51040 pass the character's own id.
 - Nothing here has been exercised in a live game.
+
+## 8. Proximity-mine pets: `deathFromEnemyRange` / `deathFromEnemyDelay` (Rune of Hagarrad, 2026-09-20)
+
+Static RE of Game.dll v1.3.0.8. The Inquisitor runes (`pets/icerune_NN.dbr`, `concussiverune_NN.dbr`, controller
+`controller_wizardtrap.dbr` = `ControllerStationaryMonster`) are one-shot mines, not turrets: the pet record's
+`deathFromEnemyRange` / `deathFromEnemyDelay` (2.0 units / 1.0 s for both runes) make the game KILL the pet when a live
+hostile monster stands inside the range, and the burst is the pet's `dyingSkillName` (`petskill_icerune_icering`,
+5 pierce+cold projectiles in a ring). "Lives for 30 seconds" is only the timeout; "takes 1 second to arm" is the delay.
+
+- `Monster::Load` (0x35fbba..0x35fbe2) stores the two fields at `Monster+0x4f18` (range) and `+0x4f1c` (delay);
+  getters `Monster::GetDeathFromEnemyRange` / `GetDeathFromEnemyDelay` (0x3681c0 / 0x3681d0).
+- `ControllerMonster::Update(dt_ms)` (0x121bc0): on a fresh controller (`this+0x607` set) the arm timer
+  `this+0x678 = delay * 1000` ms. Then, only when range != 0 (0x122381): the arm timer counts down by dt; a poll timer
+  `this+0x674` counts down and reloads to 200 ms (0xc8); on each poll with the arm timer <= 0 it calls
+  `ControllerMonster::DieIfEnemyInRange` (0x1291f0). So the check runs every 200 ms after the arm delay.
+- `DieIfEnemyInRange`: sphere of radius `deathFromEnemyRange` at the pet's `Entity::GetCoords` in its region
+  (query at 0x48df0, unexported); for each result that is-a `Monster` (players are not), hostile by
+  `FactionManager::GetPvpIds` / `PartyManager::AreInPartyTogether` / `IsCharacterInNonPvpArea` / `FactionPack::GetValue`
+  < 0, and `Character::IsAlive` (vtable +0x460): calls the controller's `ControllerCombat::KillMe(byte monster+0x2081)`
+  (vtable +0x110, 0x119b30) and stops. `KillMe` refuses an `Npc`, sets death reason 3 (character vtable +0x430) and
+  transitions the controller (vtable +0x180) into `Dying`, which is where `dyingSkillName` fires.
+- Not verified: whether the stationary controller also runs the pet's `specialAttack` (`skillName2` is the same ice
+  ring at `ShortRange` = 4 units, 300 ms delay, 1 s cooldown) on enemies that stay between 2 and 4 units. If it does,
+  the rune shoots repeatedly at that band and only self-destructs when something steps within 2 units.
