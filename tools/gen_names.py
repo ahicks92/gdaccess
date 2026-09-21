@@ -8,6 +8,7 @@ ENTRIES = [
     ("LocalizationManager_GetText", "Engine", r"GAME::LocalizationManager::GetText\(char const \*"),
     ("LocalizationManager_LocalizeWithoutParams", "Engine", r"GAME::LocalizationManager::LocalizeWithoutParams\(char const \*"),
     ("Display_Update", "Engine", r"GAME::Display::Update\(void\)"),
+    ("WinWindow_OnToggleFullscreen", "Engine", r"GAME::WinWindow::OnToggleFullscreen\(void\)"),   # Alt+Enter; refused (src/hooks.cpp)
     ("Engine_Update", "Engine", r"GAME::Engine::Update\(class GAME::Sphere const"),
     # ---- in-game objects (src/world.cpp) ----
     ("GameEngine_Update", "Game", r"GAME::GameEngine::Update\(int\)"),

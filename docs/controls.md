@@ -155,6 +155,11 @@ always embodied here, perception and interaction are what the camera shows; the 
 step rebuilds the nearest-first list live and continues from that ID, or enters at the nearest if it is gone.
 
 ## Which plain keys are whose in the world
+Alt+Enter never reaches the game anywhere (`src/hooks.cpp`, the `WinWindow::OnToggleFullscreen` export is refused and
+"Fullscreen must be toggled through the options menu to avoid a vanilla crash" is spoken): the game's own toggle rebuilds the
+in-world UI restoring an Options tab index of -1 and crashes when the pause menu's Options was never opened (devlog
+2026-09-21).
+
 Passed straight to the game (src/screens/in_game.cpp `passes_key`): WASD, 1-0, Y, Space, E, R, U, Escape,
 Alt/Right Alt (held: show items), F2-F7. Every other game function is reachable only as Ctrl + its default
 key (the `game.*` lifts in src/app.cpp: C/I N Q M O K G H J V L B X Z P, Backspace, \, ], Enter, Tab, `,` `.`).

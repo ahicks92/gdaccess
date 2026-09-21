@@ -48,6 +48,7 @@ inline constexpr std::string_view kSearchCleared = "search cleared";
 inline constexpr std::string_view kNothingThere = "nothing there";
 inline constexpr std::string_view kNoTextOnScreen = "no text on screen";
 inline constexpr std::string_view kUnsupportedScreen = "unsupported screen";
+inline constexpr std::string_view kFullscreenToggleBlocked = "Fullscreen must be toggled through the options menu to avoid a vanilla crash";  // Alt+Enter (src/hooks.cpp)
 inline constexpr std::string_view kModName = "Grimdark";
 inline constexpr std::string_view kModLoaded = "Grimdark loaded";
 inline constexpr std::string_view kModLoadedNoSpeech = "Grimdark loaded, no speech backend";

@@ -856,3 +856,22 @@ CLAUDE.md "Traps and lessons"; the mechanism docs are `docs/*.md`.
   not a real address with a vtable in the game's images (`plausible_region`); `world_pos_of` runs GetWorldPosition
   under SEH and returns zero on a fault (logged). Not yet exercised live.
 
+## 2026-09-21 -- Alt+Enter: a vanilla in-world crash, now blocked
+- A player reported Alt+Enter leaving the game deaf to the keyboard with NVDA locked up. Reproduced with inject.ps1: it
+  is a plain game crash (`exception 0xc0000005 at Grim Dawn.exe+0xa2efc`, read of `pages[-1]`, rcx = an encoded heap
+  block header), and a crashed Grim Dawn looks alive from the outside -- the main thread sits in Crate's CrashReport.dll
+  waiting on `crashreporter.exe` while the sound threads (the game's and our miniaudio loops) keep playing. NVDA stalls
+  on the window whose message loop is dead; no keyboard hook is involved. `gd.py status` says CRASHED.
+- The path (static, exe dump + Engine.dll): `WinWindow::WindowProc` maps WM_SYSKEYDOWN VK_RETURN + Alt (Engine.dll+0x217e1a)
+  to the exported `WinWindow::OnToggleFullscreen` -> the exe's handler changes the mode -> the main loop's resize block
+  (exe+0xedf0) calls exe+0x20890 with "show options" = true, which reads the OLD Options screen's tab index
+  (`[InGameUI+0x4def8]->+0x90->+0x280`, -1 when the pause menu's Options was never opened: the host ctor exe+0x29efc0
+  leaves +0x90 null), deletes and reconstructs the InGameUI (0xac998 bytes, ctor exe+0x205a70; the `loc:` burst of every
+  option tag in the log is the fresh Options screen's ctor exe+0xc8e60, which ends with SetCurrentTab(0)), re-shows the
+  host (exe+0x21c1d0 -> host show -> OnShow exe+0x29f2d0 constructs the screen) and calls SetCurrentTab(-1)
+  (exe+0xcd300): `cmp [+0x280], -1` differs from 0, so it takes `pages[-1]` from the vector at +0x288 as a page and
+  AddChild (exe+0xa2ee0) dereferences it. The main menu's resize path (exe+0xbe780) is different and survives.
+- Fix: `WinWindow::OnToggleFullscreen` is hooked by export and refused with one spoken line
+  (`strings::kFullscreenToggleBlocked`). Window mode remains the Options, Video setting (which rebuilds from an open
+  Options screen, a valid index). README + docs/controls.md carry the key.
+

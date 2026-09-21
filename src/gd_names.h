@@ -10,6 +10,9 @@ inline constexpr const char* LocalizationManager_LocalizeWithoutParams = "?Local
 // public: void __cdecl GAME::Display::Update(void) __ptr64
 inline constexpr const char* Display_Update_DLL = "Engine.dll";
 inline constexpr const char* Display_Update = "?Update@Display@GAME@@QEAAXXZ";
+// public: void __cdecl GAME::WinWindow::OnToggleFullscreen(void) __ptr64
+inline constexpr const char* WinWindow_OnToggleFullscreen_DLL = "Engine.dll";
+inline constexpr const char* WinWindow_OnToggleFullscreen = "?OnToggleFullscreen@WinWindow@GAME@@QEAAXXZ";
 // public: void __cdecl GAME::Engine::Update(class GAME::Sphere const * __ptr64,class GAME::WorldFrustum const * __ptr64,bool,class GAME::WorldFrustum const * __ptr64) __ptr64
 inline constexpr const char* Engine_Update_DLL = "Engine.dll";
 inline constexpr const char* Engine_Update = "?Update@Engine@GAME@@QEAAXPEBVSphere@2@PEBVWorldFrustum@2@_N1@Z";

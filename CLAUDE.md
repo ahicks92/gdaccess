@@ -237,6 +237,9 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   region-wide and the sub-regions then straddle it), and after any rehome / resegment run `author.py retitle --write`
   on BOTH working dbs, then `rooms_pack.py pack` each world. Never re-tag to fix titles: the pipeline does not
   reproduce them. The dbs are build products since 2026-09-20 (`data/rooms/` is the source; never commit a db).
+- Alt+Enter (`WinWindow::OnToggleFullscreen`, the game's own toggle) crashes the vanilla game in the world when the pause
+  menu's Options was never opened (the InGameUI rebuild restores Options tab -1 unchecked, exe+0xcd300): the export is
+  refused in `hooks.cpp`. Any display-mode change in the world goes through that rebuild; never trigger one.
 - Process: every player-facing KEY goes in README.md and docs/controls.md in the same change. Ask before launching or
   driving the game when the user may be at the keyboard. Archive a game build the mod works on before Steam patches.
 

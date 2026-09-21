@@ -761,6 +761,21 @@ static void remove_existing_game_hook(HMODULE di) {
   *slot = kFakeHook;
 }
 
+// Alt+Enter. WinWindow::WindowProc turns WM_SYSKEYDOWN VK_RETURN with the Alt bit (Engine.dll+0x217e1a) into the
+// exported WinWindow::OnToggleFullscreen, which walks its WindowEventHandlers; the exe's handler switches the display
+// mode and, in the world, rebuilds the whole InGameUI (exe+0x20890 from the main loop's resize block) "restoring" the
+// Options screen's tab: it reads the OLD Options screen's tab index (-1 when that screen was never created, i.e. the
+// pause menu's Options was never opened this session), re-shows the new host (which constructs a fresh Options screen
+// whose ctor ends with SetCurrentTab(0)), then calls SetCurrentTab(-1): exe+0xcd300 has no bounds check and takes
+// pages[-1], the heap block header, as a page pointer -> access violation at exe+0xa2efc. A vanilla crash (no mod frame
+// on the stack, verified 2026-09-21); the toggle has no accessibility value, so it never reaches the game.
+typedef void (*OnToggleFullscreen_t)(void*);
+static OnToggleFullscreen_t OnToggleFullscreen_hook_orig;
+static void OnToggleFullscreen_hook(void*) {
+  log::write("blocked: WinWindow::OnToggleFullscreen (Alt+Enter)");
+  speech::speak(strings::kFullscreenToggleBlocked);
+}
+
 // Hooks into DirectInput.dll, which the game loads after startup. Called every frame until it is present.
 static void install_late() {
   static bool done = false;
@@ -805,6 +820,7 @@ bool install() {
     HOOK(LocalizationManager_GetText, LocGetText),
     HOOK(Display_Update, DisplayUpdate), HOOK(Engine_Update, EngineUpdate), HOOK(Display_HandleMouseEvent, DisplayMouse),
     HOOK(Engine_ProcessUserInput, ProcessUserInput_hook),
+    HOOK(WinWindow_OnToggleFullscreen, OnToggleFullscreen_hook),
   };
   HMODULE eng = GetModuleHandleA("Engine.dll");
   g_ButtonEvent_GetText = eng ? (ButtonEvent_GetText_t)GetProcAddress(eng, ButtonEvent_GetText) : nullptr;

@@ -260,6 +260,7 @@ game's banners (level up, quest updated) and its "skill not ready" style popups 
 | Ctrl+- / Ctrl+= | Read the left / right mouse skill |
 | Ctrl+` | Hotbar manager: both bars and the mouse buttons of the current weapon set; activate a slot to pick a learned skill, or clear / default |
 | Alt (held) | Show item labels |
+| Alt+Enter | Blocked ("Fullscreen must be toggled through the options menu to avoid a vanilla crash"): the game's own toggle crashes it in the world; use Options, Video, Window Mode |
 | O | Show all items on / off ("showing all items" / "loot filter on"): while on, the loot review group (M), the loot sonar and the game's own labels ignore your loot filter -- the same as holding Alt, latched |
 | F2..F6 / F7 | Select pet 1..5 (toggle) / select all pets, announced; the selection applies to the next pet command only |
 | Shift+Backspace | The selected pets (all, if none are selected) attack the locked target |
