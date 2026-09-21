@@ -175,6 +175,17 @@ static void register_actions() {
   m.register_action("ingame.petsAttack", "Pets attack locked target", InputCategory::InGame, [] { screens::pets_attack_locked(); }).bind(0x0e, false, true, false);
   for (int i = 0; i < 5; ++i) m.register_action(std::format("ingame.selectPet{}", i + 1), std::format("Select pet {}", i + 1), InputCategory::InGame, [i] { screens::toggle_pet_selected(i); }).bind(0x3c + i);
   m.register_action("ingame.selectAllPets", "Select all pets", InputCategory::InGame, [] { screens::select_all_pets(); }).bind(0x41);
+  // The free cursor (docs/controls.md "Advanced targeting"): Shift+W/A/S/D move the cursor's world point instead of
+  // the character (app's key filter keeps the presses from the game), Z toggles grid / polar and is the only one
+  // that speaks. Repeating: a held Shift+W walks the point at the OS typematic rate.
+  struct CursorStep { const char* id; const char* label; int key; gd::core::CursorKey dir; };
+  const CursorStep steps[] = {{"cursor.forward", "Cursor up", 0x11, gd::core::CursorKey::Forward}, {"cursor.back", "Cursor down", 0x1f, gd::core::CursorKey::Back},
+                              {"cursor.left", "Cursor left", 0x1e, gd::core::CursorKey::Left}, {"cursor.right", "Cursor right", 0x20, gd::core::CursorKey::Right}};
+  for (const CursorStep& c : steps) {
+    gd::core::CursorKey dir = c.dir;
+    m.register_action(c.id, c.label, InputCategory::InGame, [dir] { world::free_cursor_step(dir); }).bind(c.key, false, true, false).repeating();
+  }
+  m.register_action("cursor.mode", "Cursor mode grid or polar", InputCategory::InGame, [] { speech::speak(world::toggle_cursor_mode(), true); }).bind(0x2c);
   // Backslash: the sonar sweep on / off (the game's Toggle Party Display is lifted to Ctrl+Backslash).
   m.register_action("sonar.toggle", "Sonar on or off", InputCategory::InGame, [] {
     sonar::set_enabled(!sonar::enabled());
@@ -246,13 +257,17 @@ void init() {
   Screen::set_host([](std::string_view s) { speech::speak(s, false); }, [](Screen* s) { if (g_nav) g_nav->screen_closed(s); });
   g_screens.set_navigator([](Screen* s) { if (g_nav) g_nav->attach(s); }, [] { if (g_nav) g_nav->ensure_focus(); });
   register_actions();
-  hooks::set_game_key_filter([](int code) {
+  hooks::set_game_key_filter([](int code, bool released, bool shift, bool ctrl) {
     Screen* s = g_screens.current();
     if (!s || !s->passes_key(code)) return false;
+    // Shift+W/A/S/D move the free cursor (cursor.*), not the character: the press is ours. The RELEASE always
+    // passes: a W held before Shift went down is the game's own move, and swallowing its release would leave the
+    // exe's held byte set (the character runs on) -- a spurious up for a key the game never saw down is harmless.
+    if ((code == 0x11 || code == 0x1e || code == 0x1f || code == 0x20) && !released && shift) return false;
     // Ctrl+<digit> is the mod's quickbar-read chord (read.slot1..10), never the game's -- the game binds
     // single buttons only, so it never wants a modified digit. The passthrough is by code alone (modifier
     // blind), so without this a real Ctrl+1 would ALSO activate the game's slot 1 you only meant to read.
-    if ((code >= 0x02 && code <= 0x0b) && hooks::key_source().ctrl()) return false;
+    if ((code >= 0x02 && code <= 0x0b) && ctrl) return false;
     return true;
   });
   g_screens.register_screen(screens::make_unsupported());

@@ -27,7 +27,7 @@ void push_key_event(const SynthKey& k);                  // one event, its own f
 void push_key(int code, bool shift, bool ctrl, bool alt, char16_t ch);  // press frame + release frame
 void set_game_keys_muted(bool m);                        // the game sees no physical key events ...
 bool game_keys_muted();
-void set_game_key_filter(std::function<bool(int code)> pass);  // ... except codes this says to pass through (game thread)
+void set_game_key_filter(std::function<bool(int code, bool released, bool shift, bool ctrl)> pass);  // ... except events this says to pass through (game thread); the modifiers are the EVENT's own flags
 
 // ---- synthetic mouse input (same mechanism as keys; client-area coordinates) ----
 // MouseEvent (28 bytes, measured 2026-08-21 from DirectInputDevice::Update): +0 int type: 0 = idle/position,

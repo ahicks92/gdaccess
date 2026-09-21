@@ -20,6 +20,7 @@
 #include "core/strings.h"
 #include "log.h"
 #include "msvc_string.h"
+#include "settings.h"
 #include "textcap.h"
 
 namespace gd::world {
@@ -416,9 +417,24 @@ void* player() { return g_game_engine && g_api.GetMainPlayer ? g_api.GetMainPlay
 constexpr size_t kWorldCoordsOriginOffset = 8;
 constexpr size_t kCoordsOriginOffset = 36;
 
+// WorldVec3::GetWorldPosition dereferences the Region* first thing (Engine.dll+0x22bdf7 reads region+0x3c): a
+// WorldVec3 built from a freed entity's coords carried a Region* of 1 and took the game down (2026-09-20 18:51).
+// The callers now validate the region (entity_world_vec) and this is the last line: a fault here is a zero
+// position, not a crash. POD only inside the __try.
+bool get_world_pos_guarded(const Buf* wv, Buf* out) {
+  __try { g_api.WorldVec3_GetWorldPosition(wv, out); return true; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
 Vec3 world_pos_of(const Buf& wv) {
-  Vec3 v;
-  if (g_api.WorldVec3_GetWorldPosition) { Buf o{}; g_api.WorldVec3_GetWorldPosition(&wv, &o); memcpy(&v, o.b, sizeof v); }
+  Vec3 v{};
+  if (!g_api.WorldVec3_GetWorldPosition) return v;
+  Buf o{};
+  if (!get_world_pos_guarded(&wv, &o)) {
+    static int logged = 0;
+    void* region; memcpy(&region, wv.b, sizeof region);
+    if (logged++ < 5) log::writef("world: GetWorldPosition faulted (region {})", region);
+    return v;
+  }
+  memcpy(&v, o.b, sizeof v);
   return v;
 }
 std::string wv_text(const void* wv) {
@@ -437,12 +453,26 @@ std::string wv_text(const void* wv) {
 bool get_coords_guarded(const void* entity, Buf* wc) {   // POD only: the entity may be freed (a picked-up item)
   __try { g_api.Entity_GetCoords(entity, wc); return true; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
 }
+bool in_game_image(const void* p);   // defined below (rtti_of's image check)
+// A Region* read out of an entity's coords is trusted only if it looks like a live Region: a real address whose
+// vtable lies in the game's images. GetCoords on a freed entity (reached through a stale id -> pointer) does not
+// fault, it returns garbage -- a "region" of 1 was the 2026-09-20 crash.
+bool plausible_region(const void* region) {
+  if ((uintptr_t)region < 0x10000 || IsBadReadPtr(region, sizeof(void*))) return false;
+  void* vt; memcpy(&vt, region, sizeof vt);
+  return in_game_image(vt);
+}
 bool entity_world_vec(const void* entity, Buf& out_wv, void** out_region = nullptr) {
   if (!entity || !g_api.Entity_GetCoords || !g_api.WorldVec3_ctor) return false;
   Buf wc{};
   if (!get_coords_guarded(entity, &wc)) return false;
   void* region; memcpy(&region, wc.b, sizeof region);
   if (!region) return false;
+  if (!plausible_region(region)) {
+    static int logged = 0;
+    if (logged++ < 5) log::writef("world: entity {} has an implausible region {} (freed?), position refused", entity, region);
+    return false;
+  }
   Vec3 origin; memcpy(&origin, wc.b + kWorldCoordsOriginOffset, sizeof origin);
   memset(&out_wv, 0, sizeof out_wv);
   g_api.WorldVec3_ctor(&out_wv, region, &origin);
@@ -465,6 +495,20 @@ bool player_world_vec(Buf& out_wv, void** out_region = nullptr) {
   return true;
 }
 
+// The floor height at a world xz, through the player's region (WorldVec3::PutOnFloor from the player's y);
+// fallback_y when the probe is unavailable. project_point lifts the point by 1.0 itself.
+float floor_y_at(float x, float z, float fallback_y) {
+  Buf base; void* region = nullptr;
+  if (!player_world_vec(base, &region) || !g_api.WorldVec3_PutOnFloor) return fallback_y;
+  Vec3 wb = world_pos_of(base);
+  const Vec3* rb = g_api.WorldVec3_GetRegionPosition(&base);
+  Vec3 rel{x - wb.x + rb->x, rb->y, z - wb.z + rb->z};
+  Buf wv{};
+  g_api.WorldVec3_ctor(&wv, region, &rel);
+  if (!g_api.WorldVec3_PutOnFloor(&wv)) return fallback_y;
+  Vec3 f; memcpy(&f, wv.b + 8, sizeof f);
+  return f.y - rb->y + wb.y;
+}
 // The object's dynamic RTTI_ClassInfo: the exported Object::GetRTTIClassInfo is the BASE implementation, so
 // dispatch through the vtable instead -- its slot is where Object's own vftable holds that export.
 // RTTI_ClassInfo (measured 2026-08-21): +0 vptr, +8 const char* name ("Player", "Monster", ...).
@@ -1000,16 +1044,7 @@ std::string project_points(const std::vector<Vec3>& pts) {
   if (!w || !GetClientRect(w, &rc)) return "no window\n";
   for (Vec3 p : pts) {
     // ground points: put on the floor through the player's region first (project_point lifts by 1.0)
-    Buf base; void* region = nullptr;
-    float y = p.y;
-    if (player_world_vec(base, &region)) {
-      Vec3 wb = world_pos_of(base);
-      const Vec3* rb = g_api.WorldVec3_GetRegionPosition(&base);
-      Vec3 rel{p.x - wb.x + rb->x, wb.y - wb.y + rb->y, p.z - wb.z + rb->z};
-      Buf wv{};
-      g_api.WorldVec3_ctor(&wv, region, &rel);
-      if (g_api.WorldVec3_PutOnFloor && g_api.WorldVec3_PutOnFloor(&wv)) { Vec3 f; memcpy(&f, wv.b + 8, sizeof f); y = f.y - rb->y + wb.y; }
-    }
+    float y = floor_y_at(p.x, p.z, p.y);
     float sx, sy;
     bool ok = project_point(Vec3{p.x, y, p.z}, sx, sy);
     bool visible = ok && sx >= 0 && sy >= 0 && sx < (float)rc.right && sy < (float)rc.bottom;
@@ -1665,6 +1700,17 @@ std::string los_dump(unsigned id) {
 namespace {
 bool g_point_locked = false;
 Vec3 g_locked_point;
+// The free cursor (Shift+WASD): a bare world point that overrides the lock's projection while it is set. The lock
+// (g_locked_id / g_point_locked) is left as it was, so the reviewed thing stays reviewed and resumes as the cursor
+// when the free point is dropped (any landing, unlock_target).
+bool g_free_cursor = false;
+Vec3 g_free_point;
+gd::core::XZ g_free_heading{};   // the polar line's direction, kept while the cursor sits on the player
+Vec3 g_lock_last_pos;            // the locked entity's position the last frame it was found
+bool g_lock_last_pos_ok = false;
+gd::core::CursorMode g_cursor_mode = gd::core::CursorMode::Grid;
+bool g_cursor_mode_loaded = false;
+constexpr const char* kCursorModeKey = "cursor.polar";
 bool project_point(const Vec3& world_point, float& x, float& y) {
   void* cam = g_game_engine && g_api.GetCamera ? g_api.GetCamera(g_game_engine) : nullptr;
   Buf base; void* region = nullptr;
@@ -1689,27 +1735,86 @@ bool project_point(const Vec3& world_point, float& x, float& y) {
 bool lock_target(unsigned id) {
   void* e = find_entity(id);
   if (!e) return false;
-  g_point_locked = false;
-  g_locked_id = id; g_locked_entity = e; g_lock_frames = 0; g_lock_lost_ms = 0;
+  g_point_locked = false; g_free_cursor = false;
+  g_locked_id = id; g_locked_entity = e; g_lock_frames = 0; g_lock_lost_ms = 0; g_lock_last_pos_ok = false;
   return true;
 }
 bool lock_point(const Vec3& world_point) {
   if (!in_world()) return false;
-  g_locked_id = 0; g_locked_entity = nullptr;
+  g_locked_id = 0; g_locked_entity = nullptr; g_free_cursor = false;
   g_point_locked = true; g_locked_point = world_point;
   return true;
 }
 void unlock_target() {
-  if (g_locked_id || g_point_locked) gd::hooks::set_cursor_override(false, 0, 0);
-  g_locked_id = 0; g_locked_entity = nullptr; g_point_locked = false; g_lock_lost_ms = 0;
+  if (g_locked_id || g_point_locked || g_free_cursor) gd::hooks::set_cursor_override(false, 0, 0);
+  g_locked_id = 0; g_locked_entity = nullptr; g_point_locked = false; g_free_cursor = false; g_lock_lost_ms = 0;
 }
 unsigned locked_target() { return g_locked_id; }
 std::string lock_dump() {
-  if (!g_locked_id) return g_point_locked ? "locked point\n" : "no lock\n";
-  if (!g_lock_lost_ms) return std::format("locked id={} found\n", g_locked_id);
-  return std::format("locked id={} NOT FOUND for {} ms (grace {} ms)\n", g_locked_id, GetTickCount64() - g_lock_lost_ms, kLockGraceMs);
+  std::string s = g_free_cursor ? std::format("free cursor at {:.2f},{:.2f},{:.2f}\n", g_free_point.x, g_free_point.y, g_free_point.z) : "";
+  if (!g_locked_id) return s + (g_point_locked ? "locked point\n" : "no lock\n");
+  if (!g_lock_lost_ms) return s + std::format("locked id={} found\n", g_locked_id);
+  return s + std::format("locked id={} NOT FOUND for {} ms (grace {} ms)\n", g_locked_id, GetTickCount64() - g_lock_lost_ms, kLockGraceMs);
+}
+// ---- the free cursor ----
+namespace {
+void screen_axes(float& fx, float& fz, float& rx, float& rz);   // defined with the review cursor below
+void load_cursor_mode() {
+  if (g_cursor_mode_loaded) return;
+  g_cursor_mode_loaded = true;
+  g_cursor_mode = gd::settings::get_bool(kCursorModeKey, false) ? gd::core::CursorMode::Polar : gd::core::CursorMode::Grid;
+}
+}  // namespace
+bool free_cursor_step(gd::core::CursorKey key) {
+  if (!in_world()) return false;
+  Vec3 me;
+  if (!player_position(me)) return false;
+  load_cursor_mode();
+  if (!g_free_cursor) {   // seed from wherever the cursor is now
+    Vec3 seed = me;
+    if (g_point_locked) seed = g_locked_point;
+    else if (g_locked_id) { Vec3 p; if (entity_position(g_locked_id, p)) seed = p; }
+    g_free_point = seed; g_free_cursor = true; g_free_heading = {};
+  }
+  float fx, fz, rx, rz;
+  screen_axes(fx, fz, rx, rz);
+  gd::core::XZ n = gd::core::step_cursor(g_cursor_mode, key, {me.x, me.z}, {g_free_point.x, g_free_point.z}, {fx, fz}, {rx, rz}, &g_free_heading);
+  g_free_point = Vec3{n.x, floor_y_at(n.x, n.z, g_free_point.y), n.z};
+  return true;
+}
+bool free_cursor_active() { return g_free_cursor; }
+gd::core::CursorMode cursor_mode() { load_cursor_mode(); return g_cursor_mode; }
+std::string toggle_cursor_mode() {
+  load_cursor_mode();
+  g_cursor_mode = g_cursor_mode == gd::core::CursorMode::Grid ? gd::core::CursorMode::Polar : gd::core::CursorMode::Grid;
+  gd::settings::set_bool(kCursorModeKey, g_cursor_mode == gd::core::CursorMode::Polar);
+  gd::core::MessageBuilder m;
+  gd::strings::push_cursor_mode(m, g_cursor_mode == gd::core::CursorMode::Polar);
+  return m.build();
+}
+std::string free_cursor_dump() {
+  load_cursor_mode();
+  std::string s = std::format("mode={} active={}\n", g_cursor_mode == gd::core::CursorMode::Polar ? "polar" : "grid", g_free_cursor);
+  if (!g_free_cursor) return s;
+  Vec3 me; float x = 0, y = 0;
+  bool ok = project_point(g_free_point, x, y);
+  s += std::format("point {:.2f},{:.2f},{:.2f}", g_free_point.x, g_free_point.y, g_free_point.z);
+  if (player_position(me)) {
+    float dx = g_free_point.x - me.x, dz = g_free_point.z - me.z;
+    s += std::format(" dist={:.2f} clock={}", std::sqrt(dx * dx + dz * dz), clock_hour(g_free_point));
+  }
+  s += ok ? std::format(" screen={:.0f},{:.0f}\n", x, y) : " (projection failed)\n";
+  return s;
 }
 void tick() {
+  if (g_free_cursor) {
+    if (!in_world()) { unlock_target(); return; }
+    float x, y; RECT rc{};
+    HWND w = FindWindowA("Grim Dawn", nullptr);
+    bool visible = project_point(g_free_point, x, y) && w && GetClientRect(w, &rc) && x >= 0 && y >= 0 && x < (float)rc.right && y < (float)rc.bottom;
+    gd::hooks::set_cursor_override(visible, x, y);
+    return;
+  }
   if (g_point_locked) {
     if (!in_world()) { unlock_target(); return; }
     float x, y; RECT rc{};
@@ -1726,20 +1831,32 @@ void tick() {
   // override jump to the window centre off a garbage projection). find_entity is the game's own sphere query
   // and already runs per frame elsewhere in this file.
   g_locked_entity = find_entity(g_locked_id);
+  // A target that is gone -- out of the query sphere, despawned, or dead -- leaves the cursor WHERE IT WAS
+  // (2026-09-20, the user's call): the last position it was seen at becomes a point lock, so J / I and the cursor
+  // keys keep working from that spot instead of everything snapping to "no target". While unseen within the grace
+  // the entity lock is kept (it resumes if the id turns up again) and the stale point is what the cursor shows.
   if (!g_locked_entity) {
     ULONGLONG now = GetTickCount64();
     if (!g_lock_lost_ms) g_lock_lost_ms = now;
-    if (now - g_lock_lost_ms > kLockGraceMs) { unlock_target(); return; }
-    gd::hooks::set_cursor_override(false, 0, 0);   // keep the lock, park nothing: the game must not hover a stale point
+    if (now - g_lock_lost_ms > kLockGraceMs) { if (g_lock_last_pos_ok) lock_point(g_lock_last_pos); else unlock_target(); return; }
+    if (!g_lock_last_pos_ok) { gd::hooks::set_cursor_override(false, 0, 0); return; }
+    float x, y; RECT rc{};
+    HWND w = FindWindowA("Grim Dawn", nullptr);
+    bool visible = project_point(g_lock_last_pos, x, y) && w && GetClientRect(w, &rc) && x >= 0 && y >= 0 && x < (float)rc.right && y < (float)rc.bottom;
+    gd::hooks::set_cursor_override(visible, x, y);
     return;
   }
   g_lock_lost_ms = 0;
   ++g_lock_frames;
-  // A locked Monster that died is a corpse: release it, so the cursor does not sit on a body and the next
-  // enemy key enters at the nearest living one (the corpse is no longer in the enemy scan either).
+  { Buf wv; if (entity_world_vec(g_locked_entity, wv)) { g_lock_last_pos = world_pos_of(wv); g_lock_last_pos_ok = true; } }
+  // A locked Monster that died is a corpse: the cursor stays on the spot as a point lock (the next enemy key still
+  // enters at the nearest living one, since the corpse is no longer in the enemy scan).
   {
     EntityRaw r{};
-    if (g_api.Character_IsAlive && read_entity(g_locked_entity, r) && rtti_name(r.ci) == "Monster" && !g_api.Character_IsAlive(g_locked_entity)) { unlock_target(); return; }
+    if (g_api.Character_IsAlive && read_entity(g_locked_entity, r) && rtti_name(r.ci) == "Monster" && !g_api.Character_IsAlive(g_locked_entity)) {
+      if (g_lock_last_pos_ok) lock_point(g_lock_last_pos); else unlock_target();
+      return;
+    }
   }
   float x, y;
   RECT rc{};
@@ -2597,6 +2714,7 @@ bool client_size(float& w, float& h) {
 bool inside_window(float x, float y, float w, float h) { return x >= 0 && y >= 0 && x < w && y < h; }
 // The virtual cursor's target projected to the screen, on or off the window: the locked entity or point.
 bool virtual_cursor_pos(float& x, float& y) {
+  if (g_free_cursor) return project_point(g_free_point, x, y);
   if (g_point_locked) return project_point(g_locked_point, x, y);
   if (g_locked_id) { void* e = find_entity(g_locked_id); return e && project(e, x, y); }
   return false;
@@ -2621,7 +2739,8 @@ constexpr int kAimSteps = 40;
 constexpr float kAimMinT = 0.15f;
 bool aim_along_line(float w, float h, float& x, float& y) {
   Vec3 target;
-  if (g_point_locked) target = g_locked_point;
+  if (g_free_cursor) target = g_free_point;
+  else if (g_point_locked) target = g_locked_point;
   else if (!g_locked_id || !entity_position(g_locked_id, target)) return false;
   Buf base;
   if (!player_world_vec(base)) return false;
@@ -2645,7 +2764,7 @@ bool press_point(float& x, float& y, bool* over_hud = nullptr) {
   float w, h;
   if (over_hud) *over_hud = false;
   if (!client_size(w, h)) return false;
-  if (g_locked_id || g_point_locked) {
+  if (g_locked_id || g_point_locked || g_free_cursor) {
     bool shown = virtual_cursor_pos(x, y) && inside_window(x, y, w, h);
     bool on_hud = shown && gd::exe_ui::point_over_hud(x, y);
     if (shown && !on_hud) return true;
@@ -2704,7 +2823,7 @@ void mouse_key(int button, bool held) {
     // Nothing is locked and the real cursor is off the window or on the HUD, or a locked target could not even be
     // aimed at by direction (projection failed, or the whole line to it is under the HUD): nothing to press. A hold in
     // progress ends here, on screen.
-    if (edge) gd::speech::speak(over_hud ? gd::strings::kBehindInterface : (g_locked_id || g_point_locked) ? gd::strings::kTooFarAway : gd::strings::kNoTarget, true);
+    if (edge) gd::speech::speak(over_hud ? gd::strings::kBehindInterface : (g_locked_id || g_point_locked || g_free_cursor) ? gd::strings::kTooFarAway : gd::strings::kNoTarget, true);
     release_hold(button);
     return;
   }

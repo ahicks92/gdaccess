@@ -212,6 +212,27 @@ you probably have to get closer, or the object is behind something.  We can't re
 | Ctrl+M | The map: a nearest-first list of everything the game draws on it, named as the game names it -- points of interest by their own text ("Burial Hill Entrance"; a quest's marker is one of these and appears only while that quest step is active), people and merchants by name, barricades as "obstacle", the rest by the map's own words (Riftgate, Healer, Smith, Spirit Guide, hero monster, boss). The map is held at its widest zoom while the list is open, about 400 by 650 units, the same reach a sighted player gets; further away there is only the quest log's prose. Then a second Tab stop with every devotion shrine you have discovered anywhere ("desecrated shrine, Burrwitch" / "not restored, Burrwitch Village Rift, 1200 away, 3 o'clock"); Enter picks one to follow |
 | ' | Follow the picked map marker: route ping plus "name, distance, bearing" |
 
+### Advanced targeting: moving the cursor yourself
+
+Most players never need this. Normally the cursor sits on whatever you last reviewed and follows it, so J, I and
+every cursor-aimed skill go where the review cursor is. These keys move the cursor to a spot of your own instead:
+open ground for a rune, a trap, a totem or a point-aimed skill, or a little ahead of an enemy so a mine arms before
+it arrives. The reviewed thing stays reviewed (`/` and `;` still answer for it); only where a press lands changes.
+The next review key puts the cursor back on the thing it lands on. A reviewed enemy that dies or runs out of
+reach no longer takes the cursor with it: the cursor stays on the spot where it was last seen.
+
+| Key | Description |
+|---|---|
+| Shift+W A S D | Move the cursor instead of your character (the character does not move while Shift is held). The first press starts from where the cursor is now: the reviewed thing, or your own feet when nothing is reviewed. Hold to keep moving. Nothing is spoken |
+| Z | Cursor mode: "cursor mode default" or "cursor mode polar", the only thing these keys say. Remembered between sessions |
+
+In the default mode each press moves the cursor 1 unit up, down, left or right on the screen grid (the same
+directions your character walks, with W toward the top of the screen). In polar mode the cursor lives on a line
+from your character: W moves it 1 unit further out along that line, S 1 unit closer (never past you), and A / D swing
+the line 30 degrees left or right around you, keeping the distance. The cursor is always the far end of the line: S
+pulls it in until it sits on you and never past you, and W from there goes back out the same way. Starting polar
+from your own feet with no line yet, W goes straight up the screen.
+
 ### Information
 
 | Key | Description |

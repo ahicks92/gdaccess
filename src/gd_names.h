@@ -622,6 +622,9 @@ inline constexpr const char* ObjectManager_Get = "?Get@?$Singleton@VObjectManage
 // public: void __cdecl GAME::ObjectManager::GetObjectList(class mem::vector<class GAME::Object const * __ptr64> & __ptr64)const __ptr64
 inline constexpr const char* ObjectManager_GetObjectList_DLL = "Engine.dll";
 inline constexpr const char* ObjectManager_GetObjectList = "?GetObjectList@ObjectManager@GAME@@QEBAXAEAV?$vector@PEBVObject@GAME@@@mem@@@Z";
+// public: bool __cdecl GAME::ObjectManager::IsObjectIdOnDeletedList(unsigned int) __ptr64
+inline constexpr const char* ObjectManager_IsObjectIdOnDeletedList_DLL = "Engine.dll";
+inline constexpr const char* ObjectManager_IsObjectIdOnDeletedList = "?IsObjectIdOnDeletedList@ObjectManager@GAME@@QEAA_NI@Z";
 // public: class mem::vector<class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > > const & __ptr64 __cdecl GAME::GameEngine::GetObjectives(void) __ptr64
 inline constexpr const char* GameEngine_GetObjectives_DLL = "Game.dll";
 inline constexpr const char* GameEngine_GetObjectives = "?GetObjectives@GameEngine@GAME@@QEAAAEBV?$vector@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@mem@@XZ";

@@ -820,3 +820,39 @@ CLAUDE.md "Traps and lessons"; the mechanism docs are `docs/*.md`.
   "Class table"; built, NOT yet heard): a tester's Ancient Shambler report led to the avalanche being cued as a stomp;
   the survey showed substring matching mis-cued ~10 % of active monster skills (auras, rains, drops, lightning bolts,
   on-hit novas, teleports). Unknown classes are silent and counted. Open: dying skills (the Shambler's death burst).
+- **Rune of Hagarrad is a proximity mine, not a turret** (2026-09-20, static RE, `docs/re_pets_gamedll.md` s.8): the
+  pet record's `deathFromEnemyRange` 2.0 / `deathFromEnemyDelay` 1.0 s drive `ControllerMonster::Update` -> after the
+  arm delay, every 200 ms `DieIfEnemyInRange` sphere-queries the range and `ControllerCombat::KillMe`s the rune on the
+  first live hostile `Monster`; the icicle ring is the `dyingSkillName`. "Dies fast" is the design: one enemy stepping
+  within 2 units spends the rune. 30 s is the timeout, 5 the summon cap, 4 s the cast cooldown.
+- **The free cursor** (2026-09-20, built, NOT yet run in the game -- the user's session held the DLL at link time):
+  "point we click" divorced from "thing in the scanner". Shift+W/A/S/D move the virtual cursor's world point
+  (`world::free_cursor_step`, `src/core/cursor_step.{h,cpp}` for the arithmetic, doctest'd), Z toggles grid / polar
+  ("cursor mode default" / "cursor mode polar", persisted `cursor.polar`); everything else is silent. State: a third
+  cursor source beside the entity lock and the point lock -- `g_free_cursor`/`g_free_point` override the projection in
+  `world::tick`, `virtual_cursor_pos`, `aim_along_line` and `press_point`, while the lock is left as it was, so the
+  reviewed thing stays reviewed and the next landing resumes it. Seeded on the first press from the current cursor.
+  Game side: `hooks::set_game_key_filter` now gets the release flag and the EVENT's own shift / ctrl flags
+  (`key_source()` is updated after the filter, so it still showed the previous event's modifiers: a plain W right
+  after Shift came up would have been swallowed); app.cpp swallows the Shift+WASD PRESS only (a swallowed release
+  would stick the exe's held byte: the same trap as the off-window mouse transition). README
+  "Advanced targeting" + docs/controls.md rows. Dev: `/freecursor`. To verify live: seed from a locked enemy, step,
+  `/freecursor` screen point vs `/project?pts=`, J at the point, then `.` re-locks.
+- **Vanished targets keep the cursor; the polar line keeps its heading** (2026-09-20, same session, not yet run): the
+  entity lock's grace expiry and the dead-Monster release now `lock_point` the last position the entity was found at
+  (`g_lock_last_pos`, recorded per found frame) instead of `unlock_target`, and the grace period projects that point
+  instead of dropping the override -- the user's call: a target that dies or runs off must not snap everything back to
+  "no target". `step_cursor` takes a heading the caller keeps (`g_free_heading`): Back through the player then Forward
+  goes out the same line (the cursor is always the far end), a turn on the player turns the line.
+- **Crash 2026-09-20 18:51, a freed entity's position** (log: `exception 0xc0000005 at Engine.dll+0x22bdf7 (read 0x3D)`,
+  rax = 1 = the WorldVec3's Region*, inside our Engine::Update tick one frame after the mod released a J hold on an
+  enemy that had just died): `WorldVec3::GetWorldPosition` dereferences the region first thing; the WorldVec3 came from
+  `entity_world_vec` on a dead object -- `Entity::GetCoords` on freed memory returns garbage without faulting and the
+  region check was null-only. The pointer most likely came from `gameapi::object_by_id`, an id -> pointer cache
+  refreshed every 600 frames (the "never hold entity pointers across frames" trap, again; `entity_position` from
+  combat.cpp's debuff-on-me panning or casts.cpp), or from `reping_tick`'s per-frame re-find of a reviewed id that
+  stays set after the monster dies. Fixed three ways: `object_by_id` checks every hit against the exported
+  `ObjectManager::IsObjectIdOnDeletedList` (newly wired) and drops it; `entity_world_vec` refuses a Region* that is
+  not a real address with a vtable in the game's images (`plausible_region`); `world_pos_of` runs GetWorldPosition
+  under SEH and returns zero on a fault (logged). Not yet exercised live.
+

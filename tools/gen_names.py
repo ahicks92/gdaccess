@@ -231,6 +231,7 @@ ENTRIES = [
     ("LocalizationManager_Instance", "Engine", r"GAME::LocalizationManager::Instance\(void\)"),
     ("ObjectManager_Get", "Engine", r"GAME::Singleton<class GAME::ObjectManager>::Get\(void\)"),
     ("ObjectManager_GetObjectList", "Engine", r"GAME::ObjectManager::GetObjectList\("),
+    ("ObjectManager_IsObjectIdOnDeletedList", "Engine", r"GAME::ObjectManager::IsObjectIdOnDeletedList\("),
     ("GameEngine_GetObjectives", "Game", r"GAME::GameEngine::GetObjectives\(void\)"),
     ("Quest2Repository_Get", "Game", r"GAME::Singleton<class GAME::Quest2Repository>::Get\(void\)"),
     ("Quest2Repository_GetQuests", "Game", r"GAME::Quest2Repository::GetQuests\("),

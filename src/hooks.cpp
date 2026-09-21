@@ -310,7 +310,7 @@ static ButtonEvent_GetText_t g_ButtonEvent_GetText;
 typedef void (*ButtonEvent_ctor_t)(void*);
 static ButtonEvent_ctor_t g_ButtonEvent_ctor, g_ButtonEvent_dtor;
 
-static std::function<bool(int)> g_key_pass;  // while muted: real key codes still delivered to the game
+static std::function<bool(int, bool, bool, bool)> g_key_pass;  // while muted: real key events (code, released, shift, ctrl) still delivered to the game
 static std::vector<int> g_pass_idx;          // real event indices delivered to the game this poll
 static int GetNumKeyEvents_hook(void* self) {
   ++g_c_numkey;
@@ -325,7 +325,9 @@ static int GetNumKeyEvents_hook(void* self) {
     alignas(16) unsigned char buf[256] = {};
     GetKeyEvent_hook_orig(self, buf, i);
     int code = *(int*)(buf + 8), rel = *(int*)(buf + 12);
-    if (!g_swallow_keys || (g_key_pass && g_key_pass(code))) g_pass_idx.push_back(i);
+    // The filter gets the event's OWN modifier flags: key_source() is only updated below, so it would still show the
+    // previous event's modifiers (a plain W right after Shift came up would read as Shift+W and be swallowed).
+    if (!g_swallow_keys || (g_key_pass && g_key_pass(code, rel != 0, buf[17] != 0, buf[19] != 0))) g_pass_idx.push_back(i);
     if (first) {
       g_keys.record(code, rel != 0);
       g_keys.record_mods(buf[17] != 0, buf[18] != 0, buf[19] != 0);  // ButtonEvent +16: {valid, shift, alt, ctrl}
@@ -369,7 +371,7 @@ void push_key(int code, bool shift, bool ctrl, bool alt, char16_t ch) {
 }
 void set_game_keys_muted(bool m) { g_swallow_keys = m; }
 bool game_keys_muted() { return g_swallow_keys; }
-void set_game_key_filter(std::function<bool(int)> pass) { g_key_pass = std::move(pass); }
+void set_game_key_filter(std::function<bool(int, bool, bool, bool)> pass) { g_key_pass = std::move(pass); }
 static void advance_synth_frame();
 
 // --- synthetic mouse events through DirectInputDevice::GetNumMouseEvents/GetMouseEvent ---

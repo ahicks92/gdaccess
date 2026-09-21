@@ -549,6 +549,17 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     else if (q.count("id")) { if (!world::lock_target((unsigned)strtoul(q.at("id").c_str(), nullptr, 10))) return "entity not found near the player\n"; }
     return std::format("locked={}\n", world::locked_target()) + world::lock_dump() + world::target_dump();
   }
+  if (path == "/freecursor") {  // ?key=w|a|s|d[&n=N] steps the free cursor; ?mode=toggle flips grid/polar; ?off=1 unlocks; no args: report
+    if (q.count("off")) world::unlock_target();
+    if (q.count("mode")) return world::toggle_cursor_mode() + "\n" + world::free_cursor_dump();
+    if (q.count("key")) {
+      std::string k = q.at("key");
+      gd::core::CursorKey dir = k == "w" ? gd::core::CursorKey::Forward : k == "s" ? gd::core::CursorKey::Back : k == "a" ? gd::core::CursorKey::Left : gd::core::CursorKey::Right;
+      int n = q.count("n") ? parse_int(q.at("n"), 1) : 1;
+      for (int i = 0; i < n; ++i) if (!world::free_cursor_step(dir)) return "not in the world\n";
+    }
+    return world::free_cursor_dump() + world::lock_dump();
+  }
   if (path == "/project") return world::project_dump(q.count("id") ? (unsigned)strtoul(q.at("id").c_str(), nullptr, 10) : 0);
   if (path == "/target") {  // /target?id=N sets the combat enemy; /target?clear=1; no args: report
     if (q.count("clear")) world::clear_target();

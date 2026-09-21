@@ -16,6 +16,7 @@ struct Api {
   void* (*GetMainPlayer)(const void*) = nullptr;
   void* (*ObjectManager_Get)() = nullptr;
   void (*ObjectManager_GetObjectList)(const void*, MemVec*) = nullptr;
+  bool (*ObjectManager_IsObjectIdOnDeletedList)(void*, unsigned) = nullptr;
   unsigned (*Object_GetObjectId)(const void*) = nullptr;
   const char* (*Object_GetObjectName)(const void*) = nullptr;
   const MemVec* (*GetObjectives)(const void*) = nullptr;
@@ -129,6 +130,7 @@ void load() {
   GAPI_LOAD(g, GetMainPlayer, GameEngine_GetMainPlayer);
   GAPI_LOAD(g, ObjectManager_Get, ObjectManager_Get);
   GAPI_LOAD(g, ObjectManager_GetObjectList, ObjectManager_GetObjectList);
+  GAPI_LOAD(g, ObjectManager_IsObjectIdOnDeletedList, ObjectManager_IsObjectIdOnDeletedList);
   GAPI_LOAD(g, Object_GetObjectId, Object_GetObjectId);
   GAPI_LOAD(g, Object_GetObjectName, Object_GetObjectName);
   GAPI_LOAD(g, GetObjectives, GameEngine_GetObjectives);
@@ -227,13 +229,22 @@ std::string localize(const std::string& tag) {
 }
 
 // ---- objects ----
+// The cache holds POINTERS across frames (up to 600), which the "hold ids, re-resolve" rule forbids for a reason:
+// an entity destroyed since the last sweep (the enemy just killed, a projectile, a summon) was still handed out,
+// and entity_position -> GetCoords on the freed object -> GetWorldPosition on its garbage region crashed the game
+// (2026-09-20 18:51). Every hit is now checked against the ObjectManager's own deleted list before it is returned.
 void* object_by_id(unsigned id) {
   if (!id) return nullptr;
   uint64_t f = hooks::frame();
   if (!g_objects_valid || f - g_objects_frame > 600) sweep_objects();
   auto it = g_objects.find(id);
   if (it == g_objects.end() && f - g_objects_frame > 5) { sweep_objects(); it = g_objects.find(id); }  // a miss re-sweeps (rate-limited)
-  return it == g_objects.end() ? nullptr : it->second;
+  if (it == g_objects.end()) return nullptr;
+  bool deleted = false;
+  if (g.ObjectManager_Get && g.ObjectManager_IsObjectIdOnDeletedList)
+    guarded("ObjectManager::IsObjectIdOnDeletedList", [&] { void* om = g.ObjectManager_Get(); if (om) deleted = g.ObjectManager_IsObjectIdOnDeletedList(om, id); });
+  if (deleted) { g_objects.erase(it); return nullptr; }
+  return it->second;
 }
 void invalidate_objects() { g_objects_valid = false; }
 unsigned object_id(const void* o) { unsigned id = 0; if (o && g.Object_GetObjectId) guarded("GetObjectId", [&] { id = g.Object_GetObjectId(o); }); return id; }

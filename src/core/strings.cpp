@@ -91,6 +91,10 @@ MessageBuilder& push_nothing_nearby(MessageBuilder& m, std::string_view group_pl
   m.fragment("no").fragment(group_plural).fragment("nearby");
   return m;
 }
+MessageBuilder& push_cursor_mode(MessageBuilder& m, bool polar) {
+  m.fragment(kCursorMode).fragment(polar ? kCursorPolar : kCursorGrid);
+  return m;
+}
 MessageBuilder& push_speech(MessageBuilder& m, std::string_view speaker, std::string_view speech) {
   if (!speaker.empty()) m.fragment(std::string(speaker) + ":");
   m.fragment(speech);

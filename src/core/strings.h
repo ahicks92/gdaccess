@@ -79,6 +79,7 @@ gd::core::MessageBuilder& push_target_inspect(gd::core::MessageBuilder& m, int h
 gd::core::MessageBuilder& push_distance_bearing(gd::core::MessageBuilder& m, float distance, int clock_hour);
 // "no enemies nearby"
 gd::core::MessageBuilder& push_nothing_nearby(gd::core::MessageBuilder& m, std::string_view group_plural);
+gd::core::MessageBuilder& push_cursor_mode(gd::core::MessageBuilder& m, bool polar);   // "cursor mode polar" / "cursor mode default"
 // "<speaker>: <speech>" -- a conversation node (speaker may be empty).
 gd::core::MessageBuilder& push_speech(gd::core::MessageBuilder& m, std::string_view speaker, std::string_view speech);
 inline constexpr std::string_view kEnemies = "enemies";
@@ -208,6 +209,10 @@ inline constexpr std::string_view kSonarOff = "sonar off";
 inline constexpr std::string_view kTransitions = "dungeon entrances";
 inline constexpr std::string_view kEntrance = "entrance";                  // an unnamed DungeonEntrance in the N group (a one-way exit shaft has no name)
 inline constexpr std::string_view kNoTarget = "no target";
+// the free cursor (Shift+WASD, Z): the only thing it speaks is the mode
+inline constexpr std::string_view kCursorMode = "cursor mode";
+inline constexpr std::string_view kCursorGrid = "default";
+inline constexpr std::string_view kCursorPolar = "polar";
 inline constexpr std::string_view kInGame = "in game";
 inline constexpr std::string_view kMessage = "message";  // the game's generic message box
 inline constexpr std::string_view kPauseMenu = "pause menu";
