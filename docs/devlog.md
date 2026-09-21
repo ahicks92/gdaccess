@@ -875,3 +875,10 @@ CLAUDE.md "Traps and lessons"; the mechanism docs are `docs/*.md`.
   (`strings::kFullscreenToggleBlocked`). Window mode remains the Options, Video setting (which rebuilds from an open
   Options screen, a valid index). README + docs/controls.md carry the key.
 
+
+## 2026-09-21 -- installer: Launch button removed
+- Defender flags the mod (an injector plus a hooking DLL, as expected) and a folder exclusion does not let a process
+  spawned BY the installer start gdlaunch.exe, while the desktop shortcut works. Rather than chase which of
+  SmartScreen / the exclusion scope / the parent process is responsible, the button is gone: the installer's closing
+  dialog already points at the shortcut. `installer/src/gui.rs` only; `paths::launcher_path` stays (the
+  installed-check uses it).

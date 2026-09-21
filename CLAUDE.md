@@ -276,7 +276,8 @@ developer's screen reader. Client: `uv run tools/gd.py <cmd>` (add `--with pillo
   Desktop + Start Menu `Grimdark.lnk` via IShellLink, HKCU Uninstall key `Grimdark` (`paths::APP_NAME` is the one
   name, spoken and on disk; the rebrand from GD Access / gdaccess landed 2026-09-18 before any release; Add/Remove runs the copy inside the folder with
   `--uninstall`, which re-execs from %TEMP% to delete itself), version = `version.txt` vs release tags (semver only;
-  `ci-latest` listed LAST as "latest successful CI build"), Install from file, Launch, `--cli`. Download/unpack on a
+  `ci-latest` listed LAST as "latest successful CI build"), Install from file, `--cli` (no Launch button: Defender
+  blocks a spawn from the installer even with a folder exclusion, 2026-09-21; the shortcut is the way to play). Download/unpack on a
   worker thread, a 100 ms wx Timer drains progress into the log. Building it locally needs Ninja + CMake on PATH:
   `tools\vsdev.cmd cargo build --release --manifest-path installer\Cargo.toml` (wxdragon-sys compiles wxWidgets, ~10 min
   cold). Toolchain pinned by `installer/rust-toolchain.toml`.

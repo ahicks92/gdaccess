@@ -1,5 +1,5 @@
 //! The window: a status line, a game line, a log box that narrates every step, and the buttons
-//! (Install / Update with a version picker, Install from file, Launch, Uninstall). Native wx controls, so a
+//! (Install / Update with a version picker, Install from file, Uninstall). Native wx controls, so a
 //! screen reader reads it as an ordinary dialog. Downloads run on a worker thread; a timer drains its
 //! progress messages into the log so the window never goes "not responding".
 use std::cell::RefCell;
@@ -10,7 +10,7 @@ use std::sync::mpsc;
 use wxdragon::prelude::*;
 
 use crate::core::install::Progress;
-use crate::core::paths::{data_dir, install_dir, launcher_path, APP_NAME};
+use crate::core::paths::{data_dir, install_dir, APP_NAME};
 use crate::core::{detect, github, install, uninstall};
 
 /// What the worker thread sends back.
@@ -25,7 +25,6 @@ struct Ui {
     log: TextCtrl,
     install_btn: Button,
     file_btn: Button,
-    launch_btn: Button,
     uninstall_btn: Button,
 }
 
@@ -42,7 +41,6 @@ impl Ui {
     fn busy(&self, busy: bool) {
         self.install_btn.enable(!busy);
         self.file_btn.enable(!busy);
-        self.launch_btn.enable(!busy && detect::is_installed());
         self.uninstall_btn.enable(!busy && detect::is_installed());
     }
 
@@ -50,7 +48,6 @@ impl Ui {
     fn refresh(&self, catalog: &Option<github::Catalog>) {
         let installed = detect::is_installed();
         let version = detect::installed_version();
-        self.launch_btn.enable(installed);
         self.uninstall_btn.enable(installed);
         self.file_btn.enable(true);
         let latest = catalog.as_ref().and_then(|c| c.latest().map(|r| r.tag_name.clone()));
@@ -120,10 +117,9 @@ pub fn run() {
         let buttons = BoxSizer::builder(Orientation::Horizontal).build();
         let install_btn = Button::builder(&panel).with_label("Install").build();
         let file_btn = Button::builder(&panel).with_label("Install from file...").build();
-        let launch_btn = Button::builder(&panel).with_label("Launch").build();
         let uninstall_btn = Button::builder(&panel).with_label("Uninstall").build();
         let close_btn = Button::builder(&panel).with_label("Close").build();
-        for b in [&install_btn, &file_btn, &launch_btn, &uninstall_btn, &close_btn] {
+        for b in [&install_btn, &file_btn, &uninstall_btn, &close_btn] {
             buttons.add(b, 0, SizerFlag::All, 4);
         }
         sizer.add(&status, 0, SizerFlag::Expand | SizerFlag::All, 8);
@@ -132,7 +128,7 @@ pub fn run() {
         sizer.add_sizer(&buttons, 0, SizerFlag::Expand | SizerFlag::All, 4);
         panel.set_sizer(sizer, true);
 
-        let ui = Rc::new(Ui { frame: frame.clone(), status, log, install_btn: install_btn.clone(), file_btn: file_btn.clone(), launch_btn: launch_btn.clone(), uninstall_btn: uninstall_btn.clone() });
+        let ui = Rc::new(Ui { frame: frame.clone(), status, log, install_btn: install_btn.clone(), file_btn: file_btn.clone(), uninstall_btn: uninstall_btn.clone() });
         ui.busy(true);
 
         ui.log(&format!("Install folder: {}", install_dir().display()));
@@ -287,18 +283,6 @@ pub fn run() {
                     let result = install::install_from_file(&PathBuf::from(&path), &move |p| { let _ = tx2.send(Msg::Progress(p)); });
                     let _ = tx.send(Msg::Done(result.map(|_| "from file".to_string())));
                 });
-            });
-        }
-
-        // Launch the installed mod (the same thing the shortcut does).
-        {
-            let ui = ui.clone();
-            launch_btn.on_click(move |_| {
-                let exe = launcher_path();
-                match std::process::Command::new(&exe).current_dir(install_dir()).spawn() {
-                    Ok(_) => ui.log(&format!("Started {}", exe.display())),
-                    Err(e) => ui.log(&format!("Could not start {}: {}", exe.display(), e)),
-                }
             });
         }
 
