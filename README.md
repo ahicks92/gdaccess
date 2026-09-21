@@ -6,9 +6,9 @@ Status: pre-release, but pretty complete.  I'm into act 3 and even have basic su
 
 ## Disclaimer
 
-This is a hobby project, and it is a mod of a closed-source C++ game.  As of 2026-09-18 I have read 0 lines of code,
+This is a hobby project, and it is a mod of a closed-source C++ game.  As of 2026-09-18 I have read 0 lines of code;
 it's all Claude. Any game update could break it forever. It is a low priority for me, so bugs are not going to get fixed
-promptly; you will have to wait until whenever I have time.  This said it works well and I've got like 50+ hours in the
+promptly; you will have to wait until whenever I have time.  This said, it works well and I've got like 50+ hours in the
 game, and it's better than most accessibility mods.  Just know what you're getting into.
 
 For those familiar with my prior work, do not think of this as a Factorio Access. I am not treating it like that. You
@@ -16,10 +16,10 @@ get what you get; hopefully you have fun, but it might also explode on you in wa
 
 ## What you need
 
-- Grim Dawn **v1.3.0.8, 64-bit, Steam build**. The mod reaches into the game's private UI objects by code layout; any other
-  build (a GOG build, a Steam patch) gets one spoken line -- "unsupported game build, exe timestamp <hex>, supported
-  1.3.0.8 Steam, the mod is off" -- and the mod installs nothing. Report that timestamp when you ask about a new build.
-  Any install path works; the launcher asks Steam where the game is (see Setup).
+- Grim Dawn **v1.3.0.8, 64-bit, Steam build**. The mod reaches into the game's private UI objects by code layout; any
+  other build (a GOG build, a Steam patch) gets one spoken line -- "unsupported game build, exe timestamp <hex>,
+  supported 1.3.0.8 Steam, the mod is off" -- and the mod installs nothing. Report that timestamp when you ask about a
+  new build. Any install path works; the launcher asks Steam where the game is (see Setup).
 - Windows 10/11 x64.
 - A screen reader (NVDA, JAWS, or any that prism supports). Menu and window text goes to the screen reader.
 - The Windows OneCore voices "Mark" and "Zira" (Settings -> Time & Language -> Speech -> Manage voices, English (United
@@ -33,7 +33,9 @@ get what you get; hopefully you have fun, but it might also explode on you in wa
 The mod supports the base game and the full install with both expansions (Ashes of Malmouth and Forgotten Gods). Each
 expansion replaces the whole world map, so the mod ships a rooms database for each world and picks the right one from
 what is installed. An install with Ashes of Malmouth alone uses the base game's rooms and will be wrong in a few places,
-and additionally will not describe rooms in that DLC alone unless you also install Forgotten Gods.  I may eventually require some or all of the DLC, and do not intend to continue improving anything but the Malmouth/FG setup because testing all possible combinations is too time consuming.
+and additionally will not describe rooms in that DLC alone unless you also install Forgotten Gods.  I may eventually
+require some or all of the DLC, and do not intend to continue improving anything but the Malmouth/FG setup because
+testing all possible combinations is too time consuming.  Fangs of Asterkarn and the Crucible do not yet work.
 
 Do not launch the game directly (from Steam or the exe). If you do, you will need to restart your screen reader because
 the key hooks will be dropped.  This manifests as capslock/insert not working as they should.  The game uses very old
@@ -49,12 +51,16 @@ for updates itself.
 You now have a desktop icon `Grimdark`.  You launch the game through this icon instead of the game's own.  Steam must be
 running.
 
-The launcher also sets the two game options the mod cannot play without, every time it starts the game: Movement Type
-is forced to Keyboard (the game's own WASD walking), Evade to Cursor is forced off (otherwise Space dashes at the mouse
+The launcher also sets the two game options the mod cannot play without, every time it starts the game: Movement Type is
+forced to Keyboard (the game's own WASD walking), Evade to Cursor is forced off (otherwise Space dashes at the mouse
 cursor and ignores WASD), and the keyboard-mode key map is written as the game's default one with the four walking keys
 bound, which the game itself leaves empty until you press Default on its Keybinding tab. The mod's keys are built on the
-game's default bindings, so do not rebind keys in the game's menu: the launcher puts the defaults back on every start.
-Nothing else in your settings is touched. Changing those two options back in the game's menu lasts until the next launch.
+game's default bindings, so do not rebind keys.
+
+You will also need to add an exception in Defender or your antivirus of choice for the folder
+`C:\Users\myusername\AppData\Local\Programs\Grimdark\`. Not the executable, which is replaced by updates.  You can get
+the path by right clicking the desktop icon and going to properties.  To do this for Defender, go to Windows Security ->
+Virus and Threat Protection, tab over to "manage settings", hit that, then tab over to "add or remove exclusions".
 
 ## Getting Started
 
@@ -65,9 +71,9 @@ like that (the game, not the accessibility features).  The mod mainly does a few
 - Emulates mouse clicks on enemies, loot and so on.
 - Makes the menus speak.
 - Adds sonar and wall tones (not really optional).
-- Telegraphs enemy attacks: as an enemy starts an attack, a short word says its shape (swing, stomp, wave, shot, ring, area, charge)
-  from where the enemy is, so you can step out of it. The game itself has no such markers.
-- Tags the level data with GPS-like information that is announced as you run around (AI-generated)
+- Telegraphs enemy attacks: as an enemy starts an attack, a short word says its shape (swing, stomp, wave, shot, ring,
+  area, charge) from where the enemy is, so you can step out of it. The game itself has no such markers.
+- Tags the level data with GPS-like information that is announced as you run around (AI-generated).
 
 The basic flow: `.` cycles through enemies, `Alt+.` jumps to the closest one, and holding `J` attacks (`J` and `Enter`
 are left clicks, `I` is a right click; in menus `Backspace` is the right-click equivalent). To explore, `V` cycles
@@ -84,11 +90,11 @@ which shapes speak. All of it is remembered between sessions.
 
 You can configure sonar with `Ctrl+T` or turn it off with `\`.
 
-The bottom row of keys (c through /) are your information keys which toggle through items of a given type, closest first.
-Add alt to jump to closest, add shift to go backward. My personal flow is that my right hand drives these and attacking
-with j and i, and my left hand drives dodging and walking with wasd and space.  You really want to read the key list
-further down this file though.  Semicolon pings the thing you last targeted.  Open the map with `Ctrl+M`, then press Enter
-on something, then apostrophe pings it and gives you a heading.
+The bottom row of keys (c through /) holds your information keys, which cycle through items of a given type, closest
+first. Add alt to jump to closest, add shift to go backward. My personal flow is that my right hand drives these and
+attacking with j and i, and my left hand drives dodging and walking with wasd and space.  You really want to read the
+key list further down this file though.  Semicolon pings the thing you last targeted.  Open the map with `Ctrl+M`, then
+press Enter on something, then apostrophe pings it and gives you a heading.
 
 The general flow in other words is something like alt dot, attack with j, wait for exp announcement, alt dot to next
 enemy.  It's more than that once you get going, but this is attempting to emulate the feeling of playing an ARPG so
@@ -98,11 +104,11 @@ disappears.
 The game itself assumes you already know what you are getting into and we don't yet read the tutorial announcements, so
 a few things are worth knowing:
 
-- You can have more than one character, a selector appears after you make one.
+- You can have more than one character; a selector appears after you make one.
 - `Ctrl+L` opens a rift. `N` to target it, `J` to interact, and you can return to town temporarily.
 - Saving is automatic, but restarting the game reloads you at the last major riftgate, respawns enemies, and drops any
   rifts you opened -- so no returning to town, closing the game and coming back (if you don't have the DLC I believe
-  this is always Devil's Crossing)
+  this is always Devil's Crossing).
 - To choose a class, reach level 2, press `Ctrl+N`, pick a mastery, Tab over, and select the mastery to spend a skill
   point on it. Every other build choice can be undone except this first mastery point: classes are permanent, skills are
   not. You get a second class at level 10; the class selection tab then reappears next to your first class choice.
@@ -114,15 +120,15 @@ a few things are worth knowing:
   - Space while not holding WASD dodges the way your character faces (toward the thing you are attacking, or the way you
     last walked).
   - In general you don't need evade for a long time if you play on normal.
-- Lots and lots and lots of things have tooltips, get those with `space`.
-- You can type to search for things in menus, there's no dedicated key, just start typing.
+- Lots and lots and lots of things have tooltips; get those with `Space`.
+- You can type to search for things in menus; there's no dedicated key, just start typing.
 - Many windows have more than one section so always try tab as well as arrows.
 
-There's a lot of mechanics in this game, so in general Google or [the wiki](https://grimdawn.fandom.com/wiki/Grim_Dawn)
+There are a lot of mechanics in this game, so in general Google or [the wiki](https://grimdawn.fandom.com/wiki/Grim_Dawn)
 are your friends. To help you with build planning however, we have [a table of all masteries and
 skills](./docs/masteries.md).  The wiki has this information but not in a very accessible form.
 
-Exploration requires a couple notes.
+Exploration requires a couple of notes.
 
 First, the world is rotated about 50 degrees counterclockwise.  The camera defaults to an inconvenient isometric
 projection where all rooms, from the perspective of a blind user, are diamonds instead of squares.  This means that NPC
@@ -132,12 +138,12 @@ actually be straight north in our orientation by coincidence, but once you get a
 combined with only vague directions in dialog.  In practice in sighted land "go northwest" can mean quite a few
 different things but should really be read "go vaguely northish and westish".
 
-Second is that the wall tones and exit finding are not nor will they ever be perfect.  Sighted games have elevation
+Second is that the wall tones and exit finding are not, nor will they ever be, perfect.  Sighted games have elevation
 changes, irregularly shaped walls, and "wall sliding" where your character will sort of pop through gaps.  After much
 pain the mod gets to like 95%, but for the last 5% you'll find oddities.  With some practice it's usually possible to
-tell when it's being odd and you can probably still go that way.  A couple notable examples of this are unfortunately
+tell when it's being odd and you can probably still go that way.  A couple of notable examples of this are unfortunately
 Burial Hill (the first quest you get) whose above-ground portion is an odd sort of spiral and Burrwitch Estates which
-have a few rooms which aren't quite squares, they're squares where you can walk into a hallway in a non-obvious spot.
+have a few rooms which aren't quite squares; they're squares where you can walk into a hallway in a non-obvious spot.
 One notable possibly surprising behavior is that holding right to follow a wall to your south, for example, may move you
 slightly north if the wall bends or has protrusions.  This isn't a game about super precise positioning so in general it
 works out.
@@ -150,7 +156,7 @@ Something will be done about this eventually.
 ## Controls
 
 WARNING: The game's own bindings must stay at their defaults. The mod remaps them using mod-specific mechanisms.  If you
-move them, bad things happen.  What bad things? It depends, don't go find out.
+move them, bad things happen.  What bad things? It depends; don't go find out.
 
 ### Menus and windows
 
@@ -189,7 +195,7 @@ Enter selects); then Start / difficulty / game mode / Delete.
 The camera is fixed by the mod (far zoom, yaw 0); there are no camera keys. With yaw 0 the screen lines up with the
 world's tile grid, so walls and corridors run straight.
 
-The behavior of "clicking" (j, sometimes i) varies: if it's an item you try to walk to it and pick it up, if it's an
+The behavior of "clicking" (j, sometimes i) varies: if it's an item you try to walk to it and pick it up; if it's an
 enemy you shoot at it, etc.  The game will try to move you to the destination or object when it can.  If nothing happens
 you probably have to get closer, or the object is behind something.  We can't reliably distinguish the cases.
 
@@ -214,24 +220,24 @@ you probably have to get closer, or the object is behind something.  We can't re
 
 ### Advanced targeting: moving the cursor yourself
 
-Most players never need this. Normally the cursor sits on whatever you last reviewed and follows it, so J, I and
-every cursor-aimed skill go where the review cursor is. These keys move the cursor to a spot of your own instead:
-open ground for a rune, a trap, a totem or a point-aimed skill, or a little ahead of an enemy so a mine arms before
-it arrives. The reviewed thing stays reviewed (`/` and `;` still answer for it); only where a press lands changes.
-The next review key puts the cursor back on the thing it lands on. A reviewed enemy that dies or runs out of
-reach no longer takes the cursor with it: the cursor stays on the spot where it was last seen.
+Most players never need this. Normally the cursor sits on whatever you last reviewed and follows it, so J, I and every
+cursor-aimed skill go where the review cursor is. These keys move the cursor to a spot of your own instead: open ground
+for a rune, a trap, a totem or a point-aimed skill, or a little ahead of an enemy so a mine arms before it arrives. The
+reviewed thing stays reviewed (`/` and `;` still answer for it); only where a press lands changes. The next review key
+puts the cursor back on the thing it lands on. A reviewed enemy that dies or runs out of reach no longer takes the
+cursor with it: the cursor stays on the spot where it was last seen.
 
 | Key | Description |
 |---|---|
 | Shift+W A S D | Move the cursor instead of your character (the character does not move while Shift is held). The first press starts from where the cursor is now: the reviewed thing, or your own feet when nothing is reviewed. Hold to keep moving. Nothing is spoken |
 | Z | Cursor mode: "cursor mode default" or "cursor mode polar", the only thing these keys say. Remembered between sessions |
 
-In the default mode each press moves the cursor 1 unit up, down, left or right on the screen grid (the same
-directions your character walks, with W toward the top of the screen). In polar mode the cursor lives on a line
-from your character: W moves it 1 unit further out along that line, S 1 unit closer (never past you), and A / D swing
-the line 30 degrees left or right around you, keeping the distance. The cursor is always the far end of the line: S
-pulls it in until it sits on you and never past you, and W from there goes back out the same way. Starting polar
-from your own feet with no line yet, W goes straight up the screen.
+In the default mode each press moves the cursor 1 unit up, down, left or right on the screen grid (the same directions
+your character walks, with W toward the top of the screen). In polar mode the cursor lives on a line from your
+character: W moves it 1 unit further out along that line, S 1 unit closer (never past you), and A / D swing the line 30
+degrees left or right around you, keeping the distance. The cursor is always the far end of the line: S pulls it in
+until it sits on you and never past you, and W from there goes back out the same way. Starting polar from your own feet
+with no line yet, W goes straight up the screen.
 
 ### Information
 
@@ -320,9 +326,9 @@ game audio and speech), `GRIMDARK_NOFOCUS=1` (block the game's own focus grabs, 
 ## Building
 
 - Visual Studio 2022 Community with the "Desktop development with C++" workload (MSVC 14.44 is what the author uses; the
-  game's ABI is MSVC, so no other compiler will do). CMake and Ninja are installed by that workload;
-  `tools/vsdev.cmd` finds any VS 2022 edition (Community, Professional, Enterprise, Build Tools) through vswhere. A
-  bare Build Tools install ships no Ninja of its own, so put one on PATH in that case.
+  game's ABI is MSVC, so no other compiler will do). CMake and Ninja are installed by that workload; `tools/vsdev.cmd`
+  finds any VS 2022 edition (Community, Professional, Enterprise, Build Tools) through vswhere. A bare Build Tools
+  install ships no Ninja of its own, so put one on PATH in that case.
 - The build links the C runtime statically, so a player needs no Visual C++ redistributable; only `prism.dll` has to sit
   next to `grimdark.dll`.
 - No other downloads: the prism speech SDK (the x64 headers, import library and `prism.dll` of release v0.18.1),
