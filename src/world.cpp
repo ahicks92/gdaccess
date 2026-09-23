@@ -1203,6 +1203,203 @@ float free_distance_ray(float dir_x, float dir_z, float lateral, float max_dist,
   return d > max_dist ? max_dist : d;
 }
 
+
+// ---- WALK SIMULATION (2026-09-22; the wall tones' probe): "can I go this way" asked of the game's own WASD logic ----
+// Replays what holding a movement key does (docs/re_wall_sliding.md), from the player's position, without moving
+// anyone: each step requests the point 1.25 u ahead along the key (floored), runs the pathfinder exactly as
+// CharacterMovementManager::FindPath does for the main player under movementType > 0 (NavManager::FindPath, snap
+// radius 10; gates skipped when the destination polygon equals the previous request's; else direction gate 0 =
+// the first leg may not head more than 90 degrees from the request, and the detour-ratio gate Player+0x4bf0 for
+// paths >= 15 u), falls back to the navmesh raycast (FindStraightMovePoint) as DefaultRequestMoveAction does, and
+// advances `sub` units along the path's first leg, like the crowd walking between per-frame re-issues. Not
+// modelled: the ledge camera-projection retry (counted), agent-vs-agent separation.
+// The verdict uses a TRUNCATED CONE (the user's shape, 2026-09-22): half-width h0 at the feet, widening by
+// tan(deg) per unit along the key; the walk's distance is how far along the key it gets before it stops or
+// leaves the shape. h0 = 1.5 is the rectangle half-width the DC corner case established (a slide 1.2 u sideways
+// round a corner is still "this way").
+namespace {
+constexpr float kWasdLookAhead = 1.25f;    // exe+0x2c69f [exe+0x31e9cc]
+constexpr float kPlayerSnapRadius = 10.0f; // Game+0x7771bc
+constexpr float kDetourMinLen = 15.0f;     // Game+0x7771c8
+constexpr size_t kPlayerDetourRatioOffset = 0x4bf0;   // Player::FindPath reads it (Game+0x3ba3dc)
+bool seh_nav_find_path_full(void* nav, const void* from, const void* to, float radius, void* out, unsigned* poly, float* len,
+                            void* corridor, void* first) {
+  __try { return g_api.NavManager_FindPath(nav, from, to, radius, out, poly, len, corridor, first, false); }
+  __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+float seh_read_float(const void* p) { __try { return *(const float*)p; } __except (EXCEPTION_EXECUTE_HANDLER) { return -1.0f; } }
+}  // namespace
+
+// Modes (bits): 1 = the request keeps the current height (no geometry floor), 2 = steps take the navmesh height, 4 = the
+// straight fast path, 8 = stop when the walk leaves the shape. The tones run 15 with a 2 u fast-path snap (measured
+// 2026-09-22 at the Four Hills bridge: identical paths to mode 0, ~0.7 ms for four directions to 10 u vs ~5 ms).
+int g_walksim_mode = 0;   // the dev route's mode (/walksim?mode=), 0 = the faithful slow walk
+float g_walksim_snap = 10.0f;   // dev: the fast path's snap search radius
+void set_walksim_mode(int m, float snap) { g_walksim_mode = m; if (snap > 0) g_walksim_snap = snap; }
+std::string walk_sim(float dir_x, float dir_z, float max_dist, float sub, float h0, float deg, bool trace, float* out_dist, int mode, float snap_radius) {
+  load_api();
+  void* nav = g_api.NavManager_Get ? g_api.NavManager_Get() : nullptr;
+  void* p = player();
+  Buf base; void* region = nullptr;
+  if (!nav || !p || !g_api.NavManager_FindPath || !g_api.FindStraightMovePoint || !g_api.WorldVec3_ctor ||
+      !g_api.WorldVec3_GetRegionPosition || !g_api.WorldVec3_PutOnFloor || !player_world_vec(base, &region))
+    return "no player or exports\n";
+  float dl = std::sqrt(dir_x * dir_x + dir_z * dir_z);
+  if (dl < 1e-4f) return "zero direction\n";
+  dir_x /= dl; dir_z /= dl;
+  if (sub < 0.02f) sub = 0.25f;
+  const float ratio = seh_read_float((const char*)p + kPlayerDetourRatioOffset);
+  const float tan_a = std::tan(deg * 3.14159265f / 180.0f);
+  const Vec3 start = world_pos_of(base);
+  Vec3 pos = start;
+  unsigned last_poly = 0;
+  static MemVec corridor{};   // game-allocated on first use, reused (the find_path_corridor pattern)
+  std::string steps;
+  const char* stop = "reached max";
+  float exit_at = -1.0f, exit_lat = 0.0f;
+  int fallbacks = 0, gate3 = 0, gate2 = 0, fail4 = 0, ledge = 0, same_poly = 0, clamps = 0, fast = 0;
+  float best_prog = 0.0f; int stall = 0;
+  const int max_iter = (int)(max_dist / sub * 6.0f) + 20;
+  int it = 0;
+  float next_trace = 0.0f;
+  LARGE_INTEGER f0, t0, t1; QueryPerformanceFrequency(&f0); QueryPerformanceCounter(&t0);
+  long long q_floor = 0, q_find = 0, q_close = 0, q_wv = 0, q_fast = 0;
+  struct Q { long long& acc; LARGE_INTEGER a; explicit Q(long long& r) : acc(r) { QueryPerformanceCounter(&a); } ~Q() { LARGE_INTEGER b; QueryPerformanceCounter(&b); acc += b.QuadPart - a.QuadPart; } };
+  auto qus = [&](long long v) { return (double)v * 1e6 / (double)f0.QuadPart; };
+  for (; it < max_iter; ++it) {
+    Buf from; { Q q(q_wv); world_vec_at(pos, base, region, from); }
+    Vec3 rq{pos.x + dir_x * kWasdLookAhead, pos.y, pos.z + dir_z * kWasdLookAhead};
+    Buf req; world_vec_at(rq, base, region, req);
+    if (!(mode & 1)) { Q q(q_floor); g_api.WorldVec3_PutOnFloor(&req); }   // mode 1: keep the current height (findNearestPoly searches +-3 in y)
+    Vec3 reqw = world_pos_of(req);
+    Buf out = req; unsigned poly = last_poly; float len = 0; Vec3 first{};
+    int result = 0;
+    Vec3 target{};
+    bool have_corridor = false, fast_done = false;
+    // mode 4, the fast path: the request snapped to its nearest mesh point, reached by a CLEAR raycast (the raycast
+    // returns early without flooring when nothing is hit), is exactly the straight path FindPath would return, and a
+    // forward first leg passes its direction gate. Anything else (a bend, a snap behind us) takes the full call.
+    if (mode & 4) {
+      Q q(q_fast);
+      Buf snap = req;
+      if (seh_closest_point(nav, &req, &snap, snap_radius) == 1) {
+        Vec3 s = world_pos_of(snap);
+        // Only an UNSNAPPED request: a snapped one lies on a boundary edge (a slide), the raycast along that edge
+        // "hits" it, and a hit costs the wrapper's PutOnFloor before the full call runs anyway (measured 2026-09-22).
+        if ((s.x - reqw.x) * (s.x - reqw.x) + (s.z - reqw.z) * (s.z - reqw.z) < 1e-4f &&
+            (s.x - pos.x) * dir_x + (s.z - pos.z) * dir_z >= 0.0f) {
+          Buf hit = from;
+          if (seh_straight_move(nav, &from, &snap, &hit) == 1) {
+            Vec3 h = world_pos_of(hit);
+            if ((h.x - s.x) * (h.x - s.x) + (h.z - s.z) * (h.z - s.z) < 1e-4f) { target = s; fast_done = true; ++fast; }
+          }
+        }
+      }
+    }
+    if (!fast_done) {
+    corridor.end = corridor.begin;
+    bool ok; { Q q(q_find); ok = seh_nav_find_path_full(nav, &from, &req, kPlayerSnapRadius, &out, &poly, &len, &corridor, &first); }
+    if (!ok) result = 4;
+    else if (poly == last_poly && last_poly != 0) ++same_poly;
+    else {
+      float ddx = reqw.x - pos.x, ddy = reqw.y - pos.y, ddz = reqw.z - pos.z;
+      float inv = 1.0f / std::sqrt(ddx * ddx + ddy * ddy + ddz * ddz + 1e-12f);
+      if (ddx * inv * first.x + ddz * inv * first.z < 0.0f) result = 3;   // direction gate, WASD parameter 0.0
+      else if (ratio > 0 && len >= kDetourMinLen && len * inv > ratio) result = 2;
+    }
+    if (result == 0) {
+      last_poly = poly;
+      target = world_pos_of(out);
+      have_corridor = true;
+    } else {
+      if (result == 3) ++gate3; else if (result == 2) ++gate2; else ++fail4;
+      if ((result == 2 || result == 4) && reqw.y > pos.y) ++ledge;   // the game tries a camera-projection retry here (not modelled)
+      ++fallbacks;
+      Buf clamped = from;
+      int r = seh_straight_move(nav, &from, &req, &clamped);
+      if (r != 1) { stop = "raycast fallback failed"; break; }
+      target = world_pos_of(clamped);
+      corridor.end = corridor.begin;
+      unsigned p2 = last_poly; float l2 = 0; Vec3 f2{}; Buf o2 = clamped;
+      have_corridor = seh_nav_find_path_full(nav, &from, &clamped, kPlayerSnapRadius, &o2, &p2, &l2, &corridor, &f2);
+    }
+    }   // !fast_done
+    // the crowd walks the corridor: head for the first corner that is not where we stand
+    Vec3 corner = target;
+    if (have_corridor && corridor.begin && corridor.end > corridor.begin) {
+      size_t n = (size_t)((char*)corridor.end - (char*)corridor.begin) / 0x18;
+      for (size_t i = 0; i < n && i < 64; ++i) {
+        Buf wv{}; memcpy(wv.b, (char*)corridor.begin + i * 0x18, 0x18);
+        Vec3 c = world_pos_of(wv);
+        if ((c.x - pos.x) * (c.x - pos.x) + (c.z - pos.z) * (c.z - pos.z) > 0.01f * 0.01f) { corner = c; break; }
+      }
+    }
+    float cx = corner.x - pos.x, cz = corner.z - pos.z, cd = std::sqrt(cx * cx + cz * cz);
+    if (cd < 0.02f) { stop = "target is where we stand (the snap pulled it back)"; break; }
+    float step = std::min(sub, cd);
+    Vec3 np{pos.x + cx / cd * step, pos.y + (corner.y - pos.y) * (step / cd), pos.z + cz / cd * step};
+    Buf nw; world_vec_at(np, base, region, nw);
+    if (!(mode & 2)) { Q q(q_floor); g_api.WorldVec3_PutOnFloor(&nw); }
+    // The crowd's safety clamp (Engine+0x25dc6c): an agent that left the mesh is put on its nearest point. Without
+    // it the walk drifted off the mesh rounding a rock and the next request failed (Four Hills, 2026-09-22).
+    if (g_api.FindClosestPointOnPathMesh) {
+      Buf closest = nw;
+      int cr; { Q q(q_close); cr = seh_closest_point(nav, &nw, &closest, 1.0f); }
+      if (cr == 1) {
+        Vec3 c = world_pos_of(closest), s = world_pos_of(nw);
+        if ((c.x - s.x) * (c.x - s.x) + (c.z - s.z) * (c.z - s.z) > 0.01f * 0.01f) { nw = closest; ++clamps; }
+        else if (mode & 2) nw = closest;   // navmesh height instead of the geometry floor
+      } else { stop = "left the mesh"; pos = world_pos_of(nw); break; }
+    }
+    pos = world_pos_of(nw);
+    float rx = pos.x - start.x, rz = pos.z - start.z;
+    float prog = rx * dir_x + rz * dir_z;
+    float lat = rx * -dir_z + rz * dir_x;   // + = right of the key direction (north (0,-1): +x = east = right)
+    if (exit_at < 0 && std::fabs(lat) > h0 + std::max(prog, 0.0f) * tan_a) { exit_at = std::max(prog, 0.0f); exit_lat = lat; if (mode & 8) { stop = "left the shape"; break; } }
+    if (trace && (prog >= next_trace || it < 2)) {
+      steps += std::format("    ({:.2f},{:.2f},{:.2f}) prog={:.2f} lat={:+.2f} res={}{}\n", pos.x, pos.y, pos.z, prog, lat, result,
+                           it == 0 ? std::format(" first_leg=({:.2f},{:.2f},{:.2f}) len={:.2f}", first.x, first.y, first.z, len) : std::string());
+      next_trace = prog + 1.0f;
+    }
+    if (prog >= max_dist) break;
+    if (prog > best_prog + 0.05f) { best_prog = prog; stall = 0; }
+    else if (++stall > (int)(2.0f / sub) + 4) { stop = "no progress along the key"; break; }
+  }
+  if (it >= max_iter) stop = "iteration cap";
+  QueryPerformanceCounter(&t1);
+  float rx = pos.x - start.x, rz = pos.z - start.z;
+  float prog = rx * dir_x + rz * dir_z, lat = rx * -dir_z + rz * dir_x;
+  float dist = exit_at >= 0 ? exit_at : std::clamp(prog, 0.0f, max_dist);
+  if (out_dist) *out_dist = dist;
+  if (out_dist && !trace) return {};   // the tones: the distance only, no report
+  std::string verdict = exit_at >= 0 ? std::format("leaves the shape at {:.1f} to the {}", exit_at, exit_lat > 0 ? "right" : "left")
+                        : prog >= max_dist ? std::string("open") : std::format("stops at {:.1f}", std::max(prog, 0.0f));
+  return std::format("  dir=({:+.2f},{:+.2f}) {} | end ({:.1f},{:.1f},{:.1f}) prog={:.2f} lat={:+.2f} stop='{}' iters={} same_poly={} "
+                     "fallbacks={} (dir-gate {} detour {} fail {} ledge {}) clamps={} fast={} [floor {:.0f} find {:.0f} fastpath {:.0f} closest {:.0f} wv {:.0f}] {:.0f} us\n{}",
+                     dir_x, dir_z, verdict, pos.x, pos.y, pos.z, prog, lat, stop, it, same_poly, fallbacks, gate3, gate2, fail4, ledge, clamps, fast, qus(q_floor), qus(q_find), qus(q_fast), qus(q_close), qus(q_wv),
+                     (double)(t1.QuadPart - t0.QuadPart) * 1e6 / (double)f0.QuadPart, steps);
+}
+float walk_distance(float dir_x, float dir_z, float max_dist, float h0, float deg) {
+  float d = 0.0f;
+  walk_sim(dir_x, dir_z, max_dist, 0.25f, h0, deg, false, &d, 15, 2.0f);
+  return d;
+}
+std::string walk_sim_report(int dirs, float dx, float dz, float max_dist, float sub, float h0, float deg, bool trace) {
+  Vec3 p; if (!player_position(p)) return "no player\n";
+  load_api();
+  void* pl = player();
+  std::string out = std::format("walksim at ({:.2f},{:.2f},{:.2f}) region '{}' max={:.0f} sub={:.2f} shape h0={:.2f} deg={:.0f} detour_ratio={:.2f}\n",
+                                p.x, p.y, p.z, region_name(), max_dist, sub, h0, deg, pl ? seh_read_float((const char*)pl + kPlayerDetourRatioOffset) : -1.0f);
+  if (dirs <= 0) return out + walk_sim(dx, dz, max_dist, sub, h0, deg, trace, nullptr, g_walksim_mode, g_walksim_snap);
+  static const char* names4[] = {"north", "east", "south", "west"};
+  for (int i = 0; i < dirs; ++i) {
+    float a = 6.2831853f * (float)i / (float)dirs;   // 0 = north (-z), clockwise: east = +x
+    float x = std::sin(a), z = -std::cos(a);
+    out += dirs == 4 ? std::format("{}:\n", names4[i]) : std::format("{:.0f} deg:\n", a * 57.29578f);
+    out += walk_sim(x, z, max_dist, sub, h0, deg, trace, nullptr, g_walksim_mode, g_walksim_snap);
+  }
+  return out;
+}
 // dev: the vertical window PutOnFloor+IsPointOnPathMesh accepts at the player's feet -- sweep on_navmesh at
 // (x, foot_y + dy, z) and report the dy range that still reads on-mesh. How far a flat-y ray can be off before
 // it loses the floor.

@@ -43,7 +43,7 @@ float free_distance_ex(float dir_x, float dir_z, float max_dist, float step, boo
 float free_distance_lane(float dir_x, float dir_z, float lateral, float max_dist, float step);
 // Free distance by the navmesh RAYCAST (NavManager::FindStraightMovePoint): exact hit distance along the ray from
 // a point `lateral` units beside the player (positive = left of dir), max `max_dist`; a lane start that is not
-// itself on the mesh reads 0. The wall tones' probe (the point walk above reads holes as walkable; see world.cpp).
+// itself on the mesh reads 0. The harmful-ground lanes' probe; the wall tones' until 2026-09-22 (the point walk above reads holes as walkable; see world.cpp).
 float free_distance_ray(float dir_x, float dir_z, float lateral, float max_dist, Vec3* hit_world);
 // Painted damage sector at a world point (docs/hazards.md): true when the engine's damage layer is painted there;
 // rate = fraction of max life per second (0.02..0.30), type = the CombatAttributeType code (11 = Aether). Any
@@ -52,6 +52,14 @@ bool hazard_at(const Vec3& world_point, float* rate, int* type);
 bool mesh_contains(const Vec3& world_point);   // the floored point is inside the path mesh (closest-point gate, not the box test)
 std::string nav_vwindow(float span, float step);              // dev: PutOnFloor's accepted vertical window at the feet
 std::string wall_compare(int dirs, float max_dist, float step);  // dev: A/B flat vs terrain-following rays around the compass
+// Simulate holding a movement key (the game's own WASD request + snap + fallback) from the player without moving it;
+// the result is the distance along the key before the walk stops or leaves a truncated cone (half-width h0 at the
+// feet, widening deg per side). `mode` bits: 1 no request floor, 2 navmesh step heights, 4 straight fast path (snap
+// search `snap_radius`), 8 stop on leaving the cone. With out_dist and !trace it returns no report.
+std::string walk_sim(float dir_x, float dir_z, float max_dist, float sub, float h0, float deg, bool trace, float* out_dist, int mode, float snap_radius);
+float walk_distance(float dir_x, float dir_z, float max_dist, float h0, float deg);   // the wall tones' probe (mode 15)
+std::string walk_sim_report(int dirs, float dx, float dz, float max_dist, float sub, float h0, float deg, bool trace);   // dev /walksim
+void set_walksim_mode(int m, float snap);   // dev: the /walksim route's mode and fast-path snap radius
 
 // The aerial map's icons -- the game's own map-marker set, read live from the open map (empty when the map
 // is not open). type = the nugget's icon category (state-aware: 0 hero (dropped), 2 person, 3 riftgate,

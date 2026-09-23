@@ -76,7 +76,7 @@ static int key_code(const std::string& name) {
     {"lshift", 0x2a}, {"z", 0x2c}, {"x", 0x2d}, {"c", 0x2e}, {"v", 0x2f}, {"b", 0x30}, {"n", 0x31}, {"m", 0x32},
     {"rshift", 0x36}, {"lalt", 0x38}, {"alt", 0x38}, {"ralt", 0x76}, {"space", 0x39}, {"capslock", 0x3a},
     {"f1", 0x3b}, {"f2", 0x3c}, {"f3", 0x3d}, {"f4", 0x3e}, {"f5", 0x3f}, {"f6", 0x40}, {"f7", 0x41}, {"f8", 0x42}, {"f9", 0x43}, {"f10", 0x44},
-    {"f11", 0x57}, {"f12", 0x58},
+    {"f11", 0x55}, {"f12", 0x56},   // the game's Button enum is NOT DIK above F10 (tools/exports/keynames.txt)
     {"home", 0x78}, {"up", 0x79}, {"pageup", 0x7a}, {"left", 0x7b}, {"right", 0x7c}, {"end", 0x7d}, {"down", 0x7e}, {"pagedown", 0x7f},  // from the game's own key names
     {"lbracket", 0x1a}, {"rbracket", 0x1b}, {"semicolon", 0x27}, {"apostrophe", 0x28}, {"grave", 0x29}, {"backslash", 0x2b},
     {"comma", 0x33}, {"period", 0x34}, {"slash", 0x35}, {"numpadplus", 0x4e}, {"numpadminus", 0x4a},
@@ -288,7 +288,7 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     if (q.count("on")) screens::walltones::set_enabled(truthy(q.at("on")));
     if (q.count("range")) screens::walltones::set_range((float)atof(q.at("range").c_str()));  // world units
     if (q.count("vol")) screens::walltones::set_gain((float)atof(q.at("vol").c_str()));        // 0..1
-    if (q.count("lanes")) screens::walltones::set_lanes(parse_int(q.at("lanes"), 2));            // side lanes each way (0 = single ray)
+    if (q.count("h0") || q.count("deg")) screens::walltones::set_shape(q.count("h0") ? (float)atof(q.at("h0").c_str()) : -1.0f, q.count("deg") ? (float)atof(q.at("deg").c_str()) : -1.0f);
     if (q.count("trim")) {   // loudness trims: trim=off | trim=default | trim=<n|e|s|w>,<dB>
       const std::string& t = q.at("trim");
       if (t == "off") screens::walltones::set_trim(-1, 0);
@@ -347,6 +347,12 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     return world::wall_compare(q.count("dirs") ? parse_int(q.at("dirs"), 16) : 16,
                                q.count("max") ? (float)atof(q.at("max").c_str()) : 15.0f,
                                q.count("step") ? (float)atof(q.at("step").c_str()) : 0.5f);
+  if (path == "/walksim") {   // dev: simulate holding a key -- ?dirs=4|8|16 (0 = use dx,dz) &max=10 &sub=0.25 &h0=1.5 &deg=20 &trace=1
+    auto f = [&](const char* k, float d) { return q.count(k) ? (float)atof(q.at(k).c_str()) : d; };
+    if (q.count("mode")) world::set_walksim_mode(parse_int(q.at("mode"), 0), f("snap", 0));
+    return world::walk_sim_report(q.count("dirs") ? parse_int(q.at("dirs"), 4) : (q.count("dx") ? 0 : 4), f("dx", 0), f("dz", -1),
+                                  f("max", 10.f), f("sub", 0.25f), f("h0", 1.5f), f("deg", 20.f), q.count("trace") ? truthy(q.at("trace")) : true);
+  }
   if (path == "/vwindow")   // dev: PutOnFloor vertical window at the feet -- /vwindow?span=20&step=0.5
     return world::nav_vwindow(q.count("span") ? (float)atof(q.at("span").c_str()) : 20.0f,
                               q.count("step") ? (float)atof(q.at("step").c_str()) : 0.5f);

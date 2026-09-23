@@ -14,10 +14,10 @@ void set_enabled(bool on);
 bool enabled();
 void set_range(float units);  // wotr default 15 ft = 4.57 units
 void set_gain(float gain);    // 0..1
-void set_lanes(int n);   // lanes each side of the centre ray (0 = the old single ray); half-width = n * 0.5 u
 void set_trim(int dir, float db);   // loudness trims: dir 0..3 (north east south west) in dB; -1 = all off, -2 = defaults
 float trim_gain(int dir);   // the current loudness trim as a linear gain (dir 0..3), for the sound glossary
 std::string status();
-std::string probe_timing(int iters);  // dev: time one tick's navmesh probing (4 free_distance rays)
+std::string probe_timing(int iters);  // dev: time one tick's probing (the four walk simulations)
+void set_shape(float h0, float deg);   // the walk's truncated cone: half-width at the feet, widening per side (degrees)
 }  // namespace walltones
 }  // namespace gd::screens

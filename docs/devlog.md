@@ -882,3 +882,20 @@ CLAUDE.md "Traps and lessons"; the mechanism docs are `docs/*.md`.
   SmartScreen / the exclusion scope / the parent process is responsible, the button is gone: the installer's closing
   dialog already points at the shortcut. `installer/src/gui.rs` only; `paths::launcher_path` stays (the
   installed-check uses it).
+
+## 2026-09-22 -- wall tones: the walk probe replaces the rectangle
+- The user's report: a wall tone north at the foot of the Four Hills rope bridge, which is walkable. Cause: the bridge
+  runs ~28 degrees east of the tones' north axis and is ~2 u wide, so every lane of the straight rectangle hit its
+  west rail within 2-5 u. The tones now simulate holding each key instead (`world::walk_sim`, the game's own WASD
+  request + snap + fallback; docs/re_wall_sliding.md section 8) and read the distance along the key before the walk
+  stops or leaves a truncated cone (the user's shape: 1.5 u at the feet, 20 degrees per side). Simulated paths match
+  the real character to hundredths of a unit at the bridge and at the Burrwitch rock pile. ~0.7 ms per frame.
+- F12 toggled walk / rectangle for an A/B by ear; the user kept the walk and the rectangle and F12 were removed the
+  same day. Knobs `/walltones?h0=&deg=`; dev route `/walksim` (modes, trace, per-call timers). The dev server's f11/f12 key names were DIK codes (0x57/0x58), now the
+  game's 0x55/0x56.
+- A hot reload in the world crashed once in `ScreenManager::resolve` (a screen's is_active) on the first frame after
+  re-inject; no fault record; the next reloads were fine. Unexplained.
+- Reading a route for the player: `/findpath?x=&z=&y=&corridor=1` gives the navmesh corridor even when `Player::FindPath`
+  refuses it (result 2 = the detour-ratio gate, Player+0x4bf0 = 2.5: a route longer than 2.5x the straight line; the
+  Rotting Croplands Detonation Site on its ledge was 193 u for 34 u straight). Neither WASD nor a click will take such a
+  route; the corridor sampled against the rooms grid names the rooms it crosses.

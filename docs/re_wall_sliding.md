@@ -187,3 +187,36 @@ Influencing movement:
 - Agent flag bits at +0x44 and `CrowdAgentDepenetrate` (gate agent-vs-agent only).
 - Live confirmation of the 1.25 u look-ahead and the 1.0/0.5 u gate (constants re-read from the images 2026-09-01;
   behaviour not yet observed).
+
+## 8. Walk simulation: the wall tones' probe since 2026-09-22
+
+The only wall-tone probe (the lane rectangle of section 7 and its F12 A/B toggle were removed the same day, after the
+user confirmed the walk by ear on the bridge and on a Rotting Croplands ledge route).
+
+The rectangle (section 7) answers "is a straight strip ahead clear"; the question the tones ask is "if I hold this
+key, where do I go". `world::walk_sim` answers it by replaying sections 1-4 from the player's position without moving
+anyone: request the point 1.25 u ahead, run `NavManager::FindPath` with snap radius 10 and the WASD gates of
+`CharacterMovementManager::FindPath` (Game+0x8dfd0: gates skipped when the destination polygon equals the previous
+request's; result 3 when the first leg's dot with the request direction is below 0; result 2 when a path of 15 u or
+more exceeds the detour ratio at Player+0x4bf0, read 2.5), on any failure fall back to `FindStraightMovePoint`, then
+advance 0.25 u along the corridor's first leg and apply the crowd's safety clamp (the nearest mesh point when the step
+left the mesh; without it a walk rounding a rock drifted off the mesh and wrongly stopped). A direction's distance is
+the progress along the key before the walk stops, or before it leaves a truncated cone (half-width 1.5 u at the feet,
+widening 20 degrees per side; the width at the feet keeps a hop round an adjacent corner from reading as a wall).
+
+Verified live 2026-09-22 against the real character holding the key (dev route `/walksim`, script-driven holds):
+Four Hills rope bridge foot (-871.3, -104.7), where the old tone put a wall 3.3 u north on a walkable bridge -- W
+slides onto the deck and follows it ~28 degrees east of north, simulated and real paths within a few hundredths of a
+unit over 15 u; D also carries you north over the bridge (~60 degrees off the key; the cone calls it a wall at 1.9);
+A slides 3 u north round a rock pile and continues west, matching once the clamp was added. Burrwitch rock pile
+(-459.5, -951.5): W and A do not move the character at all, and the simulation stops at 0 in both.
+
+Cost: `World::PutOnFloor` (~5 us) dominates. The tones run mode 15: the request keeps the current height and steps
+take the navmesh height from the clamp's closest-point query (~0.3 us) instead of the geometry floor; a request that
+needs no snap and has a clear raycast to it skips FindPath (the straight path it would return); the walk stops when
+it leaves the cone. Identical paths to the unoptimized walk at the bridge; ~0.7 ms per frame for four directions to
+10 u (open ground ~60 us per direction; a slide ~7 us per step, all in FindPath's own floor lookup). A 0.5 u step
+breaks fidelity (the rock-pile walk stopped falsely at 9.2). Not modelled: the ledge camera-projection retry (counted
+in the report), agent-vs-agent separation. Not yet checked: gaps narrower than a quarter-unit step, stairs and steep
+ground under the height shortcut. Calling Detour's findNearestPoly / raycast by Engine.dll RVA would drop the slide
+cost ~10x but adds patch-fragile addresses (declined for now).
