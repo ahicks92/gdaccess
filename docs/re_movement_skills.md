@@ -45,8 +45,10 @@ Every player skill press goes through it (`ControllerPlayer::SendSkillAction` 0x
 2. Gamepad aim block (0x1509fc..0x150c69): the only navmesh call the request makes on its own,
    `NavManager::FindStraightMovePointOnSlopes` at 0x150c4f. Skipped whenever a target id is present and gated on
    `Options::GetInt(0xd)` (movementType) plus `MoveToPointSkill()`. Mouse/keyboard play with a target never enters it.
-3. Target by `GetTargetType()`: 2 (offensive) takes the cursor target `[controller+0x468]`; if 0 and the combat enemy
-   `+0x46c` is set but `skill->vt[0x5a0]()` false -> return false. 3 uses `+0x46c`, 1 the caster, 4 `+0x468`.
+3. Target by `GetTargetType()`: 2 (offensive) takes the combat ENEMY `[controller+0x468]` (`SetCombatEnemy` writes it;
+   corrected 2026-09-23, this line had enemy and ally swapped); if 0 and the combat ALLY `+0x46c` (`SetCombatAlly`) is
+   set but `skill->vt[0x5a0]()` false -> return false. 3 uses `+0x46c`, 1 the caster, 4 `+0x468`. The id argument is
+   overwritten by these (kept only for type 0).
 4. Availability `*(int*)(skill+0xb0)`: 2 = not enough mana (`Player::PlayNotEnoughManaVox`), any nonzero -> false.
 5. `skill->vt[0x4b0]` = `GetValidTarget`. Enemy-targeted: `SkillActivatedWeapon::GetValidTarget` (0x505e20) ->
    `Skill::GetValidMeleeTarget` (0x4829a0) -> `Skill::ValidateEnemy` (0x4827b0): Destructible ok, else must be a
@@ -176,8 +178,8 @@ sites in Game.dll finds none on any movement path.
 - `Character`/`Player` vtable: +0x1c8 collision radius, +0x1f8 `Actor::SetVisibility`, +0x428 TeleportToLocation, +0x458
   GetActionState, +0x460 IsAlive, +0x550 CanMoveTo. `Character+0xdc0` = `CharacterMovementManager*`, +0xdc8 charging byte,
   +0xdcc jump speed scale, +0xdd8 jump start, +0xdf0 jump destination.
-- `ControllerPlayer`: +0x430 repeat flag, +0x458..+0x464 joystick dir + magnitude, +0x468 cursor target id, +0x46c combat
-  enemy id, +0x510 stored move/target WorldVec3. Player-state vtable: +0x10 CloseEnoughToUseSkill, +0x18 MaxSkillDistance,
+- `ControllerPlayer`: +0x430 repeat flag, +0x458..+0x464 joystick dir + magnitude, +0x468 combat enemy id, +0x46c combat
+  ally id (corrected 2026-09-23), +0x43c / +0x440 mouse repeat data (id, WorldVec3: what a hot slot fires at), +0x510 stored move/target WorldVec3. Player-state vtable: +0x10 CloseEnoughToUseSkill, +0x18 MaxSkillDistance,
   +0x70 EndOfPathReached, +0x78 PathFailed, +0x220 OnBegin, +0x258 GetSkillUseTolerance (0.5), +0x260 RequestSkillAction.
 - `GetSkillProfile()+0xe80` is compared against 1 and 3 in the base fix-up -- almost certainly targetingMode (UNCONFIRMED).
 

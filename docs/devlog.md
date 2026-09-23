@@ -918,3 +918,47 @@ CLAUDE.md "Traps and lessons"; the mechanism docs are `docs/*.md`.
   (`TypeAheadSearch::add_codepoint`, surrogate pairs combined), backspace removes a whole UTF-8 sequence, and the
   repeat-letter cycle compares code points. Tests: accented and Cyrillic letters (tests/typeahead_tests.cpp). Not
   verified with a real non-English keyboard layout: the typed text is the game's own per-key character.
+
+## 2026-09-23 -- the route ping rebuilt, and direct aim (F12)
+- The review ping's three cues came from wotr-access, but the port kept only the names: WotR probed sight first, then a
+  real path search. Grimdark sampled the straight line every half unit with `IsPointOnPathMesh` (a bounding-box test)
+  and called the target "unreachable" when its own spot failed that test. No path search, no sight test. So players
+  walked to "unreachable" things and hit "path around" ones.
+- Measured with the new dev route `/hitlos[?max=&ring=1]` (monsters plus 120 ground samples), in the FG hub and
+  Burrwitch Outskirts: "straight" was always hittable; "path" was hittable 11/15 and 26/31 times; "unreachable" about
+  half the time. `Skill::IsTargetInLOS` (Game.dll 0x4830e0 by id, 0x483380 by point; `this` is never read) is the
+  game's spell/projectile sight test: a ray from a named point on the caster through `World::CheckLOS`. It is not the
+  camera. Clicking is the camera pick ray (`/los?id=`); outdoors that is rarely blocked, but 5 of 13 hub guards were
+  simply off the window.
+- `world::route_kind` checks in this order:
+  - unreachable: `NavManager::FindPath` fails, or its endpoint is more than 1.5 u (plus the target's footprint) away
+    or 1.5 u off in height. The same arrival gate as the rooms exits.
+  - straight: `IsTargetInLOS` is clear and the path is at most 1.2x the straight distance + 1 u.
+  - path: anything else.
+  It costs 36-85 us per check (still every frame in `reping_tick`). Not tuned by ear yet.
+- A fourth cue, "can't click" (off the window or the camera ray blocked, `review_los.wav`), was built and dropped the
+  same day, never released: direct aim makes clickability irrelevant.
+- Direct aim (`world::direct_aim_apply`, always on; an F12 A/B toggle and `/directaim` existed while the user played with
+  it and were removed the same day, as was the old half-unit ping probe). Static RE: every
+  skill request reads the controller's combat enemy +0x468 (`SetCombatEnemy`; for target types 2/4
+  `DefaultRequestSkillAction` ignores its id argument) and a hot slot fires at the mouse repeat data (+0x43c id,
+  +0x440 WorldVec3, `SetMouseRepeatData`), which the exe writes from the cursor pick on every mouse event. The pick is
+  exe code with no single store, and its Engine calls are shared, so it is not a clean seam. `docs/re_movement_skills.md`
+  had +0x468 / +0x46c swapped: +0x46c is the combat ALLY. The mod now:
+  - hooks `HotSlotOptionSkill::Activate` (Game.dll 0x3077a0, a unique body) and writes both fields for the locked
+    target right before a slot fires;
+  - makes the `HandleActionFromMouse` hook substitute the locked id and position.
+  The game's range, walk, clamp and vox rules all still apply. The real cursor keeps its old placement (on the target
+  when shown, else where the line to it meets the window's edge), because the exe drops a mouse event whose pick finds
+  nothing.
+- Verified live on `claude`, Weapon Attack in quickbar slot 1, training dummies 25-28 u away and off screen:
+  - off: key 1 swung in place;
+  - on: key 1 walked 23 u and attacked;
+  - on: J (pressed at the window's edge, pixel 4,651) walked 28 u and attacked.
+  Not verified: I, a held slot key, a real spell, Sky Shard / Seal placement, a locked point (exit), the sticky target
+  during a mouse hold. The game's own hover (the HUD target name, highlights) still follows the real cursor.
+  The user then played with it (the same day) and chose it as the targeting model.
+- Shift is passed to the game in the world (its Hold Position key: the exe's key action sets X+0x848 on down,
+  exe+0x27020, and clears it on up, exe+0x26c41; `HandleActionFromMouse` then stops movement and acts in place), and J / I
+  no longer refuse to fire while Shift is held (Ctrl / Alt still block them). With the game's Classic Casting option a plain
+  press walks into a spell's range and Shift casts in place. Not verified live.

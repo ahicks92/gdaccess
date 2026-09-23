@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <map>
 #include <cstdint>
 #include <cstring>
 #include <format>
@@ -25,6 +26,7 @@
 
 namespace gd::world {
 using namespace gd::names;
+bool direct_aim_apply(void* ctrl, unsigned* id_out, void* wv_out);   // the direct-aim experiment (defined with the lock)
 namespace {
 // ---- instances captured from per-frame members ----
 void* g_game_engine = nullptr;
@@ -75,7 +77,16 @@ bool HandleActionFromJoystick_hook(void* self, const void* wv, bool b) {
   if (++g_c_joystick % 60 == 1 || b) log::writef("target: HandleActionFromJoystick({}, {}) -> {} <- {} [#{}]", wv_text(wv), b, r, caller_module(_ReturnAddress()), g_c_joystick);
   return r;
 }
+typedef void (*HotSlotActivate_t)(void*, bool, bool, bool*, bool*, bool);
+HotSlotActivate_t HotSlotActivate_hook_orig;
+void HotSlotActivate_hook(void* self, bool a, bool b, bool* c, bool* d, bool e) {
+  direct_aim_apply(g_controller, nullptr, nullptr);
+  HotSlotActivate_hook_orig(self, a, b, c, d, e);
+}
 bool HandleActionFromMouse_hook(void* self, bool a, bool b, bool c, bool d, const void* wv, unsigned* id, bool* flag) {
+  alignas(16) unsigned char sub[0x20] = {};
+  unsigned sid = 0;
+  if (id && direct_aim_apply(self, &sid, sub)) { *id = sid; wv = sub; }
   unsigned before = id ? *id : 0;
   bool r = HandleActionFromMouse_hook_orig(self, a, b, c, d, wv, id, flag);
   if (++g_c_mouse % 60 == 1 || a || b)
@@ -222,6 +233,8 @@ struct Api {
   MsvcStringW* (*Player_GetRolloverDescription)(const void*, MsvcStringW*) = nullptr;
   MsvcStringW* (*Item_GetGameDescription)(const void*, MsvcStringW*, bool, bool) = nullptr;
   void (*SetCombatEnemy)(void*, unsigned) = nullptr;
+  void (*SetCombatAlly)(void*, unsigned) = nullptr;
+  void (*SetMouseRepeatData)(void*, unsigned, const void*) = nullptr;   // controller +0x43c id, +0x440 WorldVec3
   unsigned (*GetCombatEnemy)(const void*) = nullptr;
   void (*ClearTarget)(void*) = nullptr;
   void (*FaceTarget)(void*, unsigned) = nullptr;
@@ -247,6 +260,10 @@ struct Api {
   void* (*GetRayThroughImagePoint)(const void*, void*, const void*, const void*) = nullptr;  // WorldCamera: hidden WorldRay return {Region*, Vec3 origin, pad, Vec3 dir}
   void (*World_GetIntersection)(const void*, const void*, void*, int, bool, float, bool) = nullptr;  // (ray, WorldIntersection& out, PhysicsSurface, skip_entities, max_dist, bool)
   void (*World_GetAllIntersections)(const void*, const void*, void*, bool, float) = nullptr;   // (ray, mem::vector<Entity*>&, bool, max_dist)
+  // Skill::IsTargetInLOS (Game.dll 0x483380 / 0x4830e0, read 2026-09-23): `this` is never read; a ray from a named
+  // point on the caster (Character vt+0x178) to the target through World::CheckLOS (the level's collision).
+  bool (*Skill_IsTargetInLOS_Id)(const void* skill, const void* character, unsigned id) = nullptr;
+  bool (*Skill_IsTargetInLOS_Point)(const void* skill, const void* character, const void* worldvec3) = nullptr;
   void (*SetZoom)(void*, float) = nullptr;               // GameCamera::SetZoom(value in the camera's zoom range)
   void (*ResetZoom)(void*) = nullptr;
   void (*SetCameraYaw)(void*, float) = nullptr;          // GameCamera::SetCameraYaw (radians)
@@ -351,6 +368,8 @@ void load_api() {
   LOAD(Player_GetRolloverDescription, Player_GetRolloverDescription);
   LOAD(Item_GetGameDescription, Item_GetGameDescription);
   LOAD(SetCombatEnemy, ControllerPlayer_SetCombatEnemy);
+  LOAD(SetCombatAlly, ControllerPlayer_SetCombatAlly);
+  LOAD(SetMouseRepeatData, ControllerPlayer_SetMouseRepeatData);
   LOAD(GetCombatEnemy, ControllerPlayer_GetCombatEnemy);
   LOAD(ClearTarget, ControllerPlayer_ClearTarget);
   LOAD(FaceTarget, ControllerPlayer_FaceTarget);
@@ -374,6 +393,8 @@ void load_api() {
   LOAD(GetRayThroughImagePoint, WorldCamera_GetRayThroughImagePoint);
   LOAD(World_GetIntersection, World_GetIntersection);
   LOAD(World_GetAllIntersections, World_GetAllIntersections);
+  LOAD(Skill_IsTargetInLOS_Id, Skill_IsTargetInLOS_Id);
+  LOAD(Skill_IsTargetInLOS_Point, Skill_IsTargetInLOS_Point);
   LOAD(SetZoom, GameCamera_SetZoom);
   LOAD(ResetZoom, GameCamera_ResetZoom);
   LOAD(SetCameraYaw, GameCamera_SetCameraYaw);
@@ -596,7 +617,7 @@ bool install() {
   g_hooks = {GD_HOOK(GameEngine_Update, GameEngineUpdate), GD_HOOK(ControllerPlayer_Update, ControllerPlayerUpdate), GD_HOOK(World_Update, WorldUpdate),
              GD_HOOK(ControllerPlayer_SetCombatEnemy, SetCombatEnemy_hook), GD_HOOK(ControllerPlayer_FaceTarget, FaceTarget_hook),
              GD_HOOK(ControllerPlayer_ClearTarget, ClearTarget_hook), GD_HOOK(ControllerPlayer_HandleActionFromJoystick, HandleActionFromJoystick_hook),
-             GD_HOOK(ControllerPlayer_HandleActionFromMouse, HandleActionFromMouse_hook),
+             GD_HOOK(ControllerPlayer_HandleActionFromMouse, HandleActionFromMouse_hook), GD_HOOK(HotSlotOptionSkill_Activate, HotSlotActivate_hook),
              GD_HOOK(Conversation_GetText, ConvGetText_hook), GD_HOOK(Conversation_GetSteps, ConvGetSteps_hook)};
   g_conv_api.GetType = fn<decltype(g_conv_api.GetType)>(ConversationStep_GetType_DLL, ConversationStep_GetType);
   g_conv_api.GetTypeTag = fn<decltype(g_conv_api.GetTypeTag)>(ConversationStep_GetTypeTag_DLL, ConversationStep_GetTypeTag);
@@ -1924,6 +1945,39 @@ bool project_point(const Vec3& world_point, float& x, float& y) {
 }
 }  // namespace
 
+// ---- direct aim (2026-09-23): the locked target handed to the game itself ----
+// Hand the game the locked target itself instead of relying on the cursor being on it, so an off-screen target
+// still gets the skill. Every skill request reads two controller fields at request time (static RE, subagent
+// report 2026-09-23): the combat enemy +0x468 (SetCombatEnemy; DefaultRequestSkillAction takes it for target
+// types 2/4 and ignores its id argument) and the mouse repeat data +0x43c id / +0x440 WorldVec3 (the point a hot
+// slot's HotSlotOptionSkill::Activate fires at). The mouse path passes its own point and id to
+// HandleActionFromMouse. We write both fields right before a hot slot activates and substitute the mouse call's
+// arguments; everything downstream (range clamp, walk, charge refusal, vox, held repeat) stays the game's. The real
+// cursor is still parked on the target (or where the line to it meets the window's edge): the exe drops a mouse
+// event whose pick finds nothing, and its hover (the HUD target name, highlights) follows the cursor.
+bool direct_aim_apply(void* ctrl, unsigned* id_out, void* wv_out) {
+  if (!ctrl || !g_api.SetCombatEnemy || !g_api.SetMouseRepeatData) return false;
+  Buf wv{};
+  unsigned id = 0;
+  if (g_locked_id && !is_point_id(g_locked_id)) {
+    void* e = find_entity(g_locked_id);
+    if (!e || !entity_world_vec(e, wv)) return false;
+    id = g_locked_id;
+  } else if (g_point_locked || g_free_cursor) {
+    if (!world_vec3_at(g_point_locked ? g_locked_point : g_free_point, wv.b)) return false;
+  } else {
+    return false;
+  }
+  g_api.SetMouseRepeatData(ctrl, id, wv.b);
+  g_api.SetCombatEnemy(ctrl, id);
+  if (g_api.SetCombatAlly) g_api.SetCombatAlly(ctrl, 0);
+  if (id_out) *id_out = id;
+  if (wv_out) memcpy(wv_out, wv.b, 0x18);
+  static int logged = 0;
+  if (logged++ < 40) log::writef("directaim: id {} at {}", id, wv_text(wv.b));
+  return true;
+}
+
 bool lock_target(unsigned id) {
   void* e = find_entity(id);
   if (!e) return false;
@@ -2695,28 +2749,141 @@ bool world_point(const void* worldvec3, Vec3& out) {
   return true;
 }
 
-// The route kind for the reviewed target ("straight" / "path" / "unreachable") and its world position, or ""
-// when nothing is reviewed (or the target's position can't be read this frame). No sound -- reping_tick
-// compares this frame to frame and ping_reviewed turns it into a played cue.
-// Route kind from the player to an arbitrary target point: every half unit of the straight line on the
-// navmesh = straight walk; the target's own spot walkable but the line not = path around; the target off the
-// mesh = unreachable (a cliff, water, inside a wall). Shared by the review cursor and the follow target.
-static std::string route_kind_to(const Vec3& me, const Vec3& target) {
-  float dx = target.x - me.x, dz = target.z - me.z;
-  float dist = std::sqrt(dx * dx + dz * dz);
-  const char* kind = "unreachable";
-  Vec3 near_target{target.x - (dist > 0.5f ? dx / dist * 0.5f : 0), target.y, target.z - (dist > 0.5f ? dz / dist * 0.5f : 0)};
-  if (on_navmesh(near_target) || on_navmesh(target)) {
-    bool straight = true;
-    float y = me.y;   // hug the terrain (PutOnFloor's ~4.8u down-window loses a rise otherwise; see free_distance)
-    for (float d = 0.5f; d < dist - 0.5f; d += 0.5f) {
-      Vec3 s{me.x + dx / dist * d, y, me.z + dz / dist * d}, floored;
-      if (!navmesh_probe(s, &floored)) { straight = false; break; }
-      y = floored.y;
-    }
-    kind = straight ? "straight" : "path";
+// ---- the route ping (; and every landing on a reviewed thing; ' toward the follow target) ----
+// Three outcomes over Grim Dawn's own tests (2026-09-23, docs/controls.md). WotR's fourth, blocked sight, is not
+// needed: skills take the locked target directly (direct aim), on screen or not.
+//   unreachable  NavManager::FindPath does not ARRIVE: Detour snaps a target it cannot reach onto the nearest
+//                polygon and still reports a complete path, so the endpoint is gated by distance and floor height.
+//   straight     the character's own line of sight is clear (Skill::IsTargetInLOS, what spells and Sky Shard
+//                test) and the navmesh path is barely longer than the straight line.
+//   path         reachable, but around something.
+namespace {
+constexpr float kRouteReachTol = 1.5f;     // FindPath endpoint to target, beyond the target's own footprint
+constexpr float kRouteFloorTol = 1.5f;     // endpoint vs target height: more = it never got to that floor
+constexpr float kRouteDirectRatio = 1.2f;  // path length <= straight * ratio + slack reads "straight"
+constexpr float kRouteDirectSlack = 1.0f;
+bool seh_route_los_id(const void* ch, unsigned id, bool& out) {
+  static const unsigned char dummy[0x800] = {};   // Skill::IsTargetInLOS never reads `this` (Game.dll 0x4830e0)
+  __try { out = g_api.Skill_IsTargetInLOS_Id(dummy, ch, id); return true; }
+  __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+bool seh_route_los_point(const void* ch, const void* wv, bool& out) {
+  static const unsigned char dummy[0x800] = {};
+  __try { out = g_api.Skill_IsTargetInLOS_Point(dummy, ch, wv); return true; }
+  __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+// The character's line of sight to an entity id (its own aim point) or a ground point (floored, +1 u = a body's
+// centre). An API failure reads clear: this tier only splits straight from path.
+bool route_sight(unsigned id, const Vec3& target) {
+  void* pl = player();
+  if (!pl) return true;
+  bool los = true;
+  if (id && !is_point_id(id)) {
+    if (g_api.Skill_IsTargetInLOS_Id && seh_route_los_id(pl, id, los)) return los;
+    return true;
   }
-  return kind;
+  Buf base; void* region = nullptr;
+  if (!g_api.Skill_IsTargetInLOS_Point || !player_world_vec(base, &region)) return true;
+  Buf wv; world_vec_at(target, base, region, wv);
+  if (g_api.WorldVec3_PutOnFloor) g_api.WorldVec3_PutOnFloor(&wv);
+  float y; memcpy(&y, wv.b + 12, sizeof y); y += 1.0f; memcpy(wv.b + 12, &y, sizeof y);
+  return seh_route_los_point(pl, &wv, los) ? los : true;
+}
+}  // namespace
+static std::string route_kind(const Vec3& me, const Vec3& target, unsigned id) {
+  std::vector<Vec3> corridor;
+  if (!find_path_corridor(target, corridor)) return "unreachable";
+  float reach = kRouteReachTol;
+  if (id && !is_point_id(id)) {   // a prop / chest / shrine is itself an obstacle: the path ends at its edge
+    if (void* e = find_entity(id)) {
+      BBoxRaw bb{};
+      if (read_bbox(e, bb) && bb.ok) reach += std::min(3.0f, std::max(std::fabs(bb.v[3]), std::fabs(bb.v[5])));
+    }
+  }
+  const Vec3& end = corridor.back();
+  if (std::hypot(end.x - target.x, end.z - target.z) > reach || std::fabs(end.y - target.y) > kRouteFloorTol) return "unreachable";
+  float len = 0;
+  Vec3 prev = me;
+  for (const Vec3& p : corridor) { len += std::hypot(p.x - prev.x, p.z - prev.z); prev = p; }
+  float direct = std::hypot(target.x - me.x, target.z - me.z);
+  if (len <= direct * kRouteDirectRatio + kRouteDirectSlack && route_sight(id, target)) return "straight";
+  return "path";
+}
+// Dev (/hitlos): the route ping's probes side by side. Per live Monster within max, and with ring=1 per ground sample
+// on rings round the player (every 15 deg at 4/8/12/16/20 u). kind = route_kind (the ping); ray = the navmesh raycast
+// reaches the target (free_distance_ray); stand = mesh_contains(target);
+// los = Skill::IsTargetInLOS (for a ground sample the point floored + 1 u, roughly a body's centre).
+std::string hit_los_dump(float max_dist, bool ring) {
+  load_api();
+  void* pl = player();
+  Vec3 me;
+  if (!pl || !player_position(me)) return "no player\n";
+  if (!g_api.Skill_IsTargetInLOS_Id || !g_api.Skill_IsTargetInLOS_Point || !g_api.Region_GetEntitiesInSphere) return "api missing\n";
+  Buf base; void* region = nullptr;
+  if (!player_world_vec(base, &region)) return "no region\n";
+  std::map<std::string, int> tally;   // "ray/los -> kind" -> count
+  auto walk = [&](const Vec3& t, float d, std::string& ray_kind, bool& stand) {
+    stand = mesh_contains(t);
+    float dx = t.x - me.x, dz = t.z - me.z;
+    float fd = d > 0.01f ? free_distance_ray(dx / d, dz / d, 0.0f, d, nullptr) : 0.0f;
+    ray_kind = fd >= d - 0.5f ? "straight" : (stand ? "path" : "unreach");
+  };
+  struct Row { float d; std::string text; };
+  std::vector<Row> rows;
+  alignas(16) unsigned char vb[64] = {};
+  MemVec* v = (MemVec*)vb;
+  const Vec3* rp = g_api.WorldVec3_GetRegionPosition(&base);
+  struct { Vec3 c; float r; } sphere{*rp, max_dist};
+  g_api.Region_GetEntitiesInSphere(region, v, &sphere, false, 0);
+  size_t n = 0;
+  if (v->begin && v->end && (uintptr_t)v->end > (uintptr_t)v->begin && (uintptr_t)v->end - (uintptr_t)v->begin < (1u << 20))
+    n = (size_t)((char*)v->end - (char*)v->begin) / sizeof(void*);
+  for (size_t i = 0; i < n && i < 4096; ++i) {
+    void* e; memcpy(&e, (char*)v->begin + i * sizeof(void*), sizeof e);
+    if (!e) continue;
+    EntityRaw r{};
+    if (!read_entity(e, r) || !r.has_pos) continue;
+    std::string cls = rtti_name(r.ci);
+    if (cls != "Monster" || (g_api.Character_IsAlive && !g_api.Character_IsAlive(e))) continue;
+    float dx = r.pos.x - me.x, dz = r.pos.z - me.z, d = std::sqrt(dx * dx + dz * dz);
+    if (d > max_dist || d < 0.5f) continue;
+    std::string rk; bool stand = false;
+    walk(r.pos, d, rk, stand);
+    bool los = false;
+    std::string los_s = seh_route_los_id(pl, r.id, los) ? (los ? "clear" : "BLOCKED") : "faulted";
+    std::string nk = route_kind(me, r.pos, r.id);
+    ++tally["monster " + rk + "/" + los_s + " -> " + nk];
+    rows.push_back({d, std::format("{:5.1f} dy={:+5.1f} id={:<8} kind={:<11} ray={:<9} los={:<8} '{}' {}", d, r.pos.y - me.y, r.id, nk, rk, los_s,
+                                   entity_label(e, r.ci, cls), r.name)});
+  }
+  std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) { return a.d < b.d; });
+  std::string s = std::format("player at ({:.1f},{:.1f},{:.1f}), {} live monsters within {:.0f}\n", me.x, me.y, me.z, rows.size(), max_dist);
+  for (auto& r : rows) s += r.text + "\n";
+  if (ring) {
+    std::string pts;
+    for (float d : {4.0f, 8.0f, 12.0f, 16.0f, 20.0f}) {
+      for (int a = 0; a < 24; ++a) {
+        float ang = (float)a * 3.14159265f / 12.0f;
+        Vec3 t{me.x + std::sin(ang) * d, me.y, me.z + std::cos(ang) * d};
+        Buf wv; world_vec_at(t, base, region, wv);
+        if (g_api.WorldVec3_PutOnFloor) g_api.WorldVec3_PutOnFloor(&wv);
+        Vec3 fl = world_pos_of(wv);
+        t.y = fl.y;
+        std::string rk; bool stand = false;
+        walk(t, d, rk, stand);
+        float y1; memcpy(&y1, wv.b + 12, sizeof y1); y1 += 1.0f; memcpy(wv.b + 12, &y1, sizeof y1);
+        bool los = false;
+        std::string los_s = seh_route_los_point(pl, &wv, los) ? (los ? "clear" : "BLOCKED") : "faulted";
+        std::string nk = route_kind(me, t, 0);
+        ++tally["ground " + rk + "/" + los_s + " -> " + nk];
+        pts += std::format("  ring d={:<4.0f} deg={:<5.0f} dy={:+5.1f} kind={:<11} ray={:<9} stand={} los={}\n", d, ang * 57.2958f, t.y - me.y, nk, rk, stand ? 1 : 0, los_s);
+      }
+    }
+    s += pts;
+  }
+  s += "tally (ray/los -> kind):\n";
+  for (auto& [k, c] : tally) s += std::format("  {:4}  {}\n", c, k);
+  return s;
 }
 static std::string reviewed_route(Vec3& me, Vec3& target) {
   if (!g_reviewed_id) return {};
@@ -2729,7 +2896,7 @@ static std::string reviewed_route(Vec3& me, Vec3& target) {
     if (!e || !entity_world_vec(e, wv)) return {};
     target = world_pos_of(wv);
   }
-  return route_kind_to(me, target);
+  return route_kind(me, target, g_reviewed_id);
 }
 
 static std::string g_last_ping_kind;   // the kind reping_tick last sounded, for g_last_ping_id
@@ -2778,7 +2945,7 @@ std::string follow_ping() {
     Buf wv;
     if (e && entity_world_vec(e, wv)) { target = world_pos_of(wv); g_follow_pos = target; }
   }
-  std::string kind = route_kind_to(me, target);
+  std::string kind = route_kind(me, target, g_follow_id);
   float pan, vol, ahead;
   ear_frame(target, pan, vol, &ahead);
   gd::audio::play_sample(gd::audio::module_dir() + "assets\\audio\\review_" + kind + ".wav", vol, pan, rear_shelf_db(ahead));

@@ -52,6 +52,15 @@ inline constexpr const char* ControllerPlayer_HandleActionFromJoystick = "?Handl
 // public: bool __cdecl GAME::ControllerPlayer::HandleActionFromMouse(bool,bool,bool,bool,class GAME::WorldVec3 const & __ptr64,unsigned int & __ptr64,bool * __ptr64) __ptr64
 inline constexpr const char* ControllerPlayer_HandleActionFromMouse_DLL = "Game.dll";
 inline constexpr const char* ControllerPlayer_HandleActionFromMouse = "?HandleActionFromMouse@ControllerPlayer@GAME@@QEAA_N_N000AEBVWorldVec3@2@AEAIPEA_N@Z";
+// public: virtual void __cdecl GAME::HotSlotOptionSkill::Activate(bool,bool,bool & __ptr64,bool & __ptr64,bool) __ptr64
+inline constexpr const char* HotSlotOptionSkill_Activate_DLL = "Game.dll";
+inline constexpr const char* HotSlotOptionSkill_Activate = "?Activate@HotSlotOptionSkill@GAME@@UEAAX_N0AEA_N10@Z";
+// public: void __cdecl GAME::ControllerPlayer::SetMouseRepeatData(unsigned int,class GAME::WorldVec3 const & __ptr64) __ptr64
+inline constexpr const char* ControllerPlayer_SetMouseRepeatData_DLL = "Game.dll";
+inline constexpr const char* ControllerPlayer_SetMouseRepeatData = "?SetMouseRepeatData@ControllerPlayer@GAME@@QEAAXIAEBVWorldVec3@2@@Z";
+// public: void __cdecl GAME::ControllerPlayer::SetCombatAlly(unsigned int) __ptr64
+inline constexpr const char* ControllerPlayer_SetCombatAlly_DLL = "Game.dll";
+inline constexpr const char* ControllerPlayer_SetCombatAlly = "?SetCombatAlly@ControllerPlayer@GAME@@QEAAXI@Z";
 // public: void __cdecl GAME::ControllerPlayer::SetControllerDirection(class GAME::Vec3 const & __ptr64) __ptr64
 inline constexpr const char* ControllerPlayer_SetControllerDirection_DLL = "Game.dll";
 inline constexpr const char* ControllerPlayer_SetControllerDirection = "?SetControllerDirection@ControllerPlayer@GAME@@QEAAXAEBVVec3@2@@Z";
@@ -520,6 +529,12 @@ inline constexpr const char* World_GetIntersection = "?GetIntersection@World@GAM
 // public: void __cdecl GAME::World::GetAllIntersections(class GAME::WorldRay const & __ptr64,class mem::vector<class GAME::Entity * __ptr64> & __ptr64,bool,float)const __ptr64
 inline constexpr const char* World_GetAllIntersections_DLL = "Engine.dll";
 inline constexpr const char* World_GetAllIntersections = "?GetAllIntersections@World@GAME@@QEBAXAEBVWorldRay@2@AEAV?$vector@PEAVEntity@GAME@@@mem@@_NM@Z";
+// public: virtual bool __cdecl GAME::Skill::IsTargetInLOS(class GAME::Character const & __ptr64,unsigned int)const __ptr64
+inline constexpr const char* Skill_IsTargetInLOS_Id_DLL = "Game.dll";
+inline constexpr const char* Skill_IsTargetInLOS_Id = "?IsTargetInLOS@Skill@GAME@@UEBA_NAEBVCharacter@2@I@Z";
+// public: virtual bool __cdecl GAME::Skill::IsTargetInLOS(class GAME::Character const & __ptr64,class GAME::WorldVec3 const & __ptr64)const __ptr64
+inline constexpr const char* Skill_IsTargetInLOS_Point_DLL = "Game.dll";
+inline constexpr const char* Skill_IsTargetInLOS_Point = "?IsTargetInLOS@Skill@GAME@@UEBA_NAEBVCharacter@2@AEBVWorldVec3@2@@Z";
 // public: __cdecl GAME::Viewport::Viewport(int,int,int,int) __ptr64
 inline constexpr const char* Viewport_ctor_DLL = "Engine.dll";
 inline constexpr const char* Viewport_ctor = "??0Viewport@GAME@@QEAA@HHHH@Z";

@@ -61,7 +61,11 @@ project by the same author) — see `docs/design-notes-from-wotr.md` for the dec
   `world::lock_target(id)` just keeps the cursor override on the entity's projected position
   (`WorldCamera::Project(WorldVec3 + 1.0 y, Viewport(0,0,w,h))` -> Vec2 via hidden pointer) each frame, and the
   game hovers, names ("Training Dummy" + level in `box_font` HUD text), targets and attacks it natively. Off-screen
-  entities cannot be targeted this way (the projection leaves the window) -- the player must face them first.
+  entities are handled by **direct aim** (2026-09-23, `world::direct_aim_apply`): skill requests read the controller's
+  combat enemy +0x468 (+0x46c is the ALLY) and a hot slot fires at the mouse repeat data (+0x43c id, +0x440 WorldVec3),
+  so the `HotSlotOptionSkill::Activate` and `HandleActionFromMouse` hooks write / substitute the locked target and the
+  game's own range, walk and clamp rules do the rest. The cursor override stays: the exe drops a mouse event whose
+  pick finds nothing.
   Dynamic class names: `Object::GetRTTIClassInfo` dispatched through the vtable slot found in `Object::vftable`
   (the export is the base implementation); `RTTI_ClassInfo` = vptr + `const char* name` ("Player", "Npc",
   "Monster", "PlayerSpawnPoint"). `/entities`, `/project?id=`, `/lock?id=|off=1`, `/target` are the dev routes.

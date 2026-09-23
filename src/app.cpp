@@ -191,8 +191,8 @@ static void register_actions() {
     sonar::set_enabled(!sonar::enabled());
     speech::speak(sonar::enabled() ? strings::kSonarOn : strings::kSonarOff, true);
   }).bind(keys::Backslash);
-  // (F12 = 0x56 in the game's Button enum, NOT the DIK 0x58 -- tools/exports/keynames.txt. It was the sonar dev A/B key
-  // on 2026-09-20 and the wall tone probe A/B key on 2026-09-22, and is free.)
+  // (F12 = 0x56 in the game's Button enum, NOT the DIK 0x58 -- tools/exports/keynames.txt. It was the sonar (2026-09-20),
+  // wall tone probe (2026-09-22) and direct aim (2026-09-23) A/B key, and is free.)
   m.register_action("scan.ping", "Ping the reviewed thing", InputCategory::InGame,
                     [] { if (world::ping_reviewed().empty()) speech::speak(strings::kNoTarget, true); }).bind(0x27);  // Semicolon
   // The follow key: ping the map marker picked in the Ctrl+M window, with its distance and heading.

@@ -189,8 +189,8 @@ bool world_point(const void* worldvec3, Vec3& out);
 // The inverse: a world-space point as a WorldVec3 (out = 24+ bytes) in the chunk containing (x, z), reached from
 // the player's chunk (World::GetRegionContainingXZ); false without a player or when no chunk holds it.
 bool world_vec3_at(const Vec3& world, void* out_worldvec3);
-// The review ping (wotr's Semicolon, also played on every landing): one of three sounds for the route
-// from the player to the reviewed thing -- straight walk, path around, unreachable -- positioned toward it
+// The review ping (wotr's Semicolon, also played on every landing): one of three sounds for the reviewed
+// thing -- unreachable, straight, path around (world.cpp route_kind) -- positioned toward it
 // (pan by bearing, volume ref/(ref+distance)). Returns the kind for the log; empty = nothing reviewed.
 std::string ping_reviewed();
 // The follow target (the quest-following key '): a destination chosen from the map picker -- an entity id
@@ -223,6 +223,7 @@ std::string conversation_dump();  // /conv
 // ---- targeting (measurement phase) ----
 // Everything the game rendered last frame, nearest first: pointer, object id, record name, class, distance.
 std::string entities_dump(float max_dist, bool frustum = false);
+std::string hit_los_dump(float max_dist, bool ring);   // dev /hitlos: route kind vs Skill::IsTargetInLOS per live monster
 std::string los_dump(unsigned id);   // camera line of sight to an entity (dev; the exe's cursor-pick ray)   // frustum: Engine::GetEntitiesInPriorFrameFrustum (last frame's render set) instead of the sphere
 bool set_target(unsigned id);    // ControllerPlayer::SetCombatEnemy + FaceTarget
 void clear_target();

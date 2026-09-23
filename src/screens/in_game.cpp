@@ -157,7 +157,8 @@ class InGameScreen : public Screen {
                                  0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,   // 1..9 0 quickbar slots
                                  0x15,                                                         // Y quickbar switch (the game's own; we announce the page in quickbar_tick)
                                  0x39, 0x12, 0x13, 0x16, 0x01,                                 // Space evade, E energy, R health, U interact, Escape menu
-                                 0x38, 0x76};                                                  // Alt / Right Alt: show items (held). F2..F7 (the game's pet selection) and Backspace (pet display) are OURS (screens/pets.cpp)
+                                 0x38, 0x76,                                                   // Alt / Right Alt: show items (held). F2..F7 (the game's pet selection) and Backspace (pet display) are OURS (screens/pets.cpp)
+                                 0x2a, 0x36};                                                  // Shift: the game's Hold Position (exe key action sets X+0x848 on down, clears on up; 2026-09-23)
     for (int k : direct) if (k == code) return true;
     return false;
   }
@@ -191,10 +192,11 @@ class InGameScreen : public Screen {
     walltones::tick();
     hazard::tick();   // painted damage ground: lanes + bed + exit pointer (src/hazard.cpp)
     // The mouse buttons as keys, with real hold semantics: J (or Enter) = left, I = right, for as long as the
-    // key is down and no modifier is held (Ctrl+J/I are lifted game keys).
+    // key is down and neither Ctrl nor Alt is held (Ctrl+J/I are lifted game keys). Shift is allowed: it reaches the
+    // game as its Hold Position key, so Shift+J / Shift+I attack or cast without moving, as Shift+click does.
     constexpr int kJ = 0x24, kI = 0x17, kEnter = 0x1c;
     const KeySource& ks = hooks::key_source();
-    bool mods = ks.ctrl() || ks.shift() || ks.alt();
+    bool mods = ks.ctrl() || ks.alt();
     bool left = !mods && (ks.held(kJ) || ks.held(kEnter));
     bool right = !mods && ks.held(kI);
     if (suppress_left_) { if (!left) suppress_left_ = false; else left = false; }     // clear on release, else swallow
