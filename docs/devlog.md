@@ -899,3 +899,12 @@ CLAUDE.md "Traps and lessons"; the mechanism docs are `docs/*.md`.
   refuses it (result 2 = the detour-ratio gate, Player+0x4bf0 = 2.5: a route longer than 2.5x the straight line; the
   Rotting Croplands Detonation Site on its ledge was 193 u for 34 u straight). Neither WASD nor a click will take such a
   route; the corridor sampled against the rooms grid names the rooms it crosses.
+
+## 2026-09-22 -- sonar: shrines disabled at this difficulty no longer ping
+- The user, Hallowed Hill on Veteran (= Normal): a "ruined shrine" ping 0.8 u away that could not be used or targeted.
+  It is the Forgotten Gods devotion shrine `devotionshrinen04` (`normalDisabled = True`; Elite / Ultimate only, Aether
+  Shard offering). `StaticShrine::InitialUpdate` (Game+0x551b20) skips SetShrineState when +0x555 is set, so the state
+  (+0x578) stays 0 and `IsOfInterest` (Game+0x552f80: state 1 or 4, or 6 with +0x555 clear) is false. A screenshot
+  confirmed the game does not draw it at all. The sonar's Shrines group now requires IsOfInterest, like N already did;
+  on the difficulty that enables the shrine it passes again. (`/entities?src=frustum` returned an empty set even
+  unpaused; not investigated.)

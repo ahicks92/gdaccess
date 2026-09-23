@@ -2315,7 +2315,11 @@ bool in_group(const void* e, const void* ci, const std::string& cls, ScanGroup g
     // Transitions = dungeon entrances/exits (locked or not: the way out of a cave is still the way out).
     case ScanGroup::Transitions: return is_named_kind(ci, "DungeonEntrance");
     case ScanGroup::Destructibles: return is_live_destructible(e, ci);   // sonar: breakables only (no flavour NPCs)
-    case ScanGroup::Shrines: return g_api.StaticShrine_StaticClassInfo && is_kind_of(ci, g_api.StaticShrine_StaticClassInfo());
+    // Shrines: only the ones the game considers of interest (StaticShrine::IsOfInterest, Game+0x552f80: state 1 or 4, or
+    // restored). A shrine disabled at this difficulty (`normalDisabled` etc. -- the Forgotten Gods shrine on Hallowed Hill,
+    // devotionshrinen04, on Normal/Veteran, 2026-09-22) never initializes, is not drawn, cannot be used or targeted,
+    // and pinged as a ruined shrine. On the difficulty that enables it, it initializes and passes this check.
+    case ScanGroup::Shrines: return g_api.StaticShrine_StaticClassInfo && is_kind_of(ci, g_api.StaticShrine_StaticClassInfo()) && is_of_interest(e, ci);
     // Sonar: the rest of the N group -- people you can talk to (quest NPCs, merchants) and the objects the Interact
     // key would use, minus the kinds with a cue of their own (dungeon entrances, shrines; loot and breakables are
     // not in N). The user (2026-08-28): NPCs count, Harmond and Kerrick were silent.
