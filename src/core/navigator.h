@@ -102,7 +102,7 @@ class GraphNavigator {
   void mark_spoken(const GraphNode* node);
 
   // typeahead glue
-  void type_char(char c);
+  void type_char(std::uint32_t cp);   // one Unicode code point
   void rebuild_search_scope();
   static std::string search_text_of(const GraphNode* n);
   void search_focus_result(int index);

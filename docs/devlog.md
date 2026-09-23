@@ -908,3 +908,13 @@ CLAUDE.md "Traps and lessons"; the mechanism docs are `docs/*.md`.
   confirmed the game does not draw it at all. The sonar's Shrines group now requires IsOfInterest, like N already did;
   on the difficulty that enables the shrine it passes again. (`/entities?src=frustum` returned an empty set even
   unpaused; not investigated.)
+
+## 2026-09-22 -- non-English text: map names and type-ahead keep non-ASCII letters
+- A player on a non-English game language: the Ctrl+M map list mangled names with diacritics. The map's own icon names
+  (`world::map_markers`, read from the nuggets as UTF-16) went through an ASCII-only narrowing that replaced every
+  non-ASCII character with '?'; they now use `log::utf8` (WideCharToMultiByte) like every other game string.
+- The same player would hit the list type-ahead: `GraphNavigator` turned each typed non-ASCII character into '?' before
+  the search, which already folds Latin diacritics and case. It now appends whole code points
+  (`TypeAheadSearch::add_codepoint`, surrogate pairs combined), backspace removes a whole UTF-8 sequence, and the
+  repeat-letter cycle compares code points. Tests: accented and Cyrillic letters (tests/typeahead_tests.cpp). Not
+  verified with a real non-English keyboard layout: the typed text is the game's own per-key character.

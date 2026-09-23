@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <string_view>
@@ -46,6 +47,10 @@ class TypeAheadSearch {
   std::function<void(const std::string&)> on_no_match;
 
   void add_char(char c) { buffer_.push_back(c); }
+  /// Append one Unicode code point (UTF-8 encoded into the buffer): what the navigator types, so a non-ASCII
+  /// letter ("é") searches as itself, not as '?'.
+  void add_codepoint(std::uint32_t cp);
+  /// Remove the last CODE POINT (a whole UTF-8 sequence, never half of one).
   bool remove_char();
   void clear();
 

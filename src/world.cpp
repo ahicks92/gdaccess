@@ -1622,11 +1622,6 @@ const char* texture_file_name(const void* tex) {
   if (!tex || !g_api.Resource_GetFileName) return nullptr;
   __try { return g_api.Resource_GetFileName(tex); } __except (EXCEPTION_EXECUTE_HANDLER) { return nullptr; }
 }
-std::string narrow_u16(const char16_t* s, size_t n) {
-  std::string out;
-  for (size_t i = 0; i < n; ++i) { char16_t c = s[i]; out += c < 0x80 ? (char)c : '?'; }
-  return out;
-}
 // The custom symbol's kind from its texture path: every shipped custom symbol is a mapsymbol_dynamicobstacle*
 // (barricades, rubble walls, the Burrwitch bridge debris) -> "obstacle"; anything else reads by its file stem; an
 // unreadable texture name is an unknown "marker", never an obstacle.
@@ -1662,7 +1657,7 @@ std::vector<MapMarker> map_markers() {
     Vec3 pos;
     if (!world_point(nug + 0x58, pos)) continue;
     float d = std::sqrt((pos.x - me.x) * (pos.x - me.x) + (pos.z - me.z) * (pos.z - me.z));
-    std::string name = f.name_len ? gd::strings::strip_markup(narrow_u16(f.name, f.name_len)) : std::string();   // "{^b}..." colour codes
+    std::string name = f.name_len ? gd::strings::strip_markup(log::utf8(std::u16string_view(f.name, f.name_len))) : std::string();   // "{^b}..." colour codes
     std::string symbol;
     if (name.empty() && f.type == 14) name = custom_symbol_name(f.texture, &symbol);
     raws.push_back({f.type, std::move(name), std::move(symbol), pos, d});

@@ -168,8 +168,12 @@ std::string to_lower_invariant(std::string_view text) {
 
 TypeAheadSearch::TypeAheadSearch() { buffer_.reserve(32); }
 
+void TypeAheadSearch::add_codepoint(std::uint32_t cp) { append_codepoint(buffer_, cp); }
+
 bool TypeAheadSearch::remove_char() {
   if (buffer_.empty()) return false;
+  // Drop continuation bytes (10xxxxxx), then the lead byte: one whole code point.
+  while (buffer_.size() > 1 && (static_cast<unsigned char>(buffer_.back()) & 0xC0) == 0x80) buffer_.pop_back();
   buffer_.pop_back();
   return true;
 }
@@ -185,11 +189,17 @@ void TypeAheadSearch::clear() {
 
 namespace {
 
-bool is_all_same_char(const std::string& s) {
-  const char first = s[0];
-  for (std::size_t i = 1; i < s.size(); i++)
-    if (s[i] != first) return false;
-  return true;
+// More than one code point, all the same one ("lll", "éé"); `first_len` receives the byte length of the first.
+bool is_repeated_codepoint(const std::string& s, std::size_t& first_len) {
+  std::size_t i = 0;
+  const std::uint32_t first = next_codepoint(s, i);
+  first_len = i;
+  int count = 1;
+  while (i < s.size()) {
+    if (next_codepoint(s, i) != first) return false;
+    ++count;
+  }
+  return count > 1;
 }
 
 std::string trim_end(const std::string& s) {
@@ -205,8 +215,9 @@ void TypeAheadSearch::search(int item_count, const std::function<std::string(int
   // Repeat single-letter: typing the same letter again cycles ALL its matches in list order
   // (l -> Load Game, l -> License, l -> DLC), wrapping.
   const std::string buffer_str = buffer_;
-  if (is_search_active_ && !result_indices_.empty() && buffer_.size() > 1 && is_all_same_char(buffer_str)) {
-    buffer_.resize(1);
+  std::size_t first_len = 0;
+  if (is_search_active_ && !result_indices_.empty() && !buffer_.empty() && is_repeated_codepoint(buffer_str, first_len)) {
+    buffer_.resize(first_len);
     if (announce_result) announce_result_ = std::move(announce_result);
     navigate_results(1);
     return;

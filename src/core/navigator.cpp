@@ -408,9 +408,15 @@ void GraphNavigator::tick_typeahead(const TypeaheadInput& in) {
   } else {
     search_held_dir_ = 0;
   }
-  for (char16_t ch : in.typed) {
-    if ((ch >= u'a' && ch <= u'z') || (ch >= u'A' && ch <= u'Z') || (ch >= u'0' && ch <= u'9') || ch > 0x7f) type_char((char)(ch < 0x80 ? ch : '?'));
-    else if (ch == u' ' && search_.has_buffer()) type_char(' ');  // space only with an existing buffer: alone it stays the tooltip key
+  // Typed text is UTF-16: a non-ASCII letter ("é", "ü", Cyrillic) is searched as itself -- it used to become '?'
+  // and match nothing (a non-English player's report, 2026-09-22). A surrogate pair is combined into one code point.
+  for (size_t k = 0; k < in.typed.size(); ++k) {
+    std::uint32_t cp = in.typed[k];
+    if (cp >= 0xD800 && cp <= 0xDBFF && k + 1 < in.typed.size() && in.typed[k + 1] >= 0xDC00 && in.typed[k + 1] <= 0xDFFF)
+      cp = 0x10000 + ((cp - 0xD800) << 10) + (std::uint32_t)(in.typed[++k] - 0xDC00);
+    else if (cp >= 0xD800 && cp <= 0xDFFF) continue;   // a lone surrogate: nothing to type
+    if ((cp >= u'a' && cp <= u'z') || (cp >= u'A' && cp <= u'Z') || (cp >= u'0' && cp <= u'9') || cp > 0x7f) type_char(cp);
+    else if (cp == u' ' && search_.has_buffer()) type_char(' ');  // space only with an existing buffer: alone it stays the tooltip key
   }
 }
 
@@ -435,12 +441,12 @@ bool GraphNavigator::fired_from_search_key(std::string_view key) const {
   return key == Up || key == Down || key == Tooltip;
 }
 
-void GraphNavigator::type_char(char c) {
+void GraphNavigator::type_char(std::uint32_t cp) {
   // A fresh search remembers the column you are on: every result lands there.
   if (!search_.has_buffer()) { const GraphNode* n = graph_->current_node(); search_column_ = n && n->vtable ? n->vtable->column : -1; }
   rebuild_search_scope();
   if (search_nodes_.empty()) return;
-  search_.add_char(c);
+  search_.add_codepoint(cp);
   search_.search((int)search_nodes_.size(), [this](int i) { return search_nodes_[(size_t)i].text; }, [this](int i) { search_focus_result(i); });
 }
 

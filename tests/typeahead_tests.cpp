@@ -121,3 +121,47 @@ TEST_CASE("result navigation wraps in both directions") {
   search.navigate_results(+1);  // wrap forwards
   CHECK(hits.back() == 0);
 }
+
+// A non-English player's report (2026-09-22): typed non-ASCII letters reached the search as '?' and matched
+// nothing. The navigator now appends whole code points; the buffer stays valid UTF-8 through backspace and the
+// repeat-letter cycle.
+TEST_CASE("a typed accented letter is searched as itself, and backspace removes it whole") {
+  const std::vector<std::string> items = {"Autel", "\xC3\x89glise", "\xC3\xA9" "cole", "Ecurie"};   // Eglise, ecole (accented)
+  TypeAheadSearch search;
+  std::vector<int> hits;
+  search.add_codepoint(0xE9);   // é
+  search.search(static_cast<int>(items.size()), [&items](int i) { return items[static_cast<std::size_t>(i)]; },
+                [&hits](int index) { hits.push_back(index); });
+  REQUIRE(!hits.empty());
+  CHECK(hits.back() == 1);              // "Église": accents and case fold, list order wins
+  CHECK(search.buffer() == "\xC3\xA9");
+  CHECK(search.remove_char());
+  CHECK(search.buffer().empty());       // both bytes of é gone, not a dangling lead byte
+}
+
+TEST_CASE("repeating an accented letter cycles its matches like an ASCII one") {
+  const std::vector<std::string> items = {"\xC3\x89glise", "Autel", "\xC3\xA9" "cole"};   // Eglise, ecole (accented)
+  TypeAheadSearch search;
+  std::vector<int> hits;
+  auto run = [&] {
+    search.search(static_cast<int>(items.size()), [&items](int i) { return items[static_cast<std::size_t>(i)]; },
+                  [&hits](int index) { hits.push_back(index); });
+  };
+  search.add_codepoint(0xE9); run();
+  search.add_codepoint(0xE9); run();
+  REQUIRE(hits.size() >= 2);
+  CHECK(hits[0] == 0);
+  CHECK(hits.back() == 2);                 // the second é moved to the next match
+  CHECK(search.buffer() == "\xC3\xA9");   // cut back to one whole code point
+}
+
+TEST_CASE("a Cyrillic letter is searched as itself") {
+  const std::vector<std::string> items = {"Alpha", "\xD0\x91\xD0\xB5\xD1\x82\xD0\xB0"};   // "Beta" in Cyrillic
+  TypeAheadSearch search;
+  std::vector<int> hits;
+  search.add_codepoint(0x0411);   // Б
+  search.search(static_cast<int>(items.size()), [&items](int i) { return items[static_cast<std::size_t>(i)]; },
+                [&hits](int index) { hits.push_back(index); });
+  REQUIRE(!hits.empty());
+  CHECK(hits.back() == 1);
+}
