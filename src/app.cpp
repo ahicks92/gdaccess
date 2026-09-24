@@ -193,6 +193,17 @@ static void register_actions() {
   }).bind(keys::Backslash);
   // (F12 = 0x56 in the game's Button enum, NOT the DIK 0x58 -- tools/exports/keynames.txt. It was the sonar (2026-09-20),
   // wall tone probe (2026-09-22) and direct aim (2026-09-23) A/B key, and is free.)
+  // L: walk to the reviewed thing with the game's pathfinder (world::walk_to); an exit walks into the neighbouring
+  // room's most open point (rooms::exit_walk_point). Plain L is free: the game's personal riftgate is lifted to Ctrl+L.
+  m.register_action("ingame.walkTo", "Walk to the reviewed thing", InputCategory::InGame, [] {
+    unsigned id = world::reviewed_id();
+    world::Vec3 target, me;
+    if (!id || !world::player_position(me)) { speech::speak(strings::kNoTarget, true); return; }
+    bool ok = false;
+    if (world::is_point_id(id)) ok = rooms::exit_walk_point(id, me.y, target.x, target.y, target.z);
+    if (!ok) ok = world::reviewed_position(target);
+    if (!ok || !world::walk_to(target)) speech::speak(strings::kCannotWalkThere, true);
+  }).bind(0x26);   // L
   m.register_action("scan.ping", "Ping the reviewed thing", InputCategory::InGame,
                     [] { if (world::ping_reviewed().empty()) speech::speak(strings::kNoTarget, true); }).bind(0x27);  // Semicolon
   // The follow key: ping the map marker picked in the Ctrl+M window, with its distance and heading.
@@ -221,7 +232,7 @@ static void register_actions() {
   // The camera is locked (far zoom, yaw 0 = grid up; the game's dialogue north is 50 deg clockwise of it, docs/compass.md) by the in-game screen; no zoom/rotate keys.
   // The game's less frequent functions, lifted to Ctrl + their default key (docs/controls.md): the chord is
   // ours, the plain key is injected into the game's poll, so the game's own map stays untouched and the
-  // plain letters are free for the mod. Frequent keys (WASD, 1-0, Space, E, R, U, Escape) pass through
+  // plain letters are free for the mod. Frequent keys (WASD, 1-0, Space, E, R, U, Escape, Shift) pass through
   // directly in screens/in_game.cpp.
   struct Lift { const char* id; const char* label; int code; char16_t ch; };
   const Lift lifted[] = {

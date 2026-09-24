@@ -44,11 +44,14 @@ The player-facing buckets (`world::SkillAim`, spoken by `screens::speak_slot` / 
 
 **Value 2 does NOT require an enemy** (static RE 2026-09-15, `docs/masteries.md` run over all 289 class skills: no
 class skill reads 3; Nullification and Vire's Might read **4** = a pure cursor point, unknown to `skill_aim`). The
-request takes the entity under the cursor (`[controller+0x468]`, `re_movement_skills.md` s.2) and then
+request takes the combat enemy (`[controller+0x468]`, `re_movement_skills.md` s.2) and then
 `SkillActivatedWeapon::GetValidTarget` (Game.dll 0x505e20) -> `Skill::GetValidMeleeTarget` (0x4829a0) /
-`GetValidRangedTarget`: with target id 0 and the require-enemy flag clear it searches
-`GameEngine::GetTargetsInRadius` around the CURSOR'S GROUND POINT and takes the first hit, else keeps id 0 and returns
-true -- the skill fires at the point (Blade Arc swings toward it, Forcewave travels toward it). A cursor entity that
+`GetValidRangedTarget` (0x482b00): with target id 0 these would search `GameEngine::GetTargetsInRadius` around the
+point, but only for a radius > 0, and `DefaultRequestSkillAction` always passes 0 (xmm9, zeroed at 0x1509c9, passed at
+0x150dcb; corrected 2026-09-23) -- so with keyboard and mouse there is NO search: id stays 0 and, unless the
+require-enemy flag is set, it returns true -- the skill fires at the point. The only tolerance around the cursor is the
+exe's own pick (exe+0x30b30): a sub-frustum around the cursor pixel, half-width `[pick+0x48] * 0.024 + 0.011` of the
+window width (square in pixels; about 18-56 px, 0.5-1.5 u at our zoom; `[pick+0x48]` not identified) (Blade Arc swings toward it, Forcewave travels toward it). A cursor entity that
 fails `ValidateEnemy` (an ally, a non-targetable prop) is likewise cleared to a point, not refused. Only the charge
 classes (Blitz `Skill_AttackWeaponCharge`, Shadow Strike `..Blink`) come with the flag set / their own validator and
 are refused without an enemy. Mod-side consequence: the virtual cursor only ever sits on a reviewed entity or an exit

@@ -55,6 +55,11 @@ struct LabelGrid {
   // far side of a wall. Returns false if no sample resolves to `b`.
   bool path_entry_point(const std::vector<std::array<double, 3>>& pts, int b, std::array<double, 3>& out,
                         int ring = 2) const;
+  // The most open point of room `label` (base layer): the cell farthest from any cell that is not the room
+  // (another room, unwalkable, off the grid), by a two-pass 3-4 chamfer distance; ties go to the cell nearest the
+  // room's centroid. World cell centre in (x, z). False when the room has no cell. The walk-to target for an
+  // exit (L): the middle of the room's widest part, not its doorway.
+  bool open_point(int label, double& x, double& z) const;
 };
 
 // The current room changes immediately once the player has been in it for settle_ms (a genuine move);

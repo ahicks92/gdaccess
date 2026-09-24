@@ -179,6 +179,52 @@ bool LabelGrid::path_entry_point(const std::vector<std::array<double, 3>>& pts, 
   return false;
 }
 
+bool LabelGrid::open_point(int label, double& x, double& z) const {
+  if (label < 0 || w <= 0 || h <= 0 || labels.size() != (size_t)w * h) return false;
+  int c0 = w, c1 = -1, r0 = h, r1 = -1;
+  double sx = 0, sz = 0;
+  long long n = 0;
+  for (int r = 0; r < h; ++r)
+    for (int c = 0; c < w; ++c)
+      if (labels[(size_t)r * w + c] == label) {
+        c0 = std::min(c0, c); c1 = std::max(c1, c); r0 = std::min(r0, r); r1 = std::max(r1, r);
+        sx += c; sz += r; ++n;
+      }
+  if (n == 0) return false;
+  const double cc = sx / n, cr = sz / n;
+  // The room's bounding box plus a one-cell border (never the room: the border is outside the box), so the
+  // transform sees the edge of the grid as "not the room" too.
+  const int bw = c1 - c0 + 3, bh = r1 - r0 + 3;
+  constexpr int kInf = std::numeric_limits<int>::max() / 4;
+  std::vector<int> d((size_t)bw * bh, 0);
+  for (int r = 0; r < bh; ++r)
+    for (int c = 0; c < bw; ++c) {
+      const int gc = c0 + c - 1, gr = r0 + r - 1;
+      const bool in = gc >= 0 && gr >= 0 && gc < w && gr < h && labels[(size_t)gr * w + gc] == label;
+      d[(size_t)r * bw + c] = in ? kInf : 0;
+    }
+  auto at = [&](int c, int r) -> int& { return d[(size_t)r * bw + c]; };
+  for (int r = 1; r < bh - 1; ++r)
+    for (int c = 1; c < bw - 1; ++c)
+      if (at(c, r)) at(c, r) = std::min({at(c, r), at(c - 1, r) + 3, at(c, r - 1) + 3, at(c - 1, r - 1) + 4, at(c + 1, r - 1) + 4});
+  for (int r = bh - 2; r >= 1; --r)
+    for (int c = bw - 2; c >= 1; --c)
+      if (at(c, r)) at(c, r) = std::min({at(c, r), at(c + 1, r) + 3, at(c, r + 1) + 3, at(c + 1, r + 1) + 4, at(c - 1, r + 1) + 4});
+  int best = -1, bc = 0, br = 0;
+  double best_cd = 0;
+  for (int r = 1; r < bh - 1; ++r)
+    for (int c = 1; c < bw - 1; ++c) {
+      const int v = at(c, r);
+      if (!v) continue;
+      const int gc = c0 + c - 1, gr = r0 + r - 1;
+      const double cd = (gc - cc) * (gc - cc) + (gr - cr) * (gr - cr);
+      if (v > best || (v == best && cd < best_cd)) { best = v; best_cd = cd; bc = gc; br = gr; }
+    }
+  x = x0 + (bc + 0.5) * cell;
+  z = z0 + (br + 0.5) * cell;
+  return true;
+}
+
 bool Hysteresis::update(int observed, int now_ms) {
   if (observed == current) { candidate = -1; return false; }
   if (observed < 0) { candidate = -1; return false; }       // off the grid: keep the current room

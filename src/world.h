@@ -133,6 +133,10 @@ inline bool is_point_id(unsigned id) { return id >= kPointIdBase; }
 void set_exit_provider(std::vector<ScanItem> (*provider)());
 // Step the review cursor through a group (dir +1 / -1); returns the landing's spoken line, or the
 // group's "nothing" text. Also locks the virtual cursor on it.
+bool prefer_los();                 // T overlay: order enemies by distance with an out-of-sight penalty (cycle_review)
+void set_prefer_los(bool on);      // persists
+bool reviewed_position(Vec3& out); // the reviewed thing's world position (entity or point)
+bool walk_to(const Vec3& point);   // L: the game's pathfound move to a world point (ControllerAI::MoveTo)
 std::string cycle_review(ScanGroup group, int dir, bool nearest = false);   // nearest: enter at the closest regardless of the current target (Alt+key)
 // The comma key: cycle only the enemies of the highest classification present nearby (find the boss and its
 // tier / a summoner's adds). Same readout and landing as cycle_review(Enemies).

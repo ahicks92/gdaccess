@@ -962,3 +962,21 @@ CLAUDE.md "Traps and lessons"; the mechanism docs are `docs/*.md`.
   exe+0x27020, and clears it on up, exe+0x26c41; `HandleActionFromMouse` then stops movement and acts in place), and J / I
   no longer refuse to fire while Shift is held (Ctrl / Alt still block them). With the game's Classic Casting option a plain
   press walks into a spell's range and Shift casts in place. Not verified live.
+
+## 2026-09-23 -- pitch options, walk-to (U), line-of-sight preference
+- `audio::play_sample` gained `semitones` (a resampled copy, cached per file and shift) and `predelay_ms`.
+- Ctrl+T, two new rows with Space tooltips (`src/cues.h`):
+  - range pitch (off by default): the sonar's enemy ping is +4 semitones within 20 u and +8 within 3 u. 3 u is
+    `meleeTargetDistance` 2.4 + the 0.5 skill-use tolerance.
+  - height echo (on by default): `;` and `'` play the route sound a second time 90 ms later, +4 semitones for a
+    target more than 2 u north (-z), -4 for one more than 2 u south.
+- T: "prefer enemies in line of sight" (off by default). The enemy review cycle sorts by distance + 10 u when
+  `Skill::IsTargetInLOS` fails.
+- L = walk to the reviewed thing: `ControllerAI::MoveTo(point, 0, 0, 5, Character::GetRunSpeed(false))`, the call the
+  game's MoveTo state makes (Game.dll 0x152e16), issued directly so `DefaultRequestMoveAction`'s WASD direction gate
+  (docs/re_wall_sliding.md) never applies. An exit walks to the neighbouring room's most open point
+  (`LabelGrid::open_point`, unit-tested). U stays the game's Interact.
+- Verified live in the FG hub: the walk reached an off-screen training dummy 23 u away (no attack) and a guard whose
+  straight line was blocked for walking and sight (~2 s, routed); an exit walked into the encampment courtyard's
+  middle; the new settings rows and their Space tooltips work and persist; the sonar fired with range pitch on.
+  Not verified: a cross-region opening, the line-of-sight ordering with mixed visibility, anything by ear.

@@ -11,6 +11,7 @@
 #include <miniaudio.h>
 #include <windows.h>
 #include <cmath>
+#include <format>
 #include <map>
 #include <mutex>
 #include <vector>
@@ -247,7 +248,23 @@ void unload_loop(int id) {
   std::erase_if(g_loops, [id](const Loop& l) { return l.id == id; });
 }
 
-void play_sample(const std::string& wav_path, float volume, float pan, float rear_shelf_db, bool apply_master, int group, bool replace_group) {
+// A copy of `src` played `semitones` higher (resampled by linear interpolation: faster and shorter up, slower down).
+static Pcm pitched(const Pcm& src, float semitones) {
+  double ratio = std::pow(2.0, semitones / 12.0);
+  size_t n = (size_t)((double)src->size() / ratio);
+  auto out = std::make_shared<std::vector<float>>(n);
+  const std::vector<float>& s = *src;
+  for (size_t i = 0; i < n; ++i) {
+    double p = (double)i * ratio;
+    size_t k = (size_t)p;
+    float f = (float)(p - (double)k);
+    float a = k < s.size() ? s[k] : 0.0f, b = k + 1 < s.size() ? s[k + 1] : 0.0f;
+    (*out)[i] = a + (b - a) * f;
+  }
+  return out;
+}
+void play_sample(const std::string& wav_path, float volume, float pan, float rear_shelf_db, bool apply_master, int group, bool replace_group,
+                 float semitones, float predelay_ms) {
   Pcm buf;
   {
     std::lock_guard lk(g_mu);
@@ -271,7 +288,22 @@ void play_sample(const std::string& wav_path, float volume, float pan, float rea
     std::lock_guard lk(g_mu);
     buf = g_sample_cache[wav_path] = std::make_shared<const std::vector<float>>(std::move(samples));
   }
-  play_pcm(buf, volume, pan, group, replace_group, apply_master, rear_shelf_db);
+  if (semitones != 0.0f) {
+    std::string key = std::format("{}|{:+.2f}", wav_path, semitones);
+    Pcm shifted;
+    {
+      std::lock_guard lk(g_mu);
+      auto it = g_sample_cache.find(key);
+      if (it != g_sample_cache.end()) shifted = it->second;
+    }
+    if (!shifted) {
+      shifted = pitched(buf, semitones);
+      std::lock_guard lk(g_mu);
+      g_sample_cache[key] = shifted;
+    }
+    buf = shifted;
+  }
+  play_pcm(buf, volume, pan, group, replace_group, apply_master, rear_shelf_db, predelay_ms);
 }
 
 uint32_t play_pcm(Pcm samples, float volume, float pan, int group, bool replace_group, bool apply_master, float rear_shelf_db, float predelay_ms) {

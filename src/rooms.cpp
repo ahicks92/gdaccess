@@ -405,6 +405,30 @@ std::vector<world::ScanItem> exit_items() {
   return out;
 }
 
+bool exit_walk_point(unsigned point_id, float player_y, float& x, float& y, float& z) {
+  if (!g_current || point_id < world::kPointIdBase) return false;
+  const unsigned rel = point_id - world::kPointIdBase;
+  if (rel >= 0x10000u) {   // a cross-region opening (exit_items): the far room lives in another region's grid
+    const unsigned i = rel - 0x10000u;
+    if (i >= g_current->exits.size()) return false;
+    x = g_current->exits[i].x; z = g_current->exits[i].z; y = player_y;
+    return true;
+  }
+  // Cached per region and room: the transform walks the room's bounding box, a few ms for a large room.
+  static std::map<std::pair<const Region*, unsigned>, std::pair<double, double>> cache;
+  auto key = std::make_pair((const Region*)g_current, rel);
+  auto it = cache.find(key);
+  if (it == cache.end()) {
+    double ox = 0, oz = 0;
+    if (!g_current->grid.open_point((int)rel, ox, oz)) return false;
+    it = cache.emplace(key, std::make_pair(ox, oz)).first;
+  }
+  x = (float)it->second.first; z = (float)it->second.second;
+  double fy = 0;
+  y = g_current->grid.floor_y_at(x, z, player_y, fy) ? (float)fy : player_y;
+  return true;
+}
+
 std::string status() {
   if (!g_db) return "rooms: no database\n";
   std::string s = std::format("db open, {} chunks mapped, {} regions loaded, dwell {} ms, settle {} ms, untitled {}\n", g_chunk_region.size(), g_regions.size(), g_hyst.dwell_ms, g_hyst.settle_ms, g_say_untitled);

@@ -18,6 +18,10 @@ void note_place();
 // The current room's exits as review items (ScanGroup::Exits; registered with world::set_exit_provider by
 // init): V / Shift+V cycle them through the scanner like every other group (ping on landing, ; re-pings).
 void announce_now();         // dev: repeat the current place
+// L on a reviewed exit: where to walk. A same-region exit -> the neighbouring room's most open point
+// (LabelGrid::open_point: farthest from its walls, ties toward its centroid), at that cell's floor height; a
+// cross-region opening -> the opening itself. False for any other id or without the current region.
+bool exit_walk_point(unsigned point_id, float player_y, float& x, float& y, float& z);
 void reload();               // dev: drop the cached regions and reopen the db (after a tools rewrite)
 void set_dwell_ms(int ms);        // wait before a change within the settle window counts (boundary flapping)
 void set_settle_ms(int ms);       // time in a room after which any change is announced immediately

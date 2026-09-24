@@ -144,3 +144,33 @@ TEST_CASE("cycle wraps both ways and starts from the nearest") {
   CHECK(c.next(0, +1) == -1);
   c.reset(); c.last = 5; CHECK(c.next(2, +1) == 0);   // count shrank: restart
 }
+
+TEST_CASE("open_point picks the room's most open cell, ties toward the centroid") {
+  LabelGrid g;
+  g.x0 = 0; g.z0 = 0; g.cell = 1.0;
+  // 7 wide x 5 high. Room 3 is a 5x3 block (cols 1..5, rows 1..3) with a one-cell tail at (6, 2) -- the doorway.
+  // The block's centre (3, 2) is the only cell two steps from every edge.
+  auto blob = rle({{-1, 7},
+                   {-1, 1}, {3, 5}, {-1, 1},
+                   {-1, 1}, {3, 6},
+                   {-1, 1}, {3, 5}, {-1, 1},
+                   {-1, 7}});
+  REQUIRE(g.decode_rle(blob.data(), blob.size(), 7, 5));
+  double x = 0, z = 0;
+  REQUIRE(g.open_point(3, x, z));
+  CHECK(x == doctest::Approx(3.5));
+  CHECK(z == doctest::Approx(2.5));
+  CHECK_FALSE(g.open_point(9, x, z));   // no such room
+}
+
+TEST_CASE("open_point breaks a tie between equally open cells toward the centroid") {
+  LabelGrid g;
+  g.cell = 1.0;
+  // A 1-high corridor of room 1, cols 0..4: every cell is one step from "not the room"; the middle wins.
+  auto blob = rle({{1, 5}});
+  REQUIRE(g.decode_rle(blob.data(), blob.size(), 5, 1));
+  double x = 0, z = 0;
+  REQUIRE(g.open_point(1, x, z));
+  CHECK(x == doctest::Approx(2.5));
+  CHECK(z == doctest::Approx(0.5));
+}

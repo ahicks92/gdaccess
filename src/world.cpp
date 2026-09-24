@@ -16,6 +16,7 @@
 #include "hooks.h"
 #include "speech.h"
 #include "audio.h"
+#include "cues.h"
 #include "core/message_builder.h"
 #include "core/screen_clip.h"
 #include "core/strings.h"
@@ -235,6 +236,8 @@ struct Api {
   void (*SetCombatEnemy)(void*, unsigned) = nullptr;
   void (*SetCombatAlly)(void*, unsigned) = nullptr;
   void (*SetMouseRepeatData)(void*, unsigned, const void*) = nullptr;   // controller +0x43c id, +0x440 WorldVec3
+  void (*ControllerAI_MoveTo)(void*, const void*, unsigned, unsigned, int, float) = nullptr;   // (point, targetId, skillId, AnimationSet_Type, speed)
+  float (*GetRunSpeed)(void*, bool) = nullptr;
   unsigned (*GetCombatEnemy)(const void*) = nullptr;
   void (*ClearTarget)(void*) = nullptr;
   void (*FaceTarget)(void*, unsigned) = nullptr;
@@ -370,6 +373,8 @@ void load_api() {
   LOAD(SetCombatEnemy, ControllerPlayer_SetCombatEnemy);
   LOAD(SetCombatAlly, ControllerPlayer_SetCombatAlly);
   LOAD(SetMouseRepeatData, ControllerPlayer_SetMouseRepeatData);
+  LOAD(ControllerAI_MoveTo, ControllerAI_MoveTo);
+  LOAD(GetRunSpeed, Character_GetRunSpeed);
   LOAD(GetCombatEnemy, ControllerPlayer_GetCombatEnemy);
   LOAD(ClearTarget, ControllerPlayer_ClearTarget);
   LOAD(FaceTarget, ControllerPlayer_FaceTarget);
@@ -2590,8 +2595,36 @@ static std::string land_on(std::vector<ScanItem>& items, ScanGroup group, int di
   return m.build();
 }
 
+// "Prefer entities in line of sight" (T overlay, off by default): enemies are ordered by distance, but one the
+// character cannot see (Skill::IsTargetInLOS, the spells' own test) counts kLosPenalty units farther -- so sight
+// wins among enemies at similar distances, and a close enemy round a corner still beats a far one in plain view.
+namespace {
+constexpr float kLosPenalty = 10.0f;
+constexpr const char* kPreferLosKey = "review.preferLos";
+int g_prefer_los = -1;   // -1 = not loaded yet
+bool seh_route_los_id(const void* ch, unsigned id, bool& out);   // with the route ping below
+}
+bool prefer_los() {
+  if (g_prefer_los < 0) g_prefer_los = gd::settings::get_bool(kPreferLosKey, false) ? 1 : 0;
+  return g_prefer_los == 1;
+}
+void set_prefer_los(bool on) { g_prefer_los = on ? 1 : 0; gd::settings::set_bool(kPreferLosKey, on); }
+
 std::string cycle_review(ScanGroup group, int dir, bool nearest) {
   std::vector<ScanItem> items = scan(group);
+  if (group == ScanGroup::Enemies && prefer_los() && g_api.Skill_IsTargetInLOS_Id) {
+    if (void* pl = player()) {
+      std::vector<std::pair<float, ScanItem>> keyed;
+      for (ScanItem& it : items) {
+        bool los = true;
+        if (!seh_route_los_id(pl, it.id, los)) los = true;
+        keyed.push_back({it.dist + (los ? 0.0f : kLosPenalty), std::move(it)});
+      }
+      std::stable_sort(keyed.begin(), keyed.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+      items.clear();
+      for (auto& k : keyed) items.push_back(std::move(k.second));
+    }
+  }
   return land_on(items, group, dir, nearest);
 }
 
@@ -2603,6 +2636,35 @@ std::string cycle_highest_classification(int dir) {
   return land_on(items, ScanGroup::Enemies, dir, false);
 }
 unsigned reviewed_id() { return g_reviewed_id; }
+bool reviewed_position(Vec3& out) {
+  if (!g_reviewed_id) return false;
+  if (is_point_id(g_reviewed_id)) { out = g_reviewed_point; return true; }
+  return entity_position(g_reviewed_id, out);
+}
+
+// L (walk to the reviewed thing, 2026-09-23): the game's own pathfound move -- the call its MoveTo state makes
+// every frame (Game.dll 0x152e16: ControllerAI::MoveTo(point, 0, 0, AnimationSet_Type 5, Character::GetRunSpeed(false)),
+// the same one Rush uses). Issued directly, not through DefaultRequestMoveAction, so the WASD direction gate
+// (docs/re_wall_sliding.md) never applies: it routes round corners like a melee approach. WASD takes over again.
+namespace {
+bool seh_move_to(void* ctrl, void* character, const void* wv) {
+  __try {
+    float speed = g_api.GetRunSpeed(character, false);
+    g_api.ControllerAI_MoveTo(ctrl, wv, 0, 0, 5, speed);
+    return true;
+  } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+}
+bool walk_to(const Vec3& point) {
+  void* p = player();
+  if (!p || !g_controller || !g_api.ControllerAI_MoveTo || !g_api.GetRunSpeed) return false;
+  Buf wv{};
+  if (!world_vec3_at(point, wv.b)) return false;
+  if (g_api.WorldVec3_PutOnFloor) g_api.WorldVec3_PutOnFloor(&wv);
+  if (!seh_move_to(g_controller, p, wv.b)) { log::write("world: ControllerAI::MoveTo faulted"); return false; }
+  log::writef("walk: to {}", wv_text(wv.b));
+  return true;
+}
 bool shrine_restored(unsigned id) {
   void* e = gameapi::object_by_id(id);
   EntityRaw r{};
@@ -2901,9 +2963,19 @@ static std::string reviewed_route(Vec3& me, Vec3& target) {
 
 static std::string g_last_ping_kind;   // the kind reping_tick last sounded, for g_last_ping_id
 static unsigned g_last_ping_id = 0;
-static void play_ping(const std::string& kind, const Vec3& target) {
+// The route ping's sound, plus (Ctrl+T height echo, cues.h) a second copy just after it, a major third up for a
+// target to the north of the player (the mod's compass: -z, screen-up) and down for one to the south.
+static void play_route_sound(const std::string& kind, const Vec3& target) {
   float pan, vol, ahead; ear_frame(target, pan, vol, &ahead);
-  gd::audio::play_sample(gd::audio::module_dir() + "assets\\audio\\review_" + kind + ".wav", vol, pan, rear_shelf_db(ahead));
+  std::string path = gd::audio::module_dir() + "assets\\audio\\review_" + kind + ".wav";
+  gd::audio::play_sample(path, vol, pan, rear_shelf_db(ahead));
+  Vec3 me;
+  if (!player_position(me)) return;
+  float st = gd::cues::echo_semitones(me.z - target.z);
+  if (st != 0.0f) gd::audio::play_sample(path, vol, pan, rear_shelf_db(ahead), true, 0, false, st, gd::cues::kEchoDelayMs);
+}
+static void play_ping(const std::string& kind, const Vec3& target) {
+  play_route_sound(kind, target);
   g_last_ping_kind = kind;
   g_last_ping_id = g_reviewed_id;
 }
@@ -2946,9 +3018,7 @@ std::string follow_ping() {
     if (e && entity_world_vec(e, wv)) { target = world_pos_of(wv); g_follow_pos = target; }
   }
   std::string kind = route_kind(me, target, g_follow_id);
-  float pan, vol, ahead;
-  ear_frame(target, pan, vol, &ahead);
-  gd::audio::play_sample(gd::audio::module_dir() + "assets\\audio\\review_" + kind + ".wav", vol, pan, rear_shelf_db(ahead));
+  play_route_sound(kind, target);
   float dx = target.x - me.x, dz = target.z - me.z;
   float dist = std::sqrt(dx * dx + dz * dz);
   int hour = clock_hour(target);

@@ -548,6 +548,14 @@ static std::string handle(const std::string& path, const std::map<std::string, s
     if (q.count("answer")) { std::string a = q.at("answer"); return exe_ui::answer_dialog(a == "yes" || a == "okay") ? "answered\n" : "no dialog open\n"; }
     return exe_ui::dialog_dump();
   }
+  if (path == "/walk") {   // dev: L's walk (world::walk_to) to an entity id or a world x,z (the player's height)
+    world::Vec3 t{}, me{};
+    if (!world::player_position(me)) return "no player\n";
+    if (q.count("id")) { if (!world::entity_position((unsigned)strtoul(q.at("id").c_str(), nullptr, 10), t)) return "no such entity\n"; }
+    else if (q.count("x") && q.count("z")) t = {(float)atof(q.at("x").c_str()), me.y, (float)atof(q.at("z").c_str())};
+    else { status = 400; return "need id or x&z\n"; }
+    return world::walk_to(t) ? std::format("walking to ({:.1f}, {:.1f}, {:.1f})\n", t.x, t.y, t.z) : "walk failed\n";
+  }
   if (path == "/hitlos") return world::hit_los_dump(q.count("max") ? (float)atof(q.at("max").c_str()) : 25.0f, q.count("ring") != 0);   // route kind vs the game's shot LOS
   if (path == "/los") return q.count("id") ? world::los_dump((unsigned)strtoul(q.at("id").c_str(), nullptr, 10)) : std::string("need id\n");   // camera LOS test
   if (path == "/entities") return world::entities_dump(q.count("max") ? (float)atof(q.at("max").c_str()) : 40.0f, q.count("src") && q.at("src") == "frustum");   // ?src=frustum: last frame's render set

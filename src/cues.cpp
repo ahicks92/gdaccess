@@ -10,12 +10,27 @@ namespace {
 constexpr const char* kCueKey[kCues] = {"cue.walls", "cue.hazards", "cue.enemies", "cue.loot", "cue.entrances", "cue.breakables", "cue.shrines", "cue.interactables"};
 constexpr const char* kChannelKey[kChannels] = {"volume.walls", "volume.hazards", "volume.enemies", "volume.other", "volume.voice.mark", "volume.voice.zira"};
 bool g_on[kCues];
+bool g_range_pitch = false, g_height_echo = true;
 std::atomic<int> g_volume[kChannels];   // atomic: the voice worker reads while the game thread writes
 }  // namespace
 
 void init() {
   for (int i = 0; i < kCues; ++i) g_on[i] = settings::get_bool(kCueKey[i], true);
   for (int i = 0; i < kChannels; ++i) g_volume[i] = std::clamp(settings::get_int(kChannelKey[i], 100), 0, 100);
+  g_range_pitch = settings::get_bool("cue.rangePitch", false);
+  g_height_echo = settings::get_bool("cue.heightEcho", true);
+}
+bool range_pitch() { return g_range_pitch; }
+void set_range_pitch(bool on) { g_range_pitch = on; settings::set_bool("cue.rangePitch", on); }
+bool height_echo() { return g_height_echo; }
+void set_height_echo(bool on) { g_height_echo = on; settings::set_bool("cue.heightEcho", on); }
+float enemy_semitones(float dist) {
+  if (!g_range_pitch) return 0.0f;
+  return dist <= kMeleeRange ? 2.0f * kPitchStep : dist <= kNearRange ? kPitchStep : 0.0f;
+}
+float echo_semitones(float north) {
+  if (!g_height_echo || std::fabs(north) < kEchoDeadzone) return 0.0f;
+  return north > 0 ? kPitchStep : -kPitchStep;
 }
 bool enabled(Cue c) { return c >= 0 && c < kCues ? g_on[c] : true; }
 void set_enabled(Cue c, bool on) {

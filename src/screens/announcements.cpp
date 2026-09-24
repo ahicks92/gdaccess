@@ -10,6 +10,7 @@
 #include "core/screen.h"
 #include "core/strings.h"
 #include "screens/window_base.h"
+#include "speech.h"
 #include "telegraph.h"
 #include "world.h"
 
@@ -65,6 +66,10 @@ class AnnouncementsScreen : public Screen {
                              [] { step_mode(+1); });   // Enter: next state
     mode_row->on_adjust = [](int sign, bool) { step_mode(sign); };   // Left/Right
     b.add_item(ControlId::structural("announce.telegraph"), mode_row);
+    b.add_item(ControlId::structural("review.preferLos"),
+               row_item(std::string(strings::kPreferLos), [] { return std::string(world::prefer_los() ? strings::kOn : strings::kOff); },
+                        [] { world::set_prefer_los(!world::prefer_los()); },
+                        [] { speech::speak(strings::kPreferLosTip, true); }));
     b.pop_context();
 
     b.begin_stop("shapes");

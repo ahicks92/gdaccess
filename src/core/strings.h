@@ -147,6 +147,13 @@ inline constexpr std::string_view kCueEntrances = "entrance pings";
 inline constexpr std::string_view kCueBreakables = "breakable pings";
 inline constexpr std::string_view kCueShrines = "shrine pings";
 inline constexpr std::string_view kCueInteractables = "interactable pings";
+// Ctrl+T pitch options (cues.h) and the T targeting option (world::prefer_los), each with a Space tooltip.
+inline constexpr std::string_view kCueRangePitch = "raise enemy pitch in range";
+inline constexpr std::string_view kCueRangePitchTip = "The sonar's enemy ping rises one step within 20 units, about spell range, and another step within melee reach, about 3 units.";
+inline constexpr std::string_view kCueHeightEcho = "north south echo on route pings";
+inline constexpr std::string_view kCueHeightEchoTip = "Semicolon and apostrophe play the route sound twice: the second copy, just after, is higher when the target is north of you and lower when it is south. No second copy when it is nearly level with you.";
+inline constexpr std::string_view kPreferLos = "prefer enemies in line of sight";
+inline constexpr std::string_view kPreferLosTip = "Enemy review keys list enemies you can see first, but an enemy you cannot see only counts as 10 units farther away, so a close enemy round a corner still comes before a distant one in plain view.";
 inline constexpr std::string_view kVolumeWalls = "wall tone volume";
 inline constexpr std::string_view kVolumeHazards = "harmful ground volume";
 inline constexpr std::string_view kVolumeEnemies = "enemy ping volume";
@@ -210,6 +217,7 @@ inline constexpr std::string_view kSonarOff = "sonar off";
 inline constexpr std::string_view kTransitions = "dungeon entrances";
 inline constexpr std::string_view kEntrance = "entrance";                  // an unnamed DungeonEntrance in the N group (a one-way exit shaft has no name)
 inline constexpr std::string_view kNoTarget = "no target";
+inline constexpr std::string_view kCannotWalkThere = "cannot walk there";   // L (app.cpp ingame.walkTo)
 // the free cursor (Shift+WASD, Z): the only thing it speaks is the mode
 inline constexpr std::string_view kCursorMode = "cursor mode";
 inline constexpr std::string_view kCursorGrid = "default";

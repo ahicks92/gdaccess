@@ -26,6 +26,8 @@ ENTRIES = [
     ("HotSlotOptionSkill_Activate", "Game", r"GAME::HotSlotOptionSkill::Activate\("),
     ("ControllerPlayer_SetMouseRepeatData", "Game", r"GAME::ControllerPlayer::SetMouseRepeatData\("),
     ("ControllerPlayer_SetCombatAlly", "Game", r"GAME::ControllerPlayer::SetCombatAlly\("),
+    ("ControllerAI_MoveTo", "Game", r"GAME::ControllerAI::MoveTo\(class GAME::WorldVec3"),
+    ("Character_GetRunSpeed", "Game", r"GAME::Character::GetRunSpeed\("),
     ("ControllerPlayer_SetControllerDirection", "Game", r"GAME::ControllerPlayer::SetControllerDirection\("),
     ("ControllerPlayer_GetControllerDirection", "Game", r"GAME::ControllerPlayer::GetControllerDirection\("),
     ("ControllerPlayer_SetControllerMovementLength", "Game", r"GAME::ControllerPlayer::SetControllerMovementLength\("),

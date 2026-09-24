@@ -34,7 +34,7 @@ float db_to_gain(float db) { return std::pow(10.0f, db / 20.0f); }
 long long g_fired = 0;
 
 // This frame's audible frame for each nearby id, so a ping is placed with the current pan/gain when it fires.
-struct Placed { float pan, gain, ahead; int kind; };
+struct Placed { float pan, gain, ahead, dist; int kind; };
 std::unordered_map<unsigned, Placed> g_live;
 // Tried and rejected 2026-09-20 (tester feedback): per-kind crowd compression of the pulse levels toward the far edge
 // once a kind's mean power (sum gain^2 / period) passed a cap -- the near things lost up to ~7 dB in a pack. Reverted
@@ -53,7 +53,7 @@ void collect(world::ScanGroup group, Kind kind, std::vector<core::SonarField::It
     Kind k = kind;
     if (group == world::ScanGroup::Shrines) k = world::shrine_restored(it.id) ? kShrineRestored : kShrineRuined;
     items.push_back({it.id, it.dist, (pan + 1.0f) * 0.5f, (int)k});   // phase 0..1 = left..right
-    g_live[it.id] = {pan, gain, ahead, (int)k};
+    g_live[it.id] = {pan, gain, ahead, it.dist, (int)k};
   }
 }
 }  // namespace
@@ -78,7 +78,8 @@ void tick() {
     const Placed& pl = f->second;
     audio::play_sample(audio::module_dir() + "assets\\audio\\interactables\\" + kCue[p.kind],
                        pl.gain * g_vol * db_to_gain(g_trim_db[pl.kind]) * cues::gain(pl.kind == kEnemy ? cues::EnemyChannel : cues::Other),
-                       pl.pan, world::rear_shelf_db(pl.ahead));   // the player's channel volume: enemies apart from the rest
+                       pl.pan, world::rear_shelf_db(pl.ahead), true, 0, false,   // the player's channel volume: enemies apart from the rest
+                       pl.kind == kEnemy ? cues::enemy_semitones(pl.dist) : 0.0f);   // Ctrl+T range pitch
     ++g_fired;
   }
 }

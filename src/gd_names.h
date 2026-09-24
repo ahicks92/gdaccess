@@ -61,6 +61,12 @@ inline constexpr const char* ControllerPlayer_SetMouseRepeatData = "?SetMouseRep
 // public: void __cdecl GAME::ControllerPlayer::SetCombatAlly(unsigned int) __ptr64
 inline constexpr const char* ControllerPlayer_SetCombatAlly_DLL = "Game.dll";
 inline constexpr const char* ControllerPlayer_SetCombatAlly = "?SetCombatAlly@ControllerPlayer@GAME@@QEAAXI@Z";
+// public: void __cdecl GAME::ControllerAI::MoveTo(class GAME::WorldVec3 const & __ptr64,unsigned int,unsigned int,enum GAME::AnimationSet_Type,float) __ptr64
+inline constexpr const char* ControllerAI_MoveTo_DLL = "Game.dll";
+inline constexpr const char* ControllerAI_MoveTo = "?MoveTo@ControllerAI@GAME@@QEAAXAEBVWorldVec3@2@IIW4AnimationSet_Type@2@M@Z";
+// public: float const __cdecl GAME::Character::GetRunSpeed(bool) __ptr64
+inline constexpr const char* Character_GetRunSpeed_DLL = "Game.dll";
+inline constexpr const char* Character_GetRunSpeed = "?GetRunSpeed@Character@GAME@@QEAA?BM_N@Z";
 // public: void __cdecl GAME::ControllerPlayer::SetControllerDirection(class GAME::Vec3 const & __ptr64) __ptr64
 inline constexpr const char* ControllerPlayer_SetControllerDirection_DLL = "Game.dll";
 inline constexpr const char* ControllerPlayer_SetControllerDirection = "?SetControllerDirection@ControllerPlayer@GAME@@QEAAXAEBVVec3@2@@Z";

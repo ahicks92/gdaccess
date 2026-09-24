@@ -8,6 +8,7 @@
 #include "cues.h"
 #include "screens/in_game.h"
 #include "screens/window_base.h"
+#include "speech.h"
 #include "voice.h"
 #include "world.h"
 
@@ -80,6 +81,15 @@ class CueSettingsScreen : public Screen {
                  row_item(std::string(r.label), [c] { return std::string(cues::enabled(c) ? strings::kOn : strings::kOff); },
                           [c] { cues::set_enabled(c, !cues::enabled(c)); }));   // Enter: flip + persist
     }
+    // The two pitch options (cues.h), each with a Space tooltip saying what it does.
+    b.add_item(ControlId::structural("cue.rangePitch"),
+               row_item(std::string(strings::kCueRangePitch), [] { return std::string(cues::range_pitch() ? strings::kOn : strings::kOff); },
+                        [] { cues::set_range_pitch(!cues::range_pitch()); },
+                        [] { speech::speak(strings::kCueRangePitchTip, true); }));
+    b.add_item(ControlId::structural("cue.heightEcho"),
+               row_item(std::string(strings::kCueHeightEcho), [] { return std::string(cues::height_echo() ? strings::kOn : strings::kOff); },
+                        [] { cues::set_height_echo(!cues::height_echo()); },
+                        [] { speech::speak(strings::kCueHeightEchoTip, true); }));
     b.pop_context();
 
     b.begin_stop("volumes");
