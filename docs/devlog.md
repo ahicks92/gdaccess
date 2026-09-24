@@ -980,3 +980,9 @@ CLAUDE.md "Traps and lessons"; the mechanism docs are `docs/*.md`.
   straight line was blocked for walking and sight (~2 s, routed); an exit walked into the encampment courtyard's
   middle; the new settings rows and their Space tooltips work and persist; the sonar fired with range pitch on.
   Not verified: a cross-region opening, the line-of-sight ordering with mixed visibility, anything by ear.
+- Known limitation, skipped by decision: the route ping's `NavManager::FindPath` treats a closed auto-opening door as a
+  wall, so Captain Bourbon (Devil's Crossing, behind the Burrwitch Prison Gate, a `FixedItemDoor` with a trigger volume)
+  read "unreachable" while L walked straight to him: the crowd movement goes through and the trigger opens the gate.
+  With the gate open the query found the route. The user knows of no other such door in acts 1-3; the rest need an
+  explicit interaction. Fix if it matters: find the crowd's door filter.
+- The route ping's echo was pulled in to 30 ms and down 12 dB after the first listen (it was 90 ms at equal level).

@@ -24,7 +24,8 @@ constexpr float kNearRange = 20.0f;      // world units
 constexpr float kMeleeRange = 3.0f;      // gameengine.dbr meleeTargetDistance 2.4 + the 0.5 skill-use tolerance, rounded
 constexpr float kPitchStep = 4.0f;       // semitones: a major third
 constexpr float kEchoDeadzone = 2.0f;    // world units north/south
-constexpr float kEchoDelayMs = 90.0f;
+constexpr float kEchoDelayMs = 30.0f;     // after the first copy starts (90 at first: heard as a separate second ping)
+constexpr float kEchoGainDb = -12.0f;    // relative to the first copy (it was equal at first: too loud)
 bool range_pitch();
 void set_range_pitch(bool on);
 bool height_echo();

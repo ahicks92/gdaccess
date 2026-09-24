@@ -2972,7 +2972,7 @@ static void play_route_sound(const std::string& kind, const Vec3& target) {
   Vec3 me;
   if (!player_position(me)) return;
   float st = gd::cues::echo_semitones(me.z - target.z);
-  if (st != 0.0f) gd::audio::play_sample(path, vol, pan, rear_shelf_db(ahead), true, 0, false, st, gd::cues::kEchoDelayMs);
+  if (st != 0.0f) gd::audio::play_sample(path, vol * std::pow(10.0f, gd::cues::kEchoGainDb / 20.0f), pan, rear_shelf_db(ahead), true, 0, false, st, gd::cues::kEchoDelayMs);
 }
 static void play_ping(const std::string& kind, const Vec3& target) {
   play_route_sound(kind, target);
