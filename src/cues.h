@@ -16,9 +16,9 @@ int volume(Channel ch);             // percent 0..100 (default 100)
 void set_volume(Channel ch, int percent);   // clamped, persists
 float gain(Channel ch);             // percent on a -60..0 dB scale as a linear factor (any thread: the voice worker reads it)
 // Two pitch options (2026-09-23), persisted like the rest:
-// - range pitch (off by default): the sonar's enemy ping rises a major third within kNearRange and another within
+// - range pitch (on by default): the sonar's enemy ping rises a major third within kNearRange and another within
 //   kMeleeRange;
-// - height echo (on by default): the route ping (; and ') plays a second copy just after it, a major third up for a
+// - height echo (off by default): the route ping (; and ') plays a second copy just after it, a major third up for a
 //   target to the north (the mod's compass, screen-up) and down for one to the south, nothing within kEchoDeadzone.
 constexpr float kNearRange = 20.0f;      // world units
 constexpr float kMeleeRange = 3.0f;      // gameengine.dbr meleeTargetDistance 2.4 + the 0.5 skill-use tolerance, rounded

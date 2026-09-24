@@ -2595,7 +2595,7 @@ static std::string land_on(std::vector<ScanItem>& items, ScanGroup group, int di
   return m.build();
 }
 
-// "Prefer entities in line of sight" (T overlay, off by default): enemies are ordered by distance, but one the
+// "Prefer entities in line of sight" (T overlay, on by default): enemies are ordered by distance, but one the
 // character cannot see (Skill::IsTargetInLOS, the spells' own test) counts kLosPenalty units farther -- so sight
 // wins among enemies at similar distances, and a close enemy round a corner still beats a far one in plain view.
 namespace {
@@ -2605,7 +2605,7 @@ int g_prefer_los = -1;   // -1 = not loaded yet
 bool seh_route_los_id(const void* ch, unsigned id, bool& out);   // with the route ping below
 }
 bool prefer_los() {
-  if (g_prefer_los < 0) g_prefer_los = gd::settings::get_bool(kPreferLosKey, false) ? 1 : 0;
+  if (g_prefer_los < 0) g_prefer_los = gd::settings::get_bool(kPreferLosKey, true) ? 1 : 0;
   return g_prefer_los == 1;
 }
 void set_prefer_los(bool on) { g_prefer_los = on ? 1 : 0; gd::settings::set_bool(kPreferLosKey, on); }

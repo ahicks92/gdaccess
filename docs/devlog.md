@@ -986,3 +986,6 @@ CLAUDE.md "Traps and lessons"; the mechanism docs are `docs/*.md`.
   With the gate open the query found the route. The user knows of no other such door in acts 1-3; the rest need an
   explicit interaction. Fix if it matters: find the crowd's door filter.
 - The route ping's echo was pulled in to 30 ms and down 12 dB after the first listen (it was 90 ms at equal level).
+- After the user's first session: range pitch and the line-of-sight preference default ON (not jarring / liked), the
+  route ping echo defaults OFF (too much for players who do not want it). The line-of-sight row moved to its own T
+  Tab stop, "targeting", the home for the review-cursor options to come. An existing settings.txt keeps its values.

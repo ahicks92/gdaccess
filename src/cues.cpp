@@ -10,15 +10,15 @@ namespace {
 constexpr const char* kCueKey[kCues] = {"cue.walls", "cue.hazards", "cue.enemies", "cue.loot", "cue.entrances", "cue.breakables", "cue.shrines", "cue.interactables"};
 constexpr const char* kChannelKey[kChannels] = {"volume.walls", "volume.hazards", "volume.enemies", "volume.other", "volume.voice.mark", "volume.voice.zira"};
 bool g_on[kCues];
-bool g_range_pitch = false, g_height_echo = true;
+bool g_range_pitch = true, g_height_echo = false;
 std::atomic<int> g_volume[kChannels];   // atomic: the voice worker reads while the game thread writes
 }  // namespace
 
 void init() {
   for (int i = 0; i < kCues; ++i) g_on[i] = settings::get_bool(kCueKey[i], true);
   for (int i = 0; i < kChannels; ++i) g_volume[i] = std::clamp(settings::get_int(kChannelKey[i], 100), 0, 100);
-  g_range_pitch = settings::get_bool("cue.rangePitch", false);
-  g_height_echo = settings::get_bool("cue.heightEcho", true);
+  g_range_pitch = settings::get_bool("cue.rangePitch", true);
+  g_height_echo = settings::get_bool("cue.heightEcho", false);
 }
 bool range_pitch() { return g_range_pitch; }
 void set_range_pitch(bool on) { g_range_pitch = on; settings::set_bool("cue.rangePitch", on); }
