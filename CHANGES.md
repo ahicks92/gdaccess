@@ -14,3 +14,4 @@
 - Untested fix: Unicode in the map list may now render properly, and Unicode when using type-ahead may now work.
 - Fix: do not play mod-provided sounds for shrines that are not enabled on your difficulty.
 - Fix/improvement: rework how the 3 pings you get when cycling through entities work out reachability, to better match both how you use them and what's really going on.
+- Fix/improvement: the stats screen now shows armor breakdown
