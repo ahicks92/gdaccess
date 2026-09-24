@@ -51,7 +51,7 @@ static_assert(sizeof(CombatTextEvent) == 0x68);
 struct RawEvent {
   unsigned id = 0, text_class = 0;
   float scale = 0;
-  char style[32] = {};
+  char style[96] = {};   // the resolved record path ("records/ui/styles/text/style_floatingtext_combatplayerhit.dbr")
   char16_t text[64] = {};
   unsigned char wv[0x18] = {};
   bool has_region = false;
@@ -102,7 +102,7 @@ bool read_event_body(const void* ev, RawEvent& out) {
   memcpy(out.wv, e->wv, sizeof out.wv);
   void* region; memcpy(&region, e->wv, sizeof region);
   out.has_region = region != nullptr;
-  size_t n = e->style.size < 31 ? e->style.size : 31;
+  size_t n = e->style.size < sizeof out.style - 1 ? e->style.size : sizeof out.style - 1;
   const char* sd = e->style.data();
   if (n && bad_ptr(sd, n)) return false;
   memcpy(out.style, sd, n); out.style[n] = 0;
@@ -250,8 +250,14 @@ void tick() {
     world::Vec3 p{}; float pan = 0.0f, gain = 1.0f;
     bool placed = r.has_region && world::world_point(r.wv, p);
     if (placed) { positioned(p, pan, gain); g_last_hit_pos = p; }   // remember where the last hit landed (to pan the kill line)
-    note(std::format("{} '{}' class={:#x} style={} id={} pos=({:.1f},{:.1f}) pan={:+.2f} gain={:.2f}", ct.is_number ? (ct.crit ? "crit" : "hit") : "word",
-                     drawn, r.text_class, r.style, r.id, p.x, p.z, pan, gain));
+    // The same event draws pickups and rewards in their own styles (gameengine.dbr: relicPickupStyle -- a component --,
+    // the potion / money pickup styles, experience / faction / skill point gains): only the combat styles
+    // (style_floatingtext_combat*: hit, crit, miss, block, dodge, monster crit) are spoken. The style used to be cut to
+    // 31 characters, which made every style look alike, so a component auto-pickup was read out in Mark (2026-09-23).
+    const bool combat_style = std::strstr(r.style, "style_floatingtext_combat") != nullptr;
+    note(std::format("{} '{}' class={:#x} style={} id={} pos=({:.1f},{:.1f}) pan={:+.2f} gain={:.2f}{}", ct.is_number ? (ct.crit ? "crit" : "hit") : "word",
+                     drawn, r.text_class, r.style, r.id, p.x, p.z, pan, gain, combat_style ? "" : " (not combat: silent)"));
+    if (!combat_style) continue;
     g_coalescer.push({ct.is_number, ct.amount, ct.crit, ct.word, {}, p.x, p.z, pan, gain, r.t});
   }
   // Debuffs caught this tick: only those applied TO the player are announced (Zira, panned to the caster).

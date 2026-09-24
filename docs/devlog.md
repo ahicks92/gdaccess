@@ -989,3 +989,8 @@ CLAUDE.md "Traps and lessons"; the mechanism docs are `docs/*.md`.
 - After the user's first session: range pitch and the line-of-sight preference default ON (not jarring / liked), the
   route ping echo defaults OFF (too much for players who do not want it). The line-of-sight row moved to its own T
   Tab stop, "targeting", the home for the review-cursor options to come. An existing settings.txt keeps its values.
+- Combat voice fix (2026-09-23): `EventManager::Send` 0x1b also draws pickups and rewards in their own styles
+  (gameengine.dbr: `relicPickupStyle` = a component, the potion / money pickup styles, experience / faction / skill
+  point gains). combat.cpp cut the style path to 31 characters, so every event looked alike and a component
+  auto-pickup was spoken in Mark. The style now keeps 95 characters and only `style_floatingtext_combat*` is spoken; the
+  rest is logged as "(not combat: silent)" under `/combat`. Not verified live (needs a component pickup).
