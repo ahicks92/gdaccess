@@ -80,6 +80,12 @@ are left clicks, `I` is a right click; in menus `Backspace` is the right-click e
 through the exits of the current room. The game's "rooms" are more like map patches, each a few seconds to cross; a room
 does not imply walls.
 
+The mod will walk you into range of things if you are using a melee weapon, or if the thing isn't an enemy. E.g.
+targeting an NPC with the targeting keys and then hitting j is usually enough to go talk to them.  Emphasis on usually:
+a locked door between you and them, for example, is not something we can reliably detect.  If you want to move
+specifically toward an enemy while wielding a ranged weapon, `l` is the walk-only key: it walks you there, then you die,
+because standing in the enemy's face is what you asked the mod to do, so make sure to actually attack it.
+
 `F1` opens the mod's menu anywhere; its sound glossary lists every sound the mod plays and plays each one as you arrow
 over it.
 
@@ -96,10 +102,15 @@ attacking with j and i, and my left hand drives dodging and walking with wasd an
 key list further down this file though.  Semicolon pings the thing you last targeted.  Open the map with `Ctrl+M`, then
 press Enter on something, then apostrophe pings it and gives you a heading.
 
+If you have trouble telling if a thing is north or south of you by context, `Ctrl+T` has a setting to turn on a mode
+where the ping changes based on whether it's north or south that you can try. This is a bit much, so it's off by default
+for now.
+
 The general flow in other words is something like alt dot, attack with j, wait for exp announcement, alt dot to next
 enemy.  It's more than that once you get going, but this is attempting to emulate the feeling of playing an ARPG so
 you'll be pushing lots of buttons.  It is critical however to understand that the mod doesn't retarget when your target
-disappears.
+disappears: when the thing you are targeting dies, or leaves your reach for more than a few seconds, the cursor stays on
+the spot where it was last seen, so j, i and the number keys keep aiming there until you target something else.
 
 The game itself assumes you already know what you are getting into and we don't yet read the tutorial announcements, so
 a few things are worth knowing:
@@ -124,9 +135,10 @@ a few things are worth knowing:
 - You can type to search for things in menus; there's no dedicated key, just start typing.
 - Many windows have more than one section so always try tab as well as arrows.
 
-There are a lot of mechanics in this game, so in general Google or [the wiki](https://grimdawn.fandom.com/wiki/Grim_Dawn)
-are your friends. To help you with build planning however, we have [a table of all masteries and
-skills](./docs/masteries.md).  The wiki has this information but not in a very accessible form.
+There are a lot of mechanics in this game, so in general Google or [the
+wiki](https://grimdawn.fandom.com/wiki/Grim_Dawn) are your friends. To help you with build planning however, we have [a
+table of all masteries and skills](./docs/masteries.md).  The wiki has this information but not in a very accessible
+form.
 
 Exploration requires a couple of notes.
 
@@ -148,10 +160,9 @@ One notable possibly surprising behavior is that holding right to follow a wall 
 slightly north if the wall bends or has protrusions.  This isn't a game about super precise positioning so in general it
 works out.
 
-A commonly requested feature is a pathfinder and we will probably add one eventually, but the game also assumes that
-you're going to go off the path enough to level and find all sorts of stuff so the obvious solution to this--walk me
-toward the next interesting thing--will mean missing half the game and will park you at a boss without good enough gear.
-Something will be done about this eventually.
+We are slowly adding pathfinding features. The one most relevant to exploration is that pressing `l` with an exit
+targeted will move you to somewhere in the middle of the targeted room.  More will come as time goes by; however, it
+appears that pathfinding over very long distances may never be possible due to engine limitations.
 
 ## Controls
 
@@ -222,12 +233,11 @@ you probably have to get closer, or the object is behind something.  We can't re
 
 ### Advanced targeting: moving the cursor yourself
 
-Most players never need this. Normally the cursor sits on whatever you last reviewed and follows it, so J, I and every
-cursor-aimed skill go where the review cursor is. These keys move the cursor to a spot of your own instead: open ground
-for a rune, a trap, a totem or a point-aimed skill, or a little ahead of an enemy so a mine arms before it arrives. The
-reviewed thing stays reviewed (`/` and `;` still answer for it); only where a press lands changes. The next review key
-puts the cursor back on the thing it lands on. A reviewed enemy that dies or runs out of reach no longer takes the
-cursor with it: the cursor stays on the spot where it was last seen.
+These are **NOT** a spoken review cursor. Most players never need this. Normally the cursor sits on whatever you last
+reviewed and follows it, so J, I and every cursor-aimed skill go where the review cursor is. These keys move the cursor
+to a spot of your own instead: open ground for a rune, a trap, a totem or a point-aimed skill, or a little ahead of an
+enemy so a mine arms before it arrives. The reviewed thing stays reviewed (`/` and `;` still answer for it); only where
+a press lands changes. The next review key puts the cursor back on the thing it lands on.
 
 | Key | Description |
 |---|---|
