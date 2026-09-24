@@ -1447,6 +1447,36 @@ inline constexpr const char* Character_GetIntelligenceLifeIncrement = "?GetIntel
 // public: float __cdecl GAME::CombatAttributeAccumulator::GetTotalDefenseType(enum GAME::CombatAttributeType) __ptr64
 inline constexpr const char* CombatAttributeAccumulator_GetTotalDefenseType_DLL = "Game.dll";
 inline constexpr const char* CombatAttributeAccumulator_GetTotalDefenseType = "?GetTotalDefenseType@CombatAttributeAccumulator@GAME@@QEAAMW4CombatAttributeType@2@@Z";
+// public: float __cdecl GAME::CombatAttributeAccumulator::GetTotalDefenseModifierType(enum GAME::CombatAttributeType) __ptr64
+inline constexpr const char* CombatAttributeAccumulator_GetTotalDefenseModifierType_DLL = "Game.dll";
+inline constexpr const char* CombatAttributeAccumulator_GetTotalDefenseModifierType = "?GetTotalDefenseModifierType@CombatAttributeAccumulator@GAME@@QEAAMW4CombatAttributeType@2@@Z";
+// public: __cdecl GAME::CombatDisplayAccumulator::CombatDisplayAccumulator(bool) __ptr64
+inline constexpr const char* CombatDisplayAccumulator_ctor_DLL = "Game.dll";
+inline constexpr const char* CombatDisplayAccumulator_ctor = "??0CombatDisplayAccumulator@GAME@@QEAA@_N@Z";
+// public: virtual __cdecl GAME::CombatDisplayAccumulator::~CombatDisplayAccumulator(void) __ptr64
+inline constexpr const char* CombatDisplayAccumulator_dtor_DLL = "Game.dll";
+inline constexpr const char* CombatDisplayAccumulator_dtor = "??1CombatDisplayAccumulator@GAME@@UEAA@XZ";
+// public: class mem::vector<class GAME::EquipManagerContainer> const & __ptr64 __cdecl GAME::Character::GetAttachedItems(void)const __ptr64
+inline constexpr const char* Character_GetAttachedItems_DLL = "Game.dll";
+inline constexpr const char* Character_GetAttachedItems = "?GetAttachedItems@Character@GAME@@QEBAAEBV?$vector@VEquipManagerContainer@GAME@@@mem@@XZ";
+// public: float __cdecl GAME::Character::GetCombatRegionChance(enum GAME::CombatAttributeRegion)const __ptr64
+inline constexpr const char* Character_GetCombatRegionChance_DLL = "Game.dll";
+inline constexpr const char* Character_GetCombatRegionChance = "?GetCombatRegionChance@Character@GAME@@QEBAMW4CombatAttributeRegion@2@@Z";
+// public: virtual void __cdecl GAME::Item::GetDefenseAttributes(class GAME::CombatAttributeAccumulator & __ptr64)const __ptr64
+inline constexpr const char* Item_GetDefenseAttributes_DLL = "Game.dll";
+inline constexpr const char* Item_GetDefenseAttributes = "?GetDefenseAttributes@Item@GAME@@UEBAXAEAVCombatAttributeAccumulator@2@@Z";
+// public: virtual void __cdecl GAME::ItemEquipment::GetDefenseAttributes(class GAME::CombatAttributeAccumulator & __ptr64)const __ptr64
+inline constexpr const char* ItemEquipment_GetDefenseAttributes_DLL = "Game.dll";
+inline constexpr const char* ItemEquipment_GetDefenseAttributes = "?GetDefenseAttributes@ItemEquipment@GAME@@UEBAXAEAVCombatAttributeAccumulator@2@@Z";
+// public: virtual void __cdecl GAME::ItemArtifact::GetDefenseAttributes(class GAME::CombatAttributeAccumulator & __ptr64)const __ptr64
+inline constexpr const char* ItemArtifact_GetDefenseAttributes_DLL = "Game.dll";
+inline constexpr const char* ItemArtifact_GetDefenseAttributes = "?GetDefenseAttributes@ItemArtifact@GAME@@UEBAXAEAVCombatAttributeAccumulator@2@@Z";
+// public: virtual void __cdecl GAME::ItemRelic::GetDefenseAttributes(class GAME::CombatAttributeAccumulator & __ptr64)const __ptr64
+inline constexpr const char* ItemRelic_GetDefenseAttributes_DLL = "Game.dll";
+inline constexpr const char* ItemRelic_GetDefenseAttributes = "?GetDefenseAttributes@ItemRelic@GAME@@UEBAXAEAVCombatAttributeAccumulator@2@@Z";
+// public: virtual void __cdecl GAME::ItemEnchantment::GetDefenseAttributes(class GAME::CombatAttributeAccumulator & __ptr64)const __ptr64
+inline constexpr const char* ItemEnchantment_GetDefenseAttributes_DLL = "Game.dll";
+inline constexpr const char* ItemEnchantment_GetDefenseAttributes = "?GetDefenseAttributes@ItemEnchantment@GAME@@UEBAXAEAVCombatAttributeAccumulator@2@@Z";
 // public: void __cdecl GAME::CombatAttributeAccumulator::Clear(void) __ptr64
 inline constexpr const char* CombatAttributeAccumulator_Clear_DLL = "Game.dll";
 inline constexpr const char* CombatAttributeAccumulator_Clear = "?Clear@CombatAttributeAccumulator@GAME@@QEAAXXZ";

@@ -996,3 +996,18 @@ CLAUDE.md "Traps and lessons"; the mechanism docs are `docs/*.md`.
   the `*pickup` styles (component, potions, money) are said verbatim in Zira (the user: they belong to the player's
   voice, not silence), and the reward styles stay silent (experience has its own polled announcement). `/combat` marks
   each. Not verified live (needs a pickup).
+
+## 2026-09-23 -- armor on the stats tab; armor is per body region
+- Static RE (two subagents): each hit rolls one body region (`CombatManager::PickRegion` from `TakeAttack`, weights from
+  combatformulas.dbr: torso 26, legs 20, head 15, shoulders 15, arms 12, feet 12) and only protection tagged with that
+  region, or with region 0 (skills, devotions, jewelry, weapons), applies (`CombatAttributeDefense_AbsorptionProtection::
+  Execute`, 0x105100). Titan Quest's system, live; the wiki does not mention it.
+- The sheet's "Armor Rating" (exe+0x13e28b..0x13ed2b) is the expected armor per hit: flat + sum of chance% * region
+  armor, after the armor % modifier (defense modifier 0x28), rounded. Armor = defense type 0x26, absorption 0x27.
+  `gameapi::armor_breakdown` reproduces it: per equipped item a `CombatDisplayAccumulator(true)` filled by the item's
+  vtable slot 0x4c8 (checked against the exported `*::GetDefenseAttributes` overrides), location -> region (7 head,
+  8 chest, 0xa arms, 0xb legs, 0xc feet, 9 shoulders; anything else is flat), non-item armor = the
+  `GetAllDefenseAttributes` total minus the items'. The stats tab shows it after DPS, with the rollover's per-region
+  rows as the row's columns.
+- Open: belts are region 7 (waist), which `PickRegion` never rolls, so belt armor looks unused in combat; the sheet
+  counts the belt's location as flat armor. Unverified which is right. Not verified live yet.

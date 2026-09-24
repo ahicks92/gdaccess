@@ -463,6 +463,10 @@ gd::core::MessageBuilder& push_range_hint(gd::core::MessageBuilder& m, unsigned 
 gd::core::MessageBuilder& push_stack(gd::core::MessageBuilder& m, std::string_view name, unsigned stack);
 // "<label>: <value>" -- a sheet row
 gd::core::MessageBuilder& push_stat(gd::core::MessageBuilder& m, std::string_view label, std::string_view value);
+// One body region of the Armor Rating row: "Head 145, Chance to Hit Area 15 percent, Armor Absorption 70 percent" (the
+// game's own labels passed in).
+gd::core::MessageBuilder& push_armor_part(gd::core::MessageBuilder& m, std::string_view region, int armor, std::string_view hit_label, int chance,
+                                          std::string_view absorption_label, int absorption);
 // The game's inline text markup, removed: "{^b}Text" / "^bText" carry a colour letter (b, r, g, y, w, o, E ...),
 // "{^n}" / "^n" is a line break (becomes a space). Everything spoken from a game string that may carry markup
 // (map icon names, tag texts) goes through here; a doubled "^^" is not markup.

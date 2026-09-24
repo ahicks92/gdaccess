@@ -143,6 +143,12 @@ MessageBuilder& push_stack(MessageBuilder& m, std::string_view name, unsigned st
   return m;
 }
 MessageBuilder& push_stat(MessageBuilder& m, std::string_view label, std::string_view value) { return m.fragment(label).fragment(value); }
+MessageBuilder& push_armor_part(MessageBuilder& m, std::string_view region, int armor, std::string_view hit_label, int chance,
+                                std::string_view absorption_label, int absorption) {
+  m.list_item().fragment(region).fragment(std::to_string(armor));
+  m.list_item().fragment(hit_label).fragment(percent(chance));
+  return m.list_item().fragment(absorption_label).fragment(percent(absorption));
+}
 std::string strip_markup(std::string_view text) {
   std::string out;
   out.reserve(text.size());

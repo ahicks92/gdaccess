@@ -247,7 +247,12 @@ std::string dump_devotion();
 bool dev_add_devotion(unsigned n);   // dev only: AddDevotionPoints + AddTotalDevotionPoints (what a shrine grant does, minus the clamp)
 
 // ---- the character sheet ----
-struct Stat { std::string label, value; int spend = 0; std::string desc; };   // spend 1..3 = the row takes an attribute point (Physique / Cunning / Spirit); desc = the game's tooltip (Space)
+struct Stat { std::string label, value; int spend = 0; std::string desc; std::vector<std::string> columns; };   // spend 1..3 = the row takes an attribute point (Physique / Cunning / Spirit); desc = the game's tooltip (Space); columns = more cells on the row (Left / Right)
+// The sheet's Armor Rating (the expected armor per hit: flat + sum of region chance% * region armor) and its breakdown
+// per body region, in the game's rollover order (head, chest, arms, legs, feet, shoulders). gameapi_skills.cpp.
+struct ArmorPart { std::string name; int armor = 0, chance = 0, absorption = 0; };
+struct ArmorBreakdown { int combined = 0; float flat = 0; std::vector<ArmorPart> parts; };
+bool armor_breakdown(ArmorBreakdown& out);
 std::vector<Stat> character_sheet();
 // The attribute "+" buttons (ControllerCharacter::IncrementCharacter*, + the life/energy increments, as the
 // sheet's own handler does): which = 1 Physique, 2 Cunning, 3 Spirit. False when no points are left.

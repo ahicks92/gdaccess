@@ -180,6 +180,13 @@ class InventoryScreen : public WindowScreen, public AssignSource {
           invalidate();
         };
         b.add_item(ControlId::structural(id), row_item(m.build(), {}, spend, tip));
+      } else if (!s.columns.empty()) {   // a row with more cells (the Armor Rating's regions): Left / Right move along it
+        b.start_row();
+        b.add_item(ControlId::structural(id), tip ? row_item(m.build(), {}, {}, tip) : line_item(m.build()));
+        int c = 0;
+        for (const std::string& cell : s.columns)
+          b.add_item(ControlId::structural(std::format("{}.col{}", id, c++)), tip ? row_item(cell, {}, {}, tip) : line_item(cell));
+        b.end_row();
       } else if (tip) {
         b.add_item(ControlId::structural(id), row_item(m.build(), {}, {}, tip));   // read-only stat with a Space tooltip
       } else {

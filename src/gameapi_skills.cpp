@@ -67,6 +67,12 @@ struct Api {
   void (*Acc_dtor)(void*) = nullptr;
   void (*Acc_Clear)(void*) = nullptr;
   float (*Acc_GetTotalDefenseType)(void*, int) = nullptr;
+  float (*Acc_GetTotalDefenseModifierType)(void*, int) = nullptr;
+  void* (*DisplayAcc_ctor)(void*, bool) = nullptr;
+  void (*DisplayAcc_dtor)(void*) = nullptr;
+  const MemVec* (*GetAttachedItems)(const void*) = nullptr;   // mem::vector<EquipManagerContainer>: {u32 itemId, u32 location, u32 ?}
+  float (*GetCombatRegionChance)(const void*, int) = nullptr;
+  void* ItemDefense[5] = {};   // the exported Item* ::GetDefenseAttributes overrides: the only bodies vtable slot 0x4c8 may hold
   float (*DesignerCalculateOffensiveAbility)(void*, float) = nullptr;
   float (*DesignerCalculateDefensiveAbility)(void*, float) = nullptr;
   void (*CalculateDps)(const void*, float*, unsigned) = nullptr;
@@ -147,6 +153,16 @@ void load_skills() {
   GAPI_LOAD(g, Acc_dtor, CombatAttributeAccumulator_dtor);
   GAPI_LOAD(g, Acc_Clear, CombatAttributeAccumulator_Clear);
   GAPI_LOAD(g, Acc_GetTotalDefenseType, CombatAttributeAccumulator_GetTotalDefenseType);
+  GAPI_LOAD(g, Acc_GetTotalDefenseModifierType, CombatAttributeAccumulator_GetTotalDefenseModifierType);
+  GAPI_LOAD(g, DisplayAcc_ctor, CombatDisplayAccumulator_ctor);
+  GAPI_LOAD(g, DisplayAcc_dtor, CombatDisplayAccumulator_dtor);
+  GAPI_LOAD(g, GetAttachedItems, Character_GetAttachedItems);
+  GAPI_LOAD(g, GetCombatRegionChance, Character_GetCombatRegionChance);
+  g.ItemDefense[0] = detail::fn<void*>(Item_GetDefenseAttributes_DLL, Item_GetDefenseAttributes);
+  g.ItemDefense[1] = detail::fn<void*>(ItemEquipment_GetDefenseAttributes_DLL, ItemEquipment_GetDefenseAttributes);
+  g.ItemDefense[2] = detail::fn<void*>(ItemArtifact_GetDefenseAttributes_DLL, ItemArtifact_GetDefenseAttributes);
+  g.ItemDefense[3] = detail::fn<void*>(ItemRelic_GetDefenseAttributes_DLL, ItemRelic_GetDefenseAttributes);
+  g.ItemDefense[4] = detail::fn<void*>(ItemEnchantment_GetDefenseAttributes_DLL, ItemEnchantment_GetDefenseAttributes);
   GAPI_LOAD(g, DesignerCalculateOffensiveAbility, Character_DesignerCalculateOffensiveAbility);
   GAPI_LOAD(g, DesignerCalculateDefensiveAbility, Character_DesignerCalculateDefensiveAbility);
   GAPI_LOAD(g, CalculateDps, Player_CalculateDps);
@@ -577,12 +593,14 @@ std::string dump_skills() {
 // energy, 1 physique, 2 cunning, 3 spirit), offensive / defensive ability, DPS, and the ten resistances by
 // defense type. Resistances use the character's own defense accumulator (the exe adds the skill manager's and
 // bio's contributions and the reductions on top; first pass).
+namespace { std::string strip_colon(std::string s); }   // with the armor breakdown below
 unsigned attribute_points() { load_skills(); void* p = player(); unsigned n = 0; if (p && g.GetModifierPoints) guarded("GetModifierPoints", [&] { n = g.GetModifierPoints(p); }); return n; }
 std::vector<Stat> character_sheet() {
   load_skills();
   std::vector<Stat> out;
   void* p = player();
   if (!p) return out;
+  size_t armor_row = std::string::npos;   // where the Armor Rating row goes (after DPS), filled outside the guard below
   // Truncate, never round: attributes are fractional floats and the equip gate compares the raw value against a
   // whole-number requirement, so 391.7 must read "391" (a rounded "392" let a 392-Physique shield refuse, 2026-09-11).
   auto num = [](double v) { return std::format("{}", (long long)v); };
@@ -606,6 +624,7 @@ std::vector<Stat> character_sheet() {
     if (g.DesignerCalculateOffensiveAbility) out.push_back({localize("tagCharStatsOA"), num(g.DesignerCalculateOffensiveAbility(p, 0.0f)), 0, localize("tagCharStatsOADescription")});
     if (g.DesignerCalculateDefensiveAbility) out.push_back({localize("tagCharStatsDA"), num(g.DesignerCalculateDefensiveAbility(p, 0.0f)), 0, localize("tagCharStatsDADescription")});
     if (g.CalculateDps) { float dps = 0; g.CalculateDps(p, &dps, 0); out.push_back({std::string(strings::kDps), num(dps), 0, localize("tagCharStatsDPSDescription")}); }
+    armor_row = out.size();
     if (g.GetAllDefenseAttributes && g.Acc_ctor && g.Acc_dtor && g.Acc_GetTotalDefenseType) {
       struct R { const char* tag; int type; } rows[] = {{"tagStatsResistance01", 6}, {"tagStatsResistance03", 5}, {"tagStatsResistance02", 8}, {"tagStatsResistance04", 7},
                                                       {"tagStatsResistance05", 4}, {"tagStatsResistance06", 15}, {"tagStatsResistance07", 9}, {"tagStatsResistance08", 11},
@@ -617,8 +636,105 @@ std::vector<Stat> character_sheet() {
       g.Acc_dtor(acc);
     }
   });
+  // Armor Rating, with the per-region breakdown as the row's columns (the game's rollover).
+  if (ArmorBreakdown ab; armor_row != std::string::npos && armor_row <= out.size() && armor_breakdown(ab)) {
+    Stat s{strip_colon(localize("tagCharStatsArmorTotal")), std::format("{}", ab.combined), 0, localize("tagCharStatsArmorTotalDescription")};
+    const std::string hit = localize("tagCharStatsHitArmor"), absorb = localize("tagCharStatsAbsorption");
+    for (const ArmorPart& part : ab.parts) {
+      core::MessageBuilder m;
+      strings::push_armor_part(m, part.name, part.armor, hit, part.chance, absorb, part.absorption);
+      s.columns.push_back(m.build());
+    }
+    out.insert(out.begin() + (long long)armor_row, std::move(s));
+  }
   return out;
 }
+// ---- armor: the sheet's "Armor Rating" and its breakdown (static RE 2026-09-23, exe+0x13e28b..0x13ed2b; the rollover
+// exe+0x268600) ----
+// Grim Dawn armor is per body region: every hit rolls one region (CombatManager::PickRegion, weights from
+// combatformulas.dbr: torso 26, legs 20, head 15, shoulders 15, arms 12, feet 12) and only protection tagged with that
+// region or with region 0 ("all": skills, devotions, jewelry, weapons) applies (CombatAttributeDefense_
+// AbsorptionProtection::Execute). The sheet shows the expected armor per hit:
+//   flat + sum over regions of chance_r% * armor_r, each after the armor % modifier (defense modifier type 0x28), rounded,
+// where armor_r is the armor (defense type 0x26) of the item in that region's equipment location and flat is every
+// other item's armor plus the non-item sources. The rollover's rows: armor flat + armor_r, the truncated hit chance,
+// absorption (type 0x27, % modifier 0x27, capped at 100).
+namespace {
+constexpr int kDefArmor = 0x26, kDefAbsorption = 0x27, kModArmor = 0x28, kModAbsorption = 0x27;
+constexpr int kItemDefenseSlot = 0x4c8 / 8;
+struct ArmorRegion { int region; unsigned location; const char* tag; };
+constexpr ArmorRegion kArmorRegions[] = {   // the rollover's order
+  {2, 7, "tagCharStatsArmorHead"}, {3, 8, "tagCharStatsArmorChest"}, {4, 0xa, "tagCharStatsArmorArms"},
+  {5, 0xb, "tagCharStatsArmorLegs"}, {6, 0xc, "tagCharStatsArmorFeet"}, {8, 9, "tagCharStatsArmorShoulders"}};
+struct EquipEntry { unsigned id, location, extra; };
+std::string strip_colon(std::string s) { while (!s.empty() && (s.back() == ':' || s.back() == ' ')) s.pop_back(); return s; }
+// One item's armor and absorption, through its own GetDefenseAttributes (vtable slot 0x4c8, checked against the
+// exported overrides so a patched vtable cannot send us somewhere else).
+bool item_defense(const void* item, float& armor, float& absorption) {
+  void* fn = vfn(item, kItemDefenseSlot);
+  bool known = false;
+  for (void* f : g.ItemDefense) if (f && f == fn) known = true;
+  if (!known) return false;
+  alignas(16) unsigned char acc[1024] = {};
+  g.DisplayAcc_ctor(acc, true);
+  ((void (*)(const void*, void*))fn)(item, acc);
+  armor = g.Acc_GetTotalDefenseType(acc, kDefArmor);
+  absorption = g.Acc_GetTotalDefenseType(acc, kDefAbsorption);
+  g.DisplayAcc_dtor(acc);
+  return true;
+}
+}  // namespace
+bool armor_breakdown(ArmorBreakdown& out) {
+  load_skills();
+  out = {};
+  void* p = player();
+  if (!p || !g.GetAttachedItems || !g.DisplayAcc_ctor || !g.DisplayAcc_dtor || !g.Acc_GetTotalDefenseType || !g.Acc_GetTotalDefenseModifierType ||
+      !g.GetCombatRegionChance || !g.GetAllDefenseAttributes || !g.Acc_ctor || !g.Acc_dtor)
+    return false;
+  bool ok = guarded("armor", [&] {
+    float region_armor[6] = {}, region_abs[6] = {}, item_armor_total = 0.0f;
+    const MemVec* v = g.GetAttachedItems(p);
+    size_t n = v && v->begin && v->end > v->begin ? (size_t)((const char*)v->end - (const char*)v->begin) / sizeof(EquipEntry) : 0;
+    unsigned weapon1 = 0;
+    for (size_t i = 0; i < n && i < 64; ++i) {   // location 1 first, so a two-hander listed at 0 and 1 counts once
+      const EquipEntry& e = ((const EquipEntry*)v->begin)[i];
+      if (e.location == 1) weapon1 = e.id;
+    }
+    for (size_t i = 0; i < n && i < 64; ++i) {
+      const EquipEntry& e = ((const EquipEntry*)v->begin)[i];
+      if (!e.id || (e.location == 0 && e.id == weapon1)) continue;
+      void* item = object_by_id(e.id);
+      float a = 0, b = 0;
+      if (!item || !item_defense(item, a, b)) continue;
+      item_armor_total += a;
+      int r = -1;
+      for (int k = 0; k < 6; ++k) if (kArmorRegions[k].location == e.location) r = k;
+      if (r >= 0) { region_armor[r] += a; region_abs[r] += b; }
+      else out.flat += a;   // jewelry, waist, relic, weapons / shield: armor on every region
+    }
+    // Non-item armor (skills, devotions, the bio): the whole accumulator's armor minus the items' own. The modifiers
+    // come from the same accumulator (GetAllDefenseAttributes feeds what the sheet's total accumulator gets).
+    alignas(16) unsigned char acc[1024] = {};
+    g.Acc_ctor(acc);
+    g.GetAllDefenseAttributes(p, acc);
+    out.flat += g.Acc_GetTotalDefenseType(acc, kDefArmor) - item_armor_total;
+    const float pa = g.Acc_GetTotalDefenseModifierType(acc, kModArmor) * 0.01f;
+    const float pb = g.Acc_GetTotalDefenseModifierType(acc, kModAbsorption) * 0.01f;
+    g.Acc_dtor(acc);
+    out.flat += std::fabs(out.flat) * pa;
+    float combined = out.flat;
+    for (int k = 0; k < 6; ++k) {
+      float a = region_armor[k] + std::fabs(region_armor[k]) * pa;
+      float b = std::min(region_abs[k] + std::fabs(region_abs[k]) * pb, 100.0f);
+      float chance = g.GetCombatRegionChance(p, kArmorRegions[k].region);
+      combined += chance * 0.01f * a;
+      out.parts.push_back({strip_colon(localize(kArmorRegions[k].tag)), (int)std::floor(out.flat + a + 0.5f), (int)chance, (int)std::floor(b + 0.5f)});
+    }
+    out.combined = (int)std::floor(combined + 0.5f);
+  });
+  return ok && !out.parts.empty();
+}
+
 // The sheet's "+" buttons (exe+0x141090): through the controller, with the life / energy increments.
 bool spend_attribute_point(int which) {
   load_skills(); void* p = player(); void* c = controller();
