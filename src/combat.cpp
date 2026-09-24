@@ -242,21 +242,27 @@ static void positioned(const world::Vec3& p, float& pan, float& gain) {
 void tick() {
   if (!world::in_world()) { g_health.reset(); g_pending.clear(); g_pending_debuff.clear(); g_coalescer.clear(); g_exp_pending = 0; g_kill_count = 0; g_last_xp = -1; return; }
   double now = app::now();
+  std::vector<voice::Say> pickups;   // said in Zira (the player's voice), after the Mark lines
   while (!g_pending.empty()) {
     RawEvent r = std::move(g_pending.front()); g_pending.pop_front();
     ++g_parsed;
     std::string drawn = log::utf8(r.text);
     gd::core::CombatText ct = gd::core::parse_combat_text(drawn, r.text_class == 0x85);
-    world::Vec3 p{}; float pan = 0.0f, gain = 1.0f;
-    bool placed = r.has_region && world::world_point(r.wv, p);
-    if (placed) { positioned(p, pan, gain); g_last_hit_pos = p; }   // remember where the last hit landed (to pan the kill line)
-    // The same event draws pickups and rewards in their own styles (gameengine.dbr: relicPickupStyle -- a component --,
-    // the potion / money pickup styles, experience / faction / skill point gains): only the combat styles
-    // (style_floatingtext_combat*: hit, crit, miss, block, dodge, monster crit) are spoken. The style used to be cut to
-    // 31 characters, which made every style look alike, so a component auto-pickup was read out in Mark (2026-09-23).
+    // The same event draws pickups and rewards in their own styles (gameengine.dbr): relicPickupStyle (a component),
+    // health / mana potion and money pickups (style_special_*pickup), and experience / faction / skill point gains
+    // (style_floatingtext_rewardsfaction). The style used to be cut to 31 characters, which made every style look
+    // alike, so an automatic pickup was read out in Mark as if it were combat (2026-09-23). Now the combat styles
+    // (style_floatingtext_combat*: hit, crit, miss, block, dodge, monster crit) go to Mark as before, pickups go to
+    // Zira verbatim (the player's own voice: something happened to you), and rewards stay silent (experience has its
+    // own announcement from the polled total).
     const bool combat_style = std::strstr(r.style, "style_floatingtext_combat") != nullptr;
+    const bool pickup_style = !combat_style && std::strstr(r.style, "pickup") != nullptr;
+    world::Vec3 p{}; float pan = 0.0f, gain = 1.0f;
+    bool placed = combat_style && r.has_region && world::world_point(r.wv, p);
+    if (placed) { positioned(p, pan, gain); g_last_hit_pos = p; }   // remember where the last hit landed (to pan the kill line)
     note(std::format("{} '{}' class={:#x} style={} id={} pos=({:.1f},{:.1f}) pan={:+.2f} gain={:.2f}{}", ct.is_number ? (ct.crit ? "crit" : "hit") : "word",
-                     drawn, r.text_class, r.style, r.id, p.x, p.z, pan, gain, combat_style ? "" : " (not combat: silent)"));
+                     drawn, r.text_class, r.style, r.id, p.x, p.z, pan, gain, combat_style ? "" : pickup_style ? " (pickup: Zira)" : " (not combat: silent)"));
+    if (pickup_style && !drawn.empty()) pickups.push_back({voice::Which::Zira, drawn, 0.0f, 1.0f, voice::Policy::Overlap, voice::kGroupSelfEffect});
     if (!combat_style) continue;
     g_coalescer.push({ct.is_number, ct.amount, ct.crit, ct.word, {}, p.x, p.z, pan, gain, r.t});
   }
@@ -288,6 +294,7 @@ void tick() {
     else if (g_outgoing == 1) { std::string b = brief_line(o); if (!b.empty()) voice::say({voice::Which::Mark, b, o.pan, o.gain, voice::Policy::Overlap, voice::kGroupEnemy, stagger()}); }
   }
   if (g_incoming) for (voice::Say& s : zira) { s.predelay_ms = stagger(); voice::say(std::move(s)); }
+  for (voice::Say& s : pickups) { s.predelay_ms = stagger(); voice::say(std::move(s)); }   // not gated by the incoming switch
   float mx = world::life_max();
   if (mx > 0) {
     int pct = 0;

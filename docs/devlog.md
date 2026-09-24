@@ -992,5 +992,7 @@ CLAUDE.md "Traps and lessons"; the mechanism docs are `docs/*.md`.
 - Combat voice fix (2026-09-23): `EventManager::Send` 0x1b also draws pickups and rewards in their own styles
   (gameengine.dbr: `relicPickupStyle` = a component, the potion / money pickup styles, experience / faction / skill
   point gains). combat.cpp cut the style path to 31 characters, so every event looked alike and a component
-  auto-pickup was spoken in Mark. The style now keeps 95 characters and only `style_floatingtext_combat*` is spoken; the
-  rest is logged as "(not combat: silent)" under `/combat`. Not verified live (needs a component pickup).
+  auto-pickup was spoken in Mark. The style now keeps 95 characters: `style_floatingtext_combat*` goes to Mark as before,
+  the `*pickup` styles (component, potions, money) are said verbatim in Zira (the user: they belong to the player's
+  voice, not silence), and the reward styles stay silent (experience has its own polled announcement). `/combat` marks
+  each. Not verified live (needs a pickup).
